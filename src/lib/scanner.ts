@@ -1,6 +1,7 @@
 import { prisma } from './prisma'
 import { getGmailClient, getGmailThreadUrl, isNoisyThread, getMessageBody } from './gmail'
 import { getOutlookAccessToken, getOutlookThreads, isNoisyOutlookMessage } from './outlook'
+import { getImapThreads, isNoisyImapSender } from './imap'
 import { classifyThread } from './ai'
 import type { ClassificationInput, AiClassificationOutput } from '@/types'
 import crypto from 'crypto'
@@ -24,6 +25,19 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
 
     if (account.provider === 'outlook') {
       await scanOutlookAccount({
+        jobId,
+        userId,
+        emailAccountId,
+        userEmail: account.emailAddress,
+        userTimezone: user.timezone,
+        userPreferences,
+        scanWindowDays,
+      })
+      return
+    }
+
+    if (account.provider === 'zoho' || account.provider === 'apple' || account.provider === 'imap') {
+      await scanImapAccount({
         jobId,
         userId,
         emailAccountId,
@@ -278,6 +292,199 @@ async function scanOutlookAccount(params: {
             userId,
             emailThreadId: upsertedThread.id,
             source: 'outlook',
+            status: 'open',
+            ...actionData,
+          },
+        })
+      }
+
+      created++
+      processed++
+
+      if (processed % 10 === 0) {
+        await prisma.scanJob.update({
+          where: { id: jobId },
+          data: { threadsProcessed: processed, actionItemsCreated: created },
+        })
+      }
+    } catch {
+      // Skip failed threads
+      processed++
+    }
+  }
+
+  await prisma.emailAccount.update({
+    where: { id: emailAccountId },
+    data: { initialScanCompleted: true, lastSyncedAt: new Date() },
+  })
+
+  await prisma.scanJob.update({
+    where: { id: jobId },
+    data: {
+      status: 'completed',
+      threadsProcessed: processed,
+      actionItemsCreated: created,
+    },
+  })
+}
+
+async function scanImapAccount(params: {
+  jobId: string
+  userId: string
+  emailAccountId: string
+  userEmail: string
+  userTimezone: string
+  userPreferences: { default_followup_days: number; conservative_mode: boolean }
+  scanWindowDays: number
+}) {
+  const { jobId, userId, emailAccountId, userEmail, userTimezone, userPreferences, scanWindowDays } = params
+
+  const account = await prisma.emailAccount.findUnique({ where: { id: emailAccountId } })
+  if (!account) throw new Error('Email account not found')
+
+  const threads = await getImapThreads(emailAccountId, scanWindowDays)
+
+  await prisma.scanJob.update({
+    where: { id: jobId },
+    data: { threadsFound: threads.length },
+  })
+
+  let processed = 0
+  let created = 0
+
+  for (const thread of threads) {
+    try {
+      // Check ignored senders
+      const latestMsg = thread.messages[0]
+      const senderEmail = latestMsg?.from ?? ''
+
+      const ignoredSender = await prisma.ignoredSender.findFirst({
+        where: {
+          userId,
+          OR: [
+            { senderEmail },
+            { domain: senderEmail.split('@')[1] },
+          ],
+        },
+      })
+      if (ignoredSender) {
+        processed++
+        continue
+      }
+
+      // Noise filter
+      if (isNoisyImapSender(senderEmail, thread.subject)) {
+        processed++
+        continue
+      }
+
+      // Compute thread hash
+      const threadHash = crypto
+        .createHash('md5')
+        .update(`${thread.threadId}-${thread.messages.length}-${latestMsg?.uid || ''}`)
+        .digest('hex')
+
+      // Check if thread already exists and hasn't changed
+      const existingThread = await prisma.emailThread.findUnique({
+        where: { emailAccountId_providerThreadId: { emailAccountId, providerThreadId: thread.threadId } },
+      })
+      if (existingThread?.threadHash === threadHash) {
+        processed++
+        continue
+      }
+
+      const lastMessageAt = new Date(thread.lastMessageAt)
+
+      // Upsert thread
+      const upsertedThread = await prisma.emailThread.upsert({
+        where: { emailAccountId_providerThreadId: { emailAccountId, providerThreadId: thread.threadId } },
+        create: {
+          userId,
+          emailAccountId,
+          provider: account.provider,
+          providerThreadId: thread.threadId,
+          subject: thread.subject,
+          participants: JSON.stringify(thread.participants),
+          lastMessageAt,
+          lastMessageFromUser: thread.lastMessageFromUser,
+          threadHash,
+        },
+        update: {
+          subject: thread.subject,
+          participants: JSON.stringify(thread.participants),
+          lastMessageAt,
+          lastMessageFromUser: thread.lastMessageFromUser,
+          threadHash,
+          updatedAt: new Date(),
+        },
+      })
+
+      // Build classification input
+      const messageInputs = thread.messages.slice(-10).map(msg => ({
+        from: msg.from,
+        to: msg.to,
+        sent_at: msg.date,
+        is_from_user: msg.isFromUser,
+        body_excerpt: msg.textBody,
+      }))
+
+      const classificationInput: ClassificationInput = {
+        user_email: userEmail,
+        current_date: new Date().toISOString().split('T')[0],
+        timezone: userTimezone,
+        thread_subject: thread.subject,
+        messages: messageInputs,
+        user_preferences: userPreferences,
+      }
+
+      const inputHash = crypto.createHash('md5').update(JSON.stringify(classificationInput)).digest('hex')
+      const result = await classifyThread(classificationInput)
+
+      await prisma.aiClassificationLog.create({
+        data: {
+          userId,
+          emailThreadId: upsertedThread.id,
+          modelProvider: 'anthropic',
+          modelName: 'claude-sonnet-4-6',
+          inputHash,
+          outputJson: result ? JSON.stringify(result) : null,
+          confidenceScore: result?.confidence ?? null,
+          errorMessage: result ? null : 'Classification failed',
+        },
+      })
+
+      if (!result || !result.should_show_to_user || result.primary_category === 'no_action_needed') {
+        processed++
+        continue
+      }
+
+      // Create or update action item
+      const existingAction = await prisma.actionItem.findFirst({
+        where: { userId, emailThreadId: upsertedThread.id, status: { in: ['open', 'snoozed'] } },
+      })
+
+      const actionData = {
+        category: result.primary_category,
+        priority: result.priority,
+        title: thread.subject,
+        reason: result.reason,
+        suggestedAction: result.suggested_action,
+        dueDate: result.due_date,
+        ownerType: result.owner_type,
+        ownerName: result.owner_name,
+        ownerEmail: result.owner_email,
+        confidenceScore: result.confidence,
+        lastActivityAt: lastMessageAt,
+      }
+
+      if (existingAction) {
+        await prisma.actionItem.update({ where: { id: existingAction.id }, data: actionData })
+      } else {
+        await prisma.actionItem.create({
+          data: {
+            userId,
+            emailThreadId: upsertedThread.id,
+            source: account.provider,
             status: 'open',
             ...actionData,
           },

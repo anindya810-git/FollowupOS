@@ -53,11 +53,20 @@ export default function SettingsPage() {
   }
 
   const disconnectAccount = async (account: EmailAccount) => {
-    const providerLabel = account.provider === 'outlook' ? 'Outlook' : 'Gmail'
+    const providerLabels: Record<string, string> = {
+      gmail: 'Gmail',
+      outlook: 'Outlook',
+      zoho: 'Zoho Mail',
+      apple: 'Apple Mail',
+      imap: 'IMAP',
+    }
+    const providerLabel = providerLabels[account.provider] || account.provider
     if (!confirm(`Disconnect ${account.emailAddress} (${providerLabel})? This will stop future scans.`)) return
 
-    const endpoint =
-      account.provider === 'outlook'
+    const imapProviders = ['zoho', 'apple', 'imap']
+    const endpoint = imapProviders.includes(account.provider)
+      ? '/api/integrations/imap/disconnect'
+      : account.provider === 'outlook'
         ? '/api/integrations/outlook/disconnect'
         : '/api/integrations/gmail/disconnect'
 
@@ -114,7 +123,7 @@ export default function SettingsPage() {
                         <p className="font-medium text-ink">{account.emailAddress}</p>
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium bg-[rgb(11_18_32/8%)] text-ink">
-                            {account.provider === 'outlook' ? 'Outlook' : 'Gmail'}
+                            {account.provider === 'outlook' ? 'Outlook' : account.provider === 'zoho' ? 'Zoho Mail' : account.provider === 'apple' ? 'Apple Mail' : account.provider === 'imap' ? 'IMAP' : 'Gmail'}
                           </span>
                           <span className="text-xs text-[rgb(11_18_32/55%)] capitalize">{account.connectedStatus}</span>
                         </div>
