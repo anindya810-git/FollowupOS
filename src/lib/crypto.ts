@@ -3,7 +3,18 @@ import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'crypt
 const ALGO = 'aes-256-gcm'
 
 function getKey(): Buffer {
-  const secret = process.env.ENCRYPTION_KEY || process.env.NEXTAUTH_SECRET || 'pendingly-dev-fallback-key-change-me'
+  const secret = process.env.ENCRYPTION_KEY || process.env.NEXTAUTH_SECRET
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('ENCRYPTION_KEY (or NEXTAUTH_SECRET) must be set in production')
+    }
+    // Dev fallback — loud warning so devs notice.
+    console.warn(
+      '[crypto] WARNING: ENCRYPTION_KEY/NEXTAUTH_SECRET not set. Using insecure dev fallback. ' +
+      'Set ENCRYPTION_KEY in your environment before storing real data.'
+    )
+    return scryptSync('pendingly-dev-fallback-key-change-me', 'pendingly-salt', 32)
+  }
   return scryptSync(secret, 'pendingly-salt', 32)
 }
 

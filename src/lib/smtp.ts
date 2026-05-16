@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer'
 import { decrypt } from './utils'
 import { prisma } from './prisma'
+import { isSafePublicHostname } from './net-safety'
 
 interface SmtpConfig {
   host: string

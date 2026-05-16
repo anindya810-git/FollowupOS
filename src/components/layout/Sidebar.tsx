@@ -12,6 +12,7 @@ import {
   Archive,
   Settings,
   BarChart2,
+  HelpCircle,
 } from 'lucide-react'
 
 const navGroups = [
@@ -81,7 +82,19 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
         ))}
       </nav>
 
-      <div className="border-t border-[rgb(255_255_255/8%)] p-2">
+      <div className="border-t border-[rgb(255_255_255/8%)] p-2 space-y-0.5">
+        <Link
+          href="/help"
+          className={cn(
+            'flex items-center gap-2.5 px-4 py-2.5 md:py-2 text-sm rounded-md transition-all duration-150',
+            pathname === '/help'
+              ? 'border-l-2 border-action bg-[rgb(255_255_255/8%)] text-white pl-[14px]'
+              : 'text-[#8C94A4] hover:text-white hover:bg-[rgb(255_255_255/5%)]'
+          )}
+        >
+          <HelpCircle className="h-3.5 w-3.5 flex-shrink-0" />
+          Help
+        </Link>
         <Link
           href="/settings"
           className={cn(

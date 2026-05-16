@@ -119,6 +119,11 @@ export default function SettingsPage() {
     }
   }
 
+  const replayTour = async () => {
+    await fetch('/api/onboarding/reset', { method: 'POST' })
+    window.location.href = '/dashboard'
+  }
+
   const deleteAccount = async () => {
     if (!confirm('Delete your account and all data? This cannot be undone.')) return
     await fetch('/api/account', { method: 'DELETE' })
@@ -398,6 +403,15 @@ export default function SettingsPage() {
           <Button onClick={save} disabled={saving} className="w-full">
             {saved ? 'Saved!' : saving ? 'Saving...' : 'Save Settings'}
           </Button>
+
+          {/* Product tour */}
+          <Card>
+            <CardHeader><CardTitle>Product Tour</CardTitle></CardHeader>
+            <CardContent>
+              <Button variant="ghost" size="sm" onClick={replayTour}>Replay tour</Button>
+              <p className="text-xs text-[rgb(11_18_32/55%)] mt-2">Walks you through how Pendingly works from the dashboard.</p>
+            </CardContent>
+          </Card>
 
           {/* Danger Zone */}
           <Card className="border-[rgb(242_90_60/20%)]">
