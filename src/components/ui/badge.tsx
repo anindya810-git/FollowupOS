@@ -11,8 +11,8 @@ export function Badge({ className, variant = 'default', ...props }: BadgeProps) 
       className={cn(
         'inline-flex items-center rounded px-2 py-0.5 text-xs font-medium',
         variant === 'outline'
-          ? 'border border-gray-300 text-gray-600'
-          : 'bg-gray-100 text-gray-700',
+          ? 'border border-[rgb(11_18_32/15%)] text-[rgb(11_18_32/55%)]'
+          : 'bg-[rgb(11_18_32/8%)] text-ink',
         className
       )}
       {...props}

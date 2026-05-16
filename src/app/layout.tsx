@@ -6,8 +6,8 @@ import { SessionProvider } from 'next-auth/react'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'FollowUpOS - Your Daily Follow-Up Radar',
-  description: 'Know exactly who you need to reply to, who needs to reply to you, and what follow-ups are due today.',
+  title: 'Pendingly — Your follow-up radar',
+  description: 'Know exactly who you need to reply to, who needs to reply to you, and what follow-ups are overdue — every day.',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

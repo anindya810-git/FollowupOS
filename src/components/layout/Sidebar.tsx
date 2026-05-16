@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
+import { LogoMark } from '@/components/ui/Logo'
 import {
   LayoutDashboard,
   ListTodo,
@@ -35,15 +36,16 @@ export function Sidebar() {
   const pathname = usePathname()
 
   return (
-    <div className="flex h-screen w-60 flex-col bg-gray-950 text-gray-300">
-      <div className="flex h-14 items-center px-5 border-b border-gray-800">
-        <span className="text-sm font-semibold tracking-widest text-white uppercase">FollowUpOS</span>
+    <div className="flex h-screen w-60 flex-col bg-ink text-white">
+      <div className="flex h-14 items-center px-5 border-b border-[rgb(255_255_255/10%)]">
+        <LogoMark className="h-5 w-6 mr-2.5 flex-shrink-0" />
+        <span className="text-sm font-semibold tracking-widest text-white uppercase">Pendingly</span>
       </div>
 
       <nav className="flex-1 overflow-y-auto py-4 px-2">
         {navGroups.map(group => (
           <div key={group.label} className="mb-5">
-            <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-gray-600">
+            <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-[rgb(255_255_255/30%)]">
               {group.label}
             </p>
             {group.items.map(item => {
@@ -56,8 +58,8 @@ export function Sidebar() {
                   className={cn(
                     'flex items-center gap-2.5 px-3 py-2 text-sm rounded-md transition-colors',
                     isActive
-                      ? 'bg-white/10 text-white'
-                      : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'
+                      ? 'border-l-2 border-action bg-[rgb(255_255_255/8%)] text-white'
+                      : 'text-[rgb(255_255_255/50%)] hover:bg-[rgb(255_255_255/5%)] hover:text-white'
                   )}
                 >
                   <Icon className="h-3.5 w-3.5 flex-shrink-0" />
@@ -69,14 +71,14 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <div className="border-t border-gray-800 p-2">
+      <div className="border-t border-[rgb(255_255_255/10%)] p-2">
         <Link
           href="/settings"
           className={cn(
             'flex items-center gap-2.5 px-3 py-2 text-sm rounded-md transition-colors',
             pathname === '/settings'
-              ? 'bg-white/10 text-white'
-              : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'
+              ? 'border-l-2 border-action bg-[rgb(255_255_255/8%)] text-white'
+              : 'text-[rgb(255_255_255/50%)] hover:bg-[rgb(255_255_255/5%)] hover:text-white'
           )}
         >
           <Settings className="h-3.5 w-3.5 flex-shrink-0" />

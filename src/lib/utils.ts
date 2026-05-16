@@ -63,14 +63,14 @@ export function categoryLabel(category: string): string {
 }
 
 export function categoryColor(_category: string): string {
-  return 'bg-gray-100 text-gray-700 border-gray-200'
+  return 'bg-[rgb(11_18_32/6%)] text-ink border-[rgb(11_18_32/10%)]'
 }
 
 export function priorityColor(priority: string): string {
   const colors: Record<string, string> = {
-    high: 'bg-gray-900',
-    medium: 'bg-gray-400',
-    low: 'bg-gray-200',
+    high: 'bg-action',
+    medium: 'bg-ink-30',
+    low: 'bg-ink-10',
   }
-  return colors[priority] || 'bg-gray-300'
+  return colors[priority] || 'bg-ink-10'
 }

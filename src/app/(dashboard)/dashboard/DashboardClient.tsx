@@ -49,10 +49,10 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
             <a
               key={key}
               href={href}
-              className="bg-white border border-gray-100 rounded-lg p-5 hover:border-gray-300 transition-colors group"
+              className="bg-white border border-[rgb(11_18_32/8%)] rounded-lg p-5 hover:border-[rgb(11_18_32/20%)] transition-colors group"
             >
-              <p className="text-xs text-gray-400 mb-2 group-hover:text-gray-600 transition-colors">{label}</p>
-              <p className="text-3xl font-semibold text-gray-900 tabular-nums">
+              <p className="text-xs text-[rgb(11_18_32/55%)] mb-2">{label}</p>
+              <p className="text-3xl font-semibold text-ink tabular-nums">
                 {summary ? (summary[key as keyof DashboardSummary] ?? 0) : '—'}
               </p>
             </a>
@@ -62,13 +62,13 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
         {/* Top priority */}
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-gray-900">Top Priority</h2>
-            <a href="/queue" className="text-xs text-gray-400 hover:text-gray-700 transition-colors">View all →</a>
+            <h2 className="text-sm font-semibold text-ink">Top Priority</h2>
+            <a href="/queue" className="text-xs text-[rgb(11_18_32/30%)] hover:text-ink transition-colors">View all →</a>
           </div>
 
           {topItems.length === 0 ? (
-            <div className="bg-white border border-gray-100 rounded-lg p-12 text-center">
-              <p className="text-gray-400 text-sm">No urgent follow-ups. You&apos;re clear.</p>
+            <div className="bg-white border border-[rgb(11_18_32/8%)] rounded-lg p-12 text-center">
+              <p className="text-[rgb(11_18_32/55%)] text-sm">No urgent follow-ups. You&apos;re clear.</p>
             </div>
           ) : (
             <div className="space-y-2">

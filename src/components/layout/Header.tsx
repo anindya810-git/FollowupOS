@@ -21,8 +21,8 @@ export function Header({ title, userEmail, onSync }: HeaderProps) {
   }
 
   return (
-    <div className="flex h-14 items-center justify-between border-b border-gray-100 bg-white px-6">
-      <h1 className="text-sm font-semibold text-gray-900 tracking-tight">{title}</h1>
+    <div className="flex h-14 items-center justify-between border-b border-[rgb(11_18_32/10%)] bg-paper px-6">
+      <h1 className="text-sm font-semibold text-ink tracking-tight">{title}</h1>
       <div className="flex items-center gap-2">
         {onSync && (
           <Button variant="ghost" size="sm" onClick={handleSync} disabled={syncing}>
@@ -30,7 +30,7 @@ export function Header({ title, userEmail, onSync }: HeaderProps) {
           </Button>
         )}
         {userEmail && (
-          <span className="text-xs text-gray-400 hidden sm:block">{userEmail}</span>
+          <span className="text-xs text-[rgb(11_18_32/55%)] hidden sm:block">{userEmail}</span>
         )}
         <Button variant="ghost" size="icon" onClick={() => signOut({ callbackUrl: '/' })}>
           <LogOut className="h-3.5 w-3.5" />

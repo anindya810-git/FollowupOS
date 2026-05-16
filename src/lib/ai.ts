@@ -5,7 +5,7 @@ const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 })
 
-const CLASSIFICATION_SYSTEM_PROMPT = `You are FollowUpOS, an AI assistant that classifies email threads for follow-up management.
+const CLASSIFICATION_SYSTEM_PROMPT = `You are Pendingly, an AI assistant that classifies email threads for follow-up management.
 
 Your job is to decide whether a thread needs action from the user, whether the user is waiting for someone else, whether a follow-up is due, or whether no action is needed.
 
@@ -79,7 +79,7 @@ export async function generateDraft(params: {
   outputType: string
   userName: string
 }): Promise<{ draft: string; subject_suggestion: string } | null> {
-  const systemPrompt = `You are FollowUpOS, an assistant that writes concise professional follow-up messages.
+  const systemPrompt = `You are Pendingly, an assistant that writes concise professional follow-up messages.
 
 Use the provided thread context and suggested action. Generate a message in the requested tone. Do not invent facts. Keep the message clear, polite, and action-oriented.
 

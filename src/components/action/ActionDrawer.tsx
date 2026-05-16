@@ -57,11 +57,11 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
 
   return (
     <div className="fixed inset-0 z-50 flex">
-      <div className="flex-1 bg-black/20" onClick={onClose} />
+      <div className="flex-1 bg-ink/20" onClick={onClose} />
       <div className="w-[540px] bg-white shadow-xl overflow-y-auto flex flex-col">
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between z-10">
-          <span className="text-xs font-semibold uppercase tracking-widest text-gray-400">Detail</span>
+        <div className="sticky top-0 bg-white border-b border-[rgb(11_18_32/8%)] px-6 py-4 flex items-center justify-between z-10">
+          <span className="text-xs font-semibold uppercase tracking-widest text-[rgb(11_18_32/30%)]">Detail</span>
           <Button variant="ghost" size="icon" onClick={onClose}>
             <X className="h-4 w-4" />
           </Button>
@@ -70,55 +70,58 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
         <div className="flex-1 p-6 space-y-5">
           {/* Category + priority */}
           <div className="flex items-center gap-2">
-            <span className="text-xs font-medium bg-gray-100 text-gray-700 px-2.5 py-1 rounded">
+            <span className="text-xs font-medium bg-[rgb(11_18_32/6%)] text-ink px-2.5 py-1 rounded">
               {categoryLabel(active.category)}
             </span>
             {active.priority === 'high' && (
-              <span className="text-xs text-gray-500">↑ High priority</span>
+              <span className="inline-flex items-center gap-1.5 text-xs text-[rgb(11_18_32/55%)]">
+                <span className="w-1.5 h-1.5 rounded-full bg-action inline-block" />
+                High priority
+              </span>
             )}
           </div>
 
           {/* Title & contact */}
           <div>
-            <h2 className="text-base font-semibold text-gray-900 leading-snug">
+            <h2 className="text-base font-semibold text-ink leading-snug">
               {active.title || active.emailThread?.subject}
             </h2>
             {active.ownerEmail && (
-              <p className="text-sm text-gray-500 mt-1">{active.ownerName} · {active.ownerEmail}</p>
+              <p className="text-sm text-[rgb(11_18_32/55%)] mt-1">{active.ownerName} · {active.ownerEmail}</p>
             )}
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-[rgb(11_18_32/30%)] mt-1">
               Last activity {timeAgo(active.lastActivityAt)}
             </p>
           </div>
 
           {/* Why */}
-          <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
-            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Why this needs attention</p>
-            <p className="text-sm text-gray-700">{active.reason}</p>
+          <div className="bg-paper rounded-lg p-4 border border-[rgb(11_18_32/8%)]">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[rgb(11_18_32/30%)] mb-1.5">Why this needs attention</p>
+            <p className="text-sm text-ink">{active.reason}</p>
           </div>
 
           {/* Suggested action */}
           {active.suggestedAction && (
-            <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Suggested action</p>
-              <p className="text-sm text-gray-700">{active.suggestedAction}</p>
+            <div className="bg-paper rounded-lg p-4 border border-[rgb(11_18_32/8%)]">
+              <p className="text-xs font-semibold uppercase tracking-wider text-[rgb(11_18_32/30%)] mb-1.5">Suggested action</p>
+              <p className="text-sm text-ink">{active.suggestedAction}</p>
             </div>
           )}
 
           {/* Recent messages */}
           {active.emailThread?.messages && active.emailThread.messages.length > 0 && (
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Recent messages</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-[rgb(11_18_32/30%)] mb-2">Recent messages</p>
               <div className="space-y-2">
                 {active.emailThread.messages.slice(-3).map((msg, i) => (
-                  <div key={i} className="border border-gray-100 rounded-lg p-3">
+                  <div key={i} className="border border-[rgb(11_18_32/8%)] rounded-lg p-3 bg-paper">
                     <div className="flex items-center justify-between mb-1">
-                      <p className="text-xs font-medium text-gray-700">
+                      <p className="text-xs font-medium text-ink">
                         {msg.isFromUser ? 'You' : msg.senderName || msg.senderEmail}
                       </p>
-                      {msg.sentAt && <span className="text-[11px] text-gray-400">{timeAgo(msg.sentAt)}</span>}
+                      {msg.sentAt && <span className="text-[11px] text-[rgb(11_18_32/30%)]">{timeAgo(msg.sentAt)}</span>}
                     </div>
-                    <p className="text-xs text-gray-500 line-clamp-2">{msg.bodyExcerpt || msg.snippet}</p>
+                    <p className="text-xs text-[rgb(11_18_32/55%)] line-clamp-2">{msg.bodyExcerpt || msg.snippet}</p>
                   </div>
                 ))}
               </div>
@@ -126,9 +129,9 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
           )}
 
           {/* Draft generator */}
-          <div className="border border-gray-200 rounded-lg overflow-hidden">
-            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Generate Reply</p>
+          <div className="border border-[rgb(11_18_32/8%)] rounded-lg overflow-hidden">
+            <div className="px-4 py-3 bg-paper border-b border-[rgb(11_18_32/8%)] flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-wider text-[rgb(11_18_32/30%)]">Generate Reply</p>
             </div>
             <div className="p-4 space-y-3">
               <div className="flex gap-2">
@@ -146,12 +149,12 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
               </div>
               {draft && (
                 <div className="relative">
-                  <pre className="whitespace-pre-wrap text-sm text-gray-700 bg-gray-50 border border-gray-100 rounded-md p-3 font-sans text-xs leading-relaxed">
+                  <pre className="whitespace-pre-wrap text-sm text-ink bg-paper border border-[rgb(11_18_32/8%)] rounded-md p-3 font-sans text-xs leading-relaxed">
                     {draft}
                   </pre>
                   <button
                     onClick={copy}
-                    className="absolute top-2 right-2 flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-800 bg-white border border-gray-200 rounded px-2 py-1 transition-colors"
+                    className="absolute top-2 right-2 flex items-center gap-1 text-[11px] text-[rgb(11_18_32/55%)] hover:text-ink bg-white border border-[rgb(11_18_32/10%)] rounded px-2 py-1 transition-colors"
                   >
                     {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                     {copied ? 'Copied' : 'Copy'}
@@ -163,14 +166,14 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
         </div>
 
         {/* Footer actions */}
-        <div className="sticky bottom-0 bg-white border-t border-gray-100 px-6 py-4 flex items-center gap-2">
+        <div className="sticky bottom-0 bg-white border-t border-[rgb(11_18_32/8%)] px-6 py-4 flex items-center gap-2">
           {active.emailThread?.providerUrl && (
             <Button variant="outline" size="sm" onClick={() => window.open(active.emailThread!.providerUrl!, '_blank')}>
               <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
               Open in {providerLabel}
             </Button>
           )}
-          <Button size="sm" onClick={() => { onStatusChange(item.id, 'done'); onClose() }}>
+          <Button variant="done" size="sm" onClick={() => { onStatusChange(item.id, 'done'); onClose() }}>
             Mark Done
           </Button>
           <Button variant="outline" size="sm" onClick={() => { onStatusChange(item.id, 'ignored'); onClose() }}>

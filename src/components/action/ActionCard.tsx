@@ -28,41 +28,44 @@ export function ActionCard({ item, onStatusChange, onSelect }: ActionCardProps) 
 
   return (
     <div
-      className="group bg-white border border-gray-100 rounded-lg hover:border-gray-300 transition-all cursor-pointer"
+      className="group bg-white border border-[rgb(11_18_32/8%)] rounded-lg hover:border-[rgb(11_18_32/20%)] transition-all cursor-pointer"
       onClick={() => onSelect(item)}
     >
       <div className="p-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1.5">
-              <span className="text-[11px] font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+              <span className="text-[11px] font-medium bg-[rgb(11_18_32/6%)] text-ink px-2 py-0.5 rounded">
                 {categoryLabel(item.category)}
               </span>
               {item.priority === 'high' && (
-                <span className="text-[11px] font-medium text-gray-900">↑ High</span>
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-ink">
+                  <span className="w-1.5 h-1.5 rounded-full bg-action inline-block" />
+                  High
+                </span>
               )}
             </div>
-            <p className="text-sm font-medium text-gray-900 truncate leading-snug">
+            <p className="text-sm font-medium text-ink truncate leading-snug">
               {item.title || item.emailThread?.subject || 'No Subject'}
             </p>
             {item.ownerName && (
-              <p className="text-xs text-gray-500 mt-0.5">{item.ownerName}</p>
+              <p className="text-xs text-[rgb(11_18_32/55%)] mt-0.5">{item.ownerName}</p>
             )}
             {item.reason && (
-              <p className="text-xs text-gray-400 mt-1.5 line-clamp-1">{item.reason}</p>
+              <p className="text-xs text-[rgb(11_18_32/55%)] mt-1.5 line-clamp-1">{item.reason}</p>
             )}
           </div>
           <div className="text-right flex-shrink-0">
-            <p className="text-[11px] text-gray-400">{timeAgo(item.lastActivityAt || item.updatedAt)}</p>
+            <p className="text-[11px] text-[rgb(11_18_32/30%)]">{timeAgo(item.lastActivityAt || item.updatedAt)}</p>
             {item.dueDate && (
-              <p className="text-[11px] text-gray-600 mt-0.5">Due {item.dueDate}</p>
+              <p className="text-[11px] text-ink mt-0.5">Due {item.dueDate}</p>
             )}
           </div>
         </div>
       </div>
 
       <div
-        className="flex items-center gap-1 px-4 pb-3 border-t border-gray-50 pt-2.5"
+        className="flex items-center gap-1 px-4 pb-3 border-t border-[rgb(11_18_32/6%)] pt-2.5"
         onClick={e => e.stopPropagation()}
       >
         {item.emailThread?.providerUrl && (

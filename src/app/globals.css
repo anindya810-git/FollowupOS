@@ -1,11 +1,20 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #0B1220;
+  --color-paper: #F6F2EA;
+  --color-action: #F25A3C;
+  --color-done: #1A8F5E;
+  --color-ink-55: rgb(11 18 32 / 55%);
+  --color-ink-30: rgb(11 18 32 / 30%);
+  --color-ink-10: rgb(11 18 32 / 10%);
+}
 
 @layer base {
   body {
+    background-color: #F6F2EA;
+    color: #0B1220;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    color: #111827;
   }
 }
