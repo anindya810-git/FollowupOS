@@ -22,19 +22,34 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
   const [sending, setSending] = useState(false)
   const [confirmingSend, setConfirmingSend] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
+  const [suggestion, setSuggestion] = useState<string | null>(null)
+  const [suggesting, setSuggesting] = useState(false)
 
   useEffect(() => {
     if (item) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setDetail(null)
       setDraft('')
+      setSuggestion(item.autoReplySuggestion ?? null)
       fetch(`/api/action-items/${item.id}`)
         .then(r => r.ok ? r.json() : null)
-        .then(d => { if (d?.item) setDetail(d.item) })
+        .then(d => { if (d?.item) { setDetail(d.item); setSuggestion(d.item.autoReplySuggestion ?? null) } })
         .catch(() => {})
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item?.id])
+
+  const generateSuggestion = async () => {
+    if (!item) return
+    setSuggesting(true)
+    try {
+      const res = await fetch(`/api/action-items/${item.id}/suggest`, { method: 'POST' })
+      const data = await res.json()
+      if (data?.suggestion) setSuggestion(data.suggestion)
+    } finally {
+      setSuggesting(false)
+    }
+  }
 
   if (!item) return null
   const active = detail || item
@@ -150,26 +165,48 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
             </div>
           )}
 
-          {/* Auto-reply suggestion */}
-          {active.autoReplySuggestion && (
-            <div className="border border-action/30 bg-action/5 rounded-lg overflow-hidden">
-              <div className="flex items-center gap-2 px-4 py-2.5 border-b border-action/20">
+          {/* Intelligent reply suggestion */}
+          <div className="border border-action/30 bg-action/5 rounded-lg overflow-hidden">
+            <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-b border-action/20">
+              <div className="flex items-center gap-2">
                 <Zap className="h-3.5 w-3.5 text-action" />
-                <p className="text-xs font-semibold text-action uppercase tracking-wider">Quick reply suggestion</p>
+                <p className="text-xs font-semibold text-action uppercase tracking-wider">
+                  Intelligent reply suggestion
+                </p>
               </div>
-              <div className="p-4">
-                <p className="text-sm text-ink leading-relaxed whitespace-pre-wrap">{active.autoReplySuggestion}</p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-3"
-                  onClick={() => setDraft(active.autoReplySuggestion!)}
-                >
-                  Use this draft
-                </Button>
-              </div>
+              <button
+                onClick={generateSuggestion}
+                disabled={suggesting}
+                className="text-[11px] text-action hover:underline disabled:opacity-50 flex items-center gap-1"
+              >
+                {suggesting ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                {suggestion ? 'Regenerate' : suggesting ? 'Thinking...' : 'Generate'}
+              </button>
             </div>
-          )}
+            <div className="p-4">
+              {suggestion ? (
+                <>
+                  <p className="text-sm text-ink leading-relaxed whitespace-pre-wrap">{suggestion}</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-3"
+                    onClick={() => setDraft(suggestion)}
+                  >
+                    Use this draft
+                  </Button>
+                </>
+              ) : suggesting ? (
+                <p className="text-sm text-[rgb(11_18_32/55%)]">
+                  Reading the full thread and drafting an intelligent reply...
+                </p>
+              ) : (
+                <p className="text-sm text-[rgb(11_18_32/55%)]">
+                  Pendingly will read every message in this thread and propose a context-aware reply.
+                </p>
+              )}
+            </div>
+          </div>
 
           {/* Why */}
           <div className="bg-paper-2 rounded-lg p-4 border border-rule">

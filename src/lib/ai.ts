@@ -77,29 +77,59 @@ export async function classifyThread(input: ClassificationInput): Promise<AiClas
 export async function generateQuickSuggestion(params: {
   threadSubject: string
   reason: string
-  messages: Array<{ from: string; body: string; isFromUser: boolean }>
+  messages: Array<{ from: string; body: string; isFromUser: boolean; sentAt?: string }>
   repeatedAskCount: number
   userName: string
 }): Promise<string | null> {
-  const systemPrompt = `You are Pendingly. Write a single short paragraph (2-3 sentences max) as a polite reply suggestion that directly addresses what the contact is asking or waiting for. Be warm but professional. Do not use placeholder text. Do not start with "I hope this message finds you well" or similar filler.`
+  const systemPrompt = `You are Pendingly, an AI assistant that writes intelligent, context-aware email replies.
+
+Read the ENTIRE thread carefully — every message, in order. Understand:
+- What the contact is actually asking, waiting for, or chasing
+- What has already been promised, answered, or discussed earlier in the thread
+- Whether the contact has been ignored repeatedly (be more apologetic if so)
+- The relationship tone (formal vs casual) from prior messages
+- Specific names, dates, amounts, deliverables, or commitments mentioned
+
+Write a reply that:
+- Directly addresses the specific ask or question, referencing details from the thread when relevant
+- Acknowledges any prior promise the user made that hasn't been kept
+- Proposes a concrete next step (a date, a deliverable, a meeting time, or a clear answer) — never vague
+- Matches the tone established in the thread
+- Is 2-5 sentences. Longer if the ask is complex, shorter if simple.
+- Does NOT use filler ("I hope this finds you well", "Thanks for reaching out", "Sorry for the delay" unless the contact was chased multiple times)
+- Does NOT invent facts, names, dates, or numbers that aren't in the thread
+- Does NOT include a subject line, greeting like "Hi [Name]", or sign-off — just the body paragraph(s)
+
+If you cannot determine a concrete answer from the thread, propose a clear next step (e.g. "Let me confirm with the team and revert by Thursday").
+
+Output the reply text only. No JSON, no markdown, no quotes around it.`
 
   const prefix = params.repeatedAskCount >= 2
-    ? `This contact has sent ${params.repeatedAskCount} messages without a reply. `
+    ? `IMPORTANT: This contact has sent ${params.repeatedAskCount} consecutive messages without a reply from the user. The reply should briefly acknowledge the delay without over-apologizing, then give a concrete, useful response.\n\n`
     : ''
 
-  const userContent = `${prefix}Thread: "${params.threadSubject}"
-Reason for action: ${params.reason}
-User name: ${params.userName}
+  const threadText = params.messages
+    .map((m, i) => {
+      const who = m.isFromUser ? `[Message ${i + 1}] You` : `[Message ${i + 1}] ${m.from}`
+      const ts = m.sentAt ? ` (${m.sentAt})` : ''
+      return `${who}${ts}:\n${m.body}`
+    })
+    .join('\n\n---\n\n')
 
-Recent messages (latest last):
-${params.messages.slice(-4).map(m => `${m.isFromUser ? 'You' : m.from}: ${m.body.substring(0, 400)}`).join('\n\n')}
+  const userContent = `${prefix}Thread subject: "${params.threadSubject}"
+Classifier note: ${params.reason}
+User's name (signing as): ${params.userName}
 
-Write only the reply text, no subject line, no JSON.`
+FULL THREAD (chronological, oldest first):
+
+${threadText}
+
+Now write the reply body.`
 
   try {
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 300,
+      max_tokens: 600,
       system: systemPrompt,
       messages: [{ role: 'user', content: userContent }],
     })
@@ -114,30 +144,51 @@ export async function generateDraft(params: {
   threadSubject: string
   reason: string
   suggestedAction: string
-  messages: Array<{ from: string; body: string; isFromUser: boolean }>
+  messages: Array<{ from: string; body: string; isFromUser: boolean; sentAt?: string }>
   tone: string
   outputType: string
   userName: string
 }): Promise<{ draft: string; subject_suggestion: string } | null> {
-  const systemPrompt = `You are Pendingly, an assistant that writes concise professional follow-up messages.
+  const systemPrompt = `You are Pendingly, an AI assistant that writes intelligent, context-aware professional email replies.
 
-Use the provided thread context and suggested action. Generate a message in the requested tone. Do not invent facts. Keep the message clear, polite, and action-oriented.
+Read the ENTIRE thread carefully — every message, in order. Before writing, understand:
+- What the contact is actually asking, waiting for, or chasing
+- What has already been promised, answered, or committed to earlier in the thread
+- Specific names, dates, deliverables, numbers, or decisions that were discussed
+- The established tone of the relationship
+
+Write a reply that:
+- Directly addresses the specific request, referencing details from the thread when relevant
+- Honours the requested tone strictly (polite/firm/short/executive/friendly/escalation)
+- Proposes concrete next steps rather than vague reassurance
+- Never invents facts, names, dates, or numbers not present in the thread
+- Includes an appropriate greeting and sign-off matching the tone
+- Is the right length for the situation — short for simple replies, longer when the ask is complex
 
 Return ONLY valid JSON in this exact format:
 {
   "subject_suggestion": "Re: [original subject]",
-  "draft": "Your email message here"
+  "draft": "Your email message here including greeting and sign-off"
 }`
 
-  const userContent = `Thread Subject: ${params.threadSubject}
-Reason for action: ${params.reason}
-Suggested action: ${params.suggestedAction}
-Tone: ${params.tone}
-Output type: ${params.outputType}
-User name: ${params.userName}
+  const threadText = params.messages
+    .map((m, i) => {
+      const who = m.isFromUser ? `[Message ${i + 1}] You` : `[Message ${i + 1}] ${m.from}`
+      const ts = m.sentAt ? ` (${m.sentAt})` : ''
+      return `${who}${ts}:\n${m.body}`
+    })
+    .join('\n\n---\n\n')
 
-Recent messages:
-${params.messages.slice(-5).map(m => `${m.isFromUser ? 'You' : m.from}: ${m.body.substring(0, 500)}`).join('\n\n')}`
+  const userContent = `Thread subject: ${params.threadSubject}
+Classifier note: ${params.reason}
+Suggested action: ${params.suggestedAction}
+Requested tone: ${params.tone}
+Output type: ${params.outputType}
+User's name (signing as): ${params.userName}
+
+FULL THREAD (chronological, oldest first):
+
+${threadText}`
 
   try {
     const response = await client.messages.create({

@@ -230,12 +230,12 @@ async function scanOutlookAccount(params: {
         },
       })
 
-      // Build classification input
-      const messageInputs = thread.messages.slice(-10).map(msg => {
+      // Build classification input — full thread (cap each body at 4000 chars)
+      const messageInputs = thread.messages.map(msg => {
         const fromEmail = msg.from?.emailAddress?.address ?? ''
         const toEmails = (msg.toRecipients || []).map(r => r.emailAddress?.address ?? '')
         const isFromUser = fromEmail.toLowerCase() === userEmail.toLowerCase()
-        const bodyText = (msg.body?.content || msg.bodyPreview || '').substring(0, 1000)
+        const bodyText = (msg.body?.content || msg.bodyPreview || '').substring(0, 4000)
         return {
           from: fromEmail,
           to: toEmails,
@@ -244,6 +244,45 @@ async function scanOutlookAccount(params: {
           body_excerpt: bodyText,
         }
       })
+
+      // Persist messages
+      for (const msg of thread.messages) {
+        if (!msg.id) continue
+        const fromEmail = msg.from?.emailAddress?.address ?? ''
+        const fromName = msg.from?.emailAddress?.name ?? null
+        const isFromUser = fromEmail.toLowerCase() === userEmail.toLowerCase()
+        const bodyText = (msg.body?.content || msg.bodyPreview || '').substring(0, 4000)
+        const recipients = (msg.toRecipients || []).map(r => r.emailAddress?.address ?? '').join(', ')
+        await prisma.emailMessage.upsert({
+          where: {
+            emailThreadId_providerMessageId: {
+              emailThreadId: upsertedThread.id,
+              providerMessageId: msg.id,
+            },
+          },
+          create: {
+            userId,
+            emailThreadId: upsertedThread.id,
+            providerMessageId: msg.id,
+            senderEmail: fromEmail,
+            senderName: fromName,
+            recipients,
+            sentAt: msg.receivedDateTime ? new Date(msg.receivedDateTime) : null,
+            snippet: msg.bodyPreview || '',
+            bodyExcerpt: bodyText,
+            isFromUser,
+          },
+          update: {
+            senderEmail: fromEmail,
+            senderName: fromName,
+            recipients,
+            sentAt: msg.receivedDateTime ? new Date(msg.receivedDateTime) : null,
+            snippet: msg.bodyPreview || '',
+            bodyExcerpt: bodyText,
+            isFromUser,
+          },
+        })
+      }
 
       const classificationInput: ClassificationInput = {
         user_email: userEmail,
@@ -291,7 +330,7 @@ async function scanOutlookAccount(params: {
         outlookAutoReplySuggestion = await generateQuickSuggestion({
           threadSubject: thread.subject,
           reason: result.reason,
-          messages: messageInputs.map(m => ({ from: m.from, body: m.body_excerpt, isFromUser: m.is_from_user })),
+          messages: messageInputs.map(m => ({ from: m.from, body: m.body_excerpt, isFromUser: m.is_from_user, sentAt: m.sent_at })),
           repeatedAskCount: outlookRepeatedAskCount,
           userName: userEmail,
         })
@@ -453,14 +492,48 @@ async function scanImapAccount(params: {
         },
       })
 
-      // Build classification input
-      const messageInputs = thread.messages.slice(-10).map(msg => ({
+      // Build classification input — full thread
+      const messageInputs = thread.messages.map(msg => ({
         from: msg.from,
         to: msg.to,
         sent_at: msg.date,
         is_from_user: msg.isFromUser,
-        body_excerpt: msg.textBody,
+        body_excerpt: (msg.textBody || '').substring(0, 4000),
       }))
+
+      // Persist messages
+      for (const msg of thread.messages) {
+        const providerMessageId = String(msg.uid)
+        await prisma.emailMessage.upsert({
+          where: {
+            emailThreadId_providerMessageId: {
+              emailThreadId: upsertedThread.id,
+              providerMessageId,
+            },
+          },
+          create: {
+            userId,
+            emailThreadId: upsertedThread.id,
+            providerMessageId,
+            senderEmail: msg.from,
+            senderName: msg.fromName || null,
+            recipients: (msg.to || []).join(', '),
+            sentAt: msg.date ? new Date(msg.date) : null,
+            snippet: (msg.textBody || '').substring(0, 200),
+            bodyExcerpt: (msg.textBody || '').substring(0, 4000),
+            isFromUser: msg.isFromUser,
+          },
+          update: {
+            senderEmail: msg.from,
+            senderName: msg.fromName || null,
+            recipients: (msg.to || []).join(', '),
+            sentAt: msg.date ? new Date(msg.date) : null,
+            snippet: (msg.textBody || '').substring(0, 200),
+            bodyExcerpt: (msg.textBody || '').substring(0, 4000),
+            isFromUser: msg.isFromUser,
+          },
+        })
+      }
 
       const classificationInput: ClassificationInput = {
         user_email: userEmail,
@@ -508,7 +581,7 @@ async function scanImapAccount(params: {
         imapAutoReplySuggestion = await generateQuickSuggestion({
           threadSubject: thread.subject,
           reason: result.reason,
-          messages: messageInputs.map(m => ({ from: m.from, body: m.body_excerpt, isFromUser: m.is_from_user })),
+          messages: messageInputs.map(m => ({ from: m.from, body: m.body_excerpt, isFromUser: m.is_from_user, sentAt: m.sent_at })),
           repeatedAskCount: imapRepeatedAskCount,
           userName: userEmail,
         })
@@ -648,12 +721,23 @@ async function processThread(params: {
   let lastMessageFromUser = false
 
   const senderContactsToUpsert: Array<{ email: string; name: string | null }> = []
+  const messagePersistData: Array<{
+    providerMessageId: string
+    senderEmail: string
+    senderName: string | null
+    recipients: string
+    sentAt: Date | null
+    snippet: string
+    bodyExcerpt: string
+    isFromUser: boolean
+  }> = []
 
-  const messageInputs = fullMessages.slice(-10).map(msg => {
+  const messageInputs = fullMessages.map(msg => {
     const msgHeaders = msg.payload?.headers || []
     const from = msgHeaders.find(h => h.name === 'From')?.value || ''
-    const to = (msgHeaders.find(h => h.name === 'To')?.value || '').split(',')
-    const sentAt = msgHeaders.find(h => h.name === 'Date')?.value || ''
+    const toRaw = msgHeaders.find(h => h.name === 'To')?.value || ''
+    const to = toRaw.split(',')
+    const sentAtStr = msgHeaders.find(h => h.name === 'Date')?.value || ''
     const fromEmail = from.replace(/.*<(.+)>/, '$1').trim()
     const fromName = from.includes('<') ? from.replace(/<.*>/, '').trim().replace(/^["']|["']$/g, '') : null
     const isFromUser = fromEmail.toLowerCase() === userEmail.toLowerCase()
@@ -666,12 +750,25 @@ async function processThread(params: {
       senderContactsToUpsert.push({ email: fromEmail, name: fromName || null })
     }
 
+    if (msg.id) {
+      messagePersistData.push({
+        providerMessageId: msg.id,
+        senderEmail: fromEmail,
+        senderName: fromName,
+        recipients: toRaw,
+        sentAt: sentAtStr ? new Date(sentAtStr) : null,
+        snippet: msg.snippet || '',
+        bodyExcerpt: body.substring(0, 4000),
+        isFromUser,
+      })
+    }
+
     return {
       from: fromEmail,
       to,
-      sent_at: sentAt,
+      sent_at: sentAtStr,
       is_from_user: isFromUser,
-      body_excerpt: body.substring(0, 1000),
+      body_excerpt: body.substring(0, 4000),
     }
   })
 
@@ -702,6 +799,39 @@ async function processThread(params: {
       updatedAt: new Date(),
     },
   })
+
+  // Persist messages (so on-demand replies and the drawer can show full context)
+  for (const m of messagePersistData) {
+    await prisma.emailMessage.upsert({
+      where: {
+        emailThreadId_providerMessageId: {
+          emailThreadId: upsertedThread.id,
+          providerMessageId: m.providerMessageId,
+        },
+      },
+      create: {
+        userId,
+        emailThreadId: upsertedThread.id,
+        providerMessageId: m.providerMessageId,
+        senderEmail: m.senderEmail,
+        senderName: m.senderName,
+        recipients: m.recipients,
+        sentAt: m.sentAt,
+        snippet: m.snippet,
+        bodyExcerpt: m.bodyExcerpt,
+        isFromUser: m.isFromUser,
+      },
+      update: {
+        senderEmail: m.senderEmail,
+        senderName: m.senderName,
+        recipients: m.recipients,
+        sentAt: m.sentAt,
+        snippet: m.snippet,
+        bodyExcerpt: m.bodyExcerpt,
+        isFromUser: m.isFromUser,
+      },
+    })
+  }
 
   // AI Classification
   const classificationInput: ClassificationInput = {
@@ -751,7 +881,7 @@ async function processThread(params: {
     autoReplySuggestion = await generateQuickSuggestion({
       threadSubject: subject,
       reason: result.reason,
-      messages: messageInputs.map(m => ({ from: m.from, body: m.body_excerpt, isFromUser: m.is_from_user })),
+      messages: messageInputs.map(m => ({ from: m.from, body: m.body_excerpt, isFromUser: m.is_from_user, sentAt: m.sent_at })),
       repeatedAskCount,
       userName: userEmail,
     })

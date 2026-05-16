@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { generateDraft } from '@/lib/ai'
+import { generateQuickSuggestion } from '@/lib/ai'
 
 export async function POST(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth()
@@ -13,23 +13,13 @@ export async function POST(
   }
 
   const { id } = await params
-  let body: Record<string, unknown>
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
-  const tone = typeof body.tone === 'string' ? body.tone : 'polite'
-  const output_type = typeof body.output_type === 'string' ? body.output_type : 'email_reply'
 
   const item = await prisma.actionItem.findFirst({
     where: { id, userId: session.user.id },
     include: {
       emailThread: {
         include: {
-          messages: {
-            orderBy: { sentAt: 'asc' },
-          },
+          messages: { orderBy: { sentAt: 'asc' } },
         },
       },
     },
@@ -41,24 +31,27 @@ export async function POST(
 
   const user = await prisma.user.findUnique({ where: { id: session.user.id } })
 
-  const draft = await generateDraft({
+  const suggestion = await generateQuickSuggestion({
     threadSubject: item.title || item.emailThread?.subject || 'Email Thread',
     reason: item.reason || '',
-    suggestedAction: item.suggestedAction || '',
     messages: (item.emailThread?.messages || []).map(m => ({
       from: m.senderEmail || '',
       body: m.bodyExcerpt || m.snippet || '',
       isFromUser: m.isFromUser,
       sentAt: m.sentAt ? m.sentAt.toISOString() : undefined,
     })),
-    tone,
-    outputType: output_type,
+    repeatedAskCount: item.repeatedAskCount,
     userName: user?.name || session.user.email || 'User',
   })
 
-  if (!draft) {
-    return NextResponse.json({ error: 'Draft generation failed' }, { status: 500 })
+  if (!suggestion) {
+    return NextResponse.json({ error: 'Suggestion generation failed' }, { status: 500 })
   }
 
-  return NextResponse.json(draft)
+  await prisma.actionItem.update({
+    where: { id },
+    data: { autoReplySuggestion: suggestion },
+  })
+
+  return NextResponse.json({ suggestion })
 }
