@@ -23,6 +23,7 @@ export interface AiClassificationOutput {
   commitment_text: string | null
   is_automated_or_marketing: boolean
   should_show_to_user: boolean
+  needs_closure: boolean
 }
 
 export interface EmailMessageInput {
@@ -73,6 +74,9 @@ export interface ActionItemWithThread {
   lastActivityAt: Date | null
   snoozedUntil: string | null
   completedAt: Date | null
+  repeatedAskCount: number
+  needsClosure: boolean
+  autoReplySuggestion: string | null
   createdAt: Date
   updatedAt: Date
   emailThread?: {

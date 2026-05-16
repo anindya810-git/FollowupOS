@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { categoryLabel, timeAgo } from '@/lib/utils'
-import { ExternalLink, Clock, Check, EyeOff, Calendar as CalendarIcon } from 'lucide-react'
+import { ExternalLink, Clock, Check, EyeOff, Calendar as CalendarIcon, AlertCircle, Archive } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { playChime } from '@/lib/sounds'
 import { SnoozeMenu } from './SnoozeMenu'
@@ -90,6 +90,20 @@ export function ActionCard({ item, onStatusChange, onSelect, selected, onSelectC
                 {formatMeetingTime(meeting.startTime)}
               </span>
             )}
+            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+              {(item.repeatedAskCount ?? 0) >= 2 && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded" style={{ fontFamily: 'var(--font-mono)' }}>
+                  <AlertCircle className="h-2.5 w-2.5" />
+                  {item.repeatedAskCount} asks
+                </span>
+              )}
+              {item.needsClosure && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-[rgb(11_18_32/5%)] text-[rgb(11_18_32/50%)] border border-[rgb(11_18_32/10%)] px-1.5 py-0.5 rounded" style={{ fontFamily: 'var(--font-mono)' }}>
+                  <Archive className="h-2.5 w-2.5" />
+                  Ready to close
+                </span>
+              )}
+            </div>
           </div>
           <div className="text-right flex-shrink-0">
             <p className="text-[11px] text-[rgb(11_18_32/30%)]">{timeAgo(item.lastActivityAt || item.updatedAt)}</p>

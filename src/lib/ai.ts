@@ -21,6 +21,8 @@ Classify into exactly one primary_category:
 
 Use the current date and timezone to determine overdue commitments and follow-up thresholds.
 
+Set "needs_closure" to true when the thread appears to be naturally concluded — both parties acknowledged completion, said thanks, or the matter is resolved — but it is still open. This signals the user can safely archive or close it.
+
 Return ONLY valid JSON matching this exact schema. Do not include markdown or explanations outside JSON:
 {
   "primary_category": "reply_needed|waiting_on_them|followup_due|commitment_detected|overdue_commitment|no_action_needed",
@@ -35,7 +37,8 @@ Return ONLY valid JSON matching this exact schema. Do not include markdown or ex
   "owner_email": "email or null",
   "commitment_text": "Relevant commitment text or null",
   "is_automated_or_marketing": false,
-  "should_show_to_user": true
+  "should_show_to_user": true,
+  "needs_closure": false
 }`
 
 export async function classifyThread(input: ClassificationInput): Promise<AiClassificationOutput | null> {
@@ -63,8 +66,45 @@ export async function classifyThread(input: ClassificationInput): Promise<AiClas
     if (!validPriorities.includes(parsed.priority)) return null
     if (typeof parsed.confidence !== 'number' || parsed.confidence < 0 || parsed.confidence > 1) return null
     if (typeof parsed.should_show_to_user !== 'boolean') return null
+    if (typeof parsed.needs_closure !== 'boolean') parsed.needs_closure = false
 
     return parsed
+  } catch {
+    return null
+  }
+}
+
+export async function generateQuickSuggestion(params: {
+  threadSubject: string
+  reason: string
+  messages: Array<{ from: string; body: string; isFromUser: boolean }>
+  repeatedAskCount: number
+  userName: string
+}): Promise<string | null> {
+  const systemPrompt = `You are Pendingly. Write a single short paragraph (2-3 sentences max) as a polite reply suggestion that directly addresses what the contact is asking or waiting for. Be warm but professional. Do not use placeholder text. Do not start with "I hope this message finds you well" or similar filler.`
+
+  const prefix = params.repeatedAskCount >= 2
+    ? `This contact has sent ${params.repeatedAskCount} messages without a reply. `
+    : ''
+
+  const userContent = `${prefix}Thread: "${params.threadSubject}"
+Reason for action: ${params.reason}
+User name: ${params.userName}
+
+Recent messages (latest last):
+${params.messages.slice(-4).map(m => `${m.isFromUser ? 'You' : m.from}: ${m.body.substring(0, 400)}`).join('\n\n')}
+
+Write only the reply text, no subject line, no JSON.`
+
+  try {
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 300,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userContent }],
+    })
+    const text = response.content[0].type === 'text' ? response.content[0].text.trim() : ''
+    return text || null
   } catch {
     return null
   }

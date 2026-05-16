@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
   const category = searchParams.get('category')
   const priority = searchParams.get('priority')
   const search = searchParams.get('search')
+  const repeatedAsks = searchParams.get('repeated_asks')
   const page = parseInt(searchParams.get('page') || '1')
   const limit = parseInt(searchParams.get('limit') || '20')
 
@@ -23,6 +24,7 @@ export async function GET(request: NextRequest) {
 
   if (category) where.category = category
   if (priority) where.priority = priority
+  if (repeatedAsks) where.repeatedAskCount = { gte: 2 }
   if (search) {
     where.OR = [
       { title: { contains: search } },

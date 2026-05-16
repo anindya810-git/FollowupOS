@@ -19,17 +19,21 @@ const METRICS = [
 export function DashboardClient({ userEmail, showOnboarding = false }: { userEmail: string; showOnboarding?: boolean }) {
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
   const [topItems, setTopItems] = useState<ActionItemWithThread[]>([])
+  const [demandsItems, setDemandsItems] = useState<ActionItemWithThread[]>([])
   const [selected, setSelected] = useState<ActionItemWithThread | null>(null)
   const [meetingsByEmail, setMeetingsByEmail] = useState<Record<string, { subject: string; startTime: string }>>({})
   const [showTour, setShowTour] = useState(showOnboarding)
 
   const fetchData = async () => {
-    const [s, t] = await Promise.all([
+    const [s, t, d] = await Promise.all([
       fetch('/api/dashboard/summary').then(r => r.json()),
       fetch('/api/dashboard/top-priority').then(r => r.json()),
+      fetch('/api/action-items?status=open&limit=5&repeated_asks=1').then(r => r.json()),
     ])
     setSummary(s)
     setTopItems(t.items || [])
+    const all: ActionItemWithThread[] = d.items || []
+    setDemandsItems(all.filter((i: ActionItemWithThread) => (i.repeatedAskCount ?? 0) >= 2))
   }
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -71,6 +75,28 @@ export function DashboardClient({ userEmail, showOnboarding = false }: { userEma
           onStatusChange={handleStatusChange}
           meetingsByEmail={meetingsByEmail}
         />
+
+        {/* Demanding Attention */}
+        {demandsItems.length > 0 && (
+          <div className="mb-8 animate-fade-up">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              <p className="text-[11px] uppercase tracking-widest text-amber-700 font-semibold" style={{ fontFamily: 'var(--font-mono)' }}>
+                Demanding your attention
+              </p>
+            </div>
+            <div className="space-y-2">
+              {demandsItems.map(item => (
+                <ActionCard
+                  key={item.id}
+                  item={item}
+                  onStatusChange={handleStatusChange}
+                  onSelect={setSelected}
+                />
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* At-a-glance metrics */}
         <p

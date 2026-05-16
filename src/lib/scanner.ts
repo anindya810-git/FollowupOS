@@ -2,10 +2,19 @@ import { prisma } from './prisma'
 import { getGmailClient, getGmailThreadUrl, isNoisyThread, getMessageBody } from './gmail'
 import { getOutlookAccessToken, getOutlookThreads, isNoisyOutlookMessage } from './outlook'
 import { getImapThreads, isNoisyImapSender } from './imap'
-import { classifyThread } from './ai'
+import { classifyThread, generateQuickSuggestion } from './ai'
 import { upsertContact } from './contacts'
 import type { ClassificationInput } from '@/types'
 import crypto from 'crypto'
+
+function countRepeatedAsks(messages: Array<{ is_from_user: boolean; from: string }>): number {
+  let count = 0
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (!messages[i].is_from_user) count++
+    else break
+  }
+  return count
+}
 
 export async function runInitialScan(jobId: string, userId: string, emailAccountId: string, scanWindowDays: number = 30) {
   try {
@@ -271,6 +280,23 @@ async function scanOutlookAccount(params: {
         where: { userId, emailThreadId: upsertedThread.id, status: { in: ['open', 'snoozed'] } },
       })
 
+      const outlookRepeatedAskCount = countRepeatedAsks(messageInputs)
+      const outlookNeedsClosure = result.needs_closure ?? false
+
+      let outlookAutoReplySuggestion: string | null = null
+      if (
+        result.primary_category === 'reply_needed' &&
+        (outlookRepeatedAskCount >= 2 || result.priority === 'high')
+      ) {
+        outlookAutoReplySuggestion = await generateQuickSuggestion({
+          threadSubject: thread.subject,
+          reason: result.reason,
+          messages: messageInputs.map(m => ({ from: m.from, body: m.body_excerpt, isFromUser: m.is_from_user })),
+          repeatedAskCount: outlookRepeatedAskCount,
+          userName: userEmail,
+        })
+      }
+
       const actionData = {
         category: result.primary_category,
         priority: result.priority,
@@ -283,6 +309,9 @@ async function scanOutlookAccount(params: {
         ownerEmail: result.owner_email,
         confidenceScore: result.confidence,
         lastActivityAt: lastMessageAt,
+        repeatedAskCount: outlookRepeatedAskCount,
+        needsClosure: outlookNeedsClosure,
+        ...(outlookAutoReplySuggestion ? { autoReplySuggestion: outlookAutoReplySuggestion } : {}),
       }
 
       if (existingAction) {
@@ -468,6 +497,23 @@ async function scanImapAccount(params: {
         where: { userId, emailThreadId: upsertedThread.id, status: { in: ['open', 'snoozed'] } },
       })
 
+      const imapRepeatedAskCount = countRepeatedAsks(messageInputs)
+      const imapNeedsClosure = result.needs_closure ?? false
+
+      let imapAutoReplySuggestion: string | null = null
+      if (
+        result.primary_category === 'reply_needed' &&
+        (imapRepeatedAskCount >= 2 || result.priority === 'high')
+      ) {
+        imapAutoReplySuggestion = await generateQuickSuggestion({
+          threadSubject: thread.subject,
+          reason: result.reason,
+          messages: messageInputs.map(m => ({ from: m.from, body: m.body_excerpt, isFromUser: m.is_from_user })),
+          repeatedAskCount: imapRepeatedAskCount,
+          userName: userEmail,
+        })
+      }
+
       const actionData = {
         category: result.primary_category,
         priority: result.priority,
@@ -480,6 +526,9 @@ async function scanImapAccount(params: {
         ownerEmail: result.owner_email,
         confidenceScore: result.confidence,
         lastActivityAt: lastMessageAt,
+        repeatedAskCount: imapRepeatedAskCount,
+        needsClosure: imapNeedsClosure,
+        ...(imapAutoReplySuggestion ? { autoReplySuggestion: imapAutoReplySuggestion } : {}),
       }
 
       if (existingAction) {
@@ -690,6 +739,24 @@ async function processThread(params: {
     where: { userId, emailThreadId: upsertedThread.id, status: { in: ['open', 'snoozed'] } },
   })
 
+  const repeatedAskCount = countRepeatedAsks(messageInputs)
+  const needsClosure = result.needs_closure ?? false
+
+  // Pre-generate quick suggestion for threads demanding attention
+  let autoReplySuggestion: string | null = null
+  if (
+    result.primary_category === 'reply_needed' &&
+    (repeatedAskCount >= 2 || result.priority === 'high')
+  ) {
+    autoReplySuggestion = await generateQuickSuggestion({
+      threadSubject: subject,
+      reason: result.reason,
+      messages: messageInputs.map(m => ({ from: m.from, body: m.body_excerpt, isFromUser: m.is_from_user })),
+      repeatedAskCount,
+      userName: userEmail,
+    })
+  }
+
   const actionData = {
     category: result.primary_category,
     priority: result.priority,
@@ -702,6 +769,9 @@ async function processThread(params: {
     ownerEmail: result.owner_email,
     confidenceScore: result.confidence,
     lastActivityAt: lastMsgDate,
+    repeatedAskCount,
+    needsClosure,
+    ...(autoReplySuggestion ? { autoReplySuggestion } : {}),
   }
 
   if (existingAction) {

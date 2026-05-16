@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { categoryLabel, timeAgo } from '@/lib/utils'
-import { X, ExternalLink, Copy, Loader2, Check, Send } from 'lucide-react'
+import { X, ExternalLink, Copy, Loader2, Check, Send, Zap, AlertCircle, Archive } from 'lucide-react'
 import { playChime } from '@/lib/sounds'
 import type { ActionItemWithThread } from '@/types'
 
@@ -125,6 +125,51 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
               Last activity {timeAgo(active.lastActivityAt)}
             </p>
           </div>
+
+          {/* Repeated asks alert */}
+          {(active.repeatedAskCount ?? 0) >= 2 && (
+            <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-lg p-3.5">
+              <AlertCircle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-semibold text-amber-800">
+                  {active.ownerName || 'This contact'} has sent {active.repeatedAskCount} messages without a reply
+                </p>
+                <p className="text-xs text-amber-700 mt-0.5">This thread needs your immediate attention.</p>
+              </div>
+            </div>
+          )}
+
+          {/* Needs closure banner */}
+          {active.needsClosure && !(active.repeatedAskCount && active.repeatedAskCount >= 2) && (
+            <div className="flex items-start gap-2.5 bg-[rgb(11_18_32/4%)] border border-[rgb(11_18_32/10%)] rounded-lg p-3.5">
+              <Archive className="h-4 w-4 text-[rgb(11_18_32/40%)] flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-semibold text-ink">This thread looks resolved</p>
+                <p className="text-xs text-[rgb(11_18_32/55%)] mt-0.5">Consider marking it done or archiving.</p>
+              </div>
+            </div>
+          )}
+
+          {/* Auto-reply suggestion */}
+          {active.autoReplySuggestion && (
+            <div className="border border-action/30 bg-action/5 rounded-lg overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-2.5 border-b border-action/20">
+                <Zap className="h-3.5 w-3.5 text-action" />
+                <p className="text-xs font-semibold text-action uppercase tracking-wider">Quick reply suggestion</p>
+              </div>
+              <div className="p-4">
+                <p className="text-sm text-ink leading-relaxed whitespace-pre-wrap">{active.autoReplySuggestion}</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3"
+                  onClick={() => setDraft(active.autoReplySuggestion!)}
+                >
+                  Use this draft
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* Why */}
           <div className="bg-paper-2 rounded-lg p-4 border border-rule">
