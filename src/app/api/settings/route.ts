@@ -29,17 +29,22 @@ export async function PATCH(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
-  const { defaultFollowupDays, scanWindowDays, conservativeMode, isEnabled, digestTime, timezone } = body
+  const { defaultFollowupDays, scanWindowDays, conservativeMode, autoFollowupEnabled, autoFollowupDays, autoFollowupTemplate, isEnabled, digestTime, timezone, slackWebhookUrl, slackEnabled } = body
 
   const appData: Record<string, unknown> = {}
   if (defaultFollowupDays !== undefined) appData.defaultFollowupDays = defaultFollowupDays
   if (scanWindowDays !== undefined) appData.scanWindowDays = scanWindowDays
   if (conservativeMode !== undefined) appData.conservativeMode = conservativeMode
+  if (autoFollowupEnabled !== undefined) appData.autoFollowupEnabled = autoFollowupEnabled
+  if (autoFollowupDays !== undefined) appData.autoFollowupDays = autoFollowupDays
+  if (autoFollowupTemplate !== undefined) appData.autoFollowupTemplate = autoFollowupTemplate
 
   const digestData: Record<string, unknown> = {}
   if (isEnabled !== undefined) digestData.isEnabled = isEnabled
   if (digestTime !== undefined) digestData.digestTime = digestTime
   if (timezone !== undefined) digestData.timezone = timezone
+  if (slackWebhookUrl !== undefined) digestData.slackWebhookUrl = slackWebhookUrl || null
+  if (slackEnabled !== undefined) digestData.slackEnabled = slackEnabled
 
   await Promise.all([
     Object.keys(appData).length > 0 ? prisma.appSettings.upsert({

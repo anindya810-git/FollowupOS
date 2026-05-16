@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Hanken_Grotesk, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 import { SessionProvider } from 'next-auth/react'
@@ -21,6 +21,12 @@ export const metadata: Metadata = {
     icon: '/favicon.svg',
     shortcut: '/favicon.svg',
   },
+  manifest: '/manifest.json',
+  appleWebApp: { capable: true, statusBarStyle: 'default', title: 'Pendingly' },
+}
+
+export const viewport: Viewport = {
+  themeColor: '#0B1220',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

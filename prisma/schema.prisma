@@ -29,6 +29,18 @@ model User {
   digestSettings DigestSettings?
   appSettings    AppSettings?
   contacts       Contact[]
+  pushSubscriptions PushSubscription[]
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Account {
@@ -225,6 +237,9 @@ model AppSettings {
   defaultFollowupDays Int      @default(3)
   scanWindowDays      Int      @default(30)
   conservativeMode    Boolean  @default(true)
+  autoFollowupEnabled  Boolean @default(false)
+  autoFollowupDays     Int     @default(3)
+  autoFollowupTemplate String?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 

@@ -16,6 +16,7 @@ export function getGmailAuthUrl(): string {
     access_type: 'offline',
     scope: [
       'https://www.googleapis.com/auth/gmail.readonly',
+      'https://www.googleapis.com/auth/calendar.readonly',
     ],
     prompt: 'consent',
   })
@@ -160,6 +161,17 @@ export async function sendGmailReply(
     throw new Error(`Gmail send failed: ${err}`)
   }
   return res.json()
+}
+
+export async function getUpcomingGoogleEvents(emailAccountId: string, hoursAhead = 48) {
+  const token = await getGmailAccessToken(emailAccountId)
+  const timeMin = new Date().toISOString()
+  const timeMax = new Date(Date.now() + hoursAhead * 3600_000).toISOString()
+  const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&singleEvents=true&orderBy=startTime`
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+  if (!res.ok) return []
+  const data = await res.json()
+  return (data.items ?? []) as Array<{ id: string; summary?: string; start: { dateTime?: string; date?: string }; attendees?: Array<{ email: string; displayName?: string }> }>
 }
 
 export function getGmailThreadUrl(threadId: string): string {

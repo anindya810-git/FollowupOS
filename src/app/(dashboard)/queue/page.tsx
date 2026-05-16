@@ -4,11 +4,18 @@ import { useSearchParams } from 'next/navigation'
 import { Header } from '@/components/layout/Header'
 import { ActionCard } from '@/components/action/ActionCard'
 import { ActionDrawer } from '@/components/action/ActionDrawer'
+import { SnoozeMenu } from '@/components/action/SnoozeMenu'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { categoryLabel } from '@/lib/utils'
 import { Search, Loader2 } from 'lucide-react'
 import type { ActionItemWithThread } from '@/types'
+
+function tomorrow(): string {
+  const d = new Date()
+  d.setDate(d.getDate() + 1)
+  return d.toISOString().split('T')[0]
+}
 
 function QueueContent() {
   const searchParams = useSearchParams()
@@ -18,6 +25,7 @@ function QueueContent() {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [selectedItem, setSelectedItem] = useState<ActionItemWithThread | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   const status = searchParams.get('status') || 'open'
   const category = searchParams.get('category') || ''
@@ -39,12 +47,36 @@ function QueueContent() {
 
   useEffect(() => { fetchItems() }, [fetchItems])
 
+  // Clear selection when filters change
+  useEffect(() => { setSelectedIds(new Set()) }, [status, category, priority, search, page])
+
   const handleStatusChange = async (id: string, statusVal: string, extra?: Record<string, string>) => {
     await fetch(`/api/action-items/${id}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: statusVal, ...extra }),
     })
+    fetchItems()
+  }
+
+  const toggleSelected = (id: string, checked: boolean) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (checked) next.add(id)
+      else next.delete(id)
+      return next
+    })
+  }
+
+  const bulk = async (action: string, snoozed_until?: string) => {
+    if (selectedIds.size === 0) return
+    const ids = Array.from(selectedIds)
+    await fetch('/api/action-items/bulk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, action, snoozed_until }),
+    })
+    setSelectedIds(new Set())
     fetchItems()
   }
 
@@ -89,6 +121,8 @@ function QueueContent() {
                   item={item}
                   onStatusChange={handleStatusChange}
                   onSelect={setSelectedItem}
+                  selected={selectedIds.has(item.id)}
+                  onSelectChange={(checked) => toggleSelected(item.id, checked)}
                 />
               ))}
             </div>
@@ -107,6 +141,21 @@ function QueueContent() {
         onClose={() => setSelectedItem(null)}
         onStatusChange={handleStatusChange}
       />
+
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 bg-ink text-white rounded-lg shadow-lg px-4 py-3 flex items-center gap-3 animate-fade-up">
+          <span className="text-sm font-medium">{selectedIds.size} selected</span>
+          <div className="h-4 w-px bg-white/20" />
+          <button onClick={() => bulk('done')} className="text-sm hover:text-action transition-colors">Mark Done</button>
+          <SnoozeMenu onSelect={(d) => bulk('snoozed', d)}>
+            <button className="text-sm hover:text-action transition-colors">Snooze</button>
+          </SnoozeMenu>
+          <button onClick={() => bulk('snoozed', tomorrow())} className="text-sm hover:text-action transition-colors">Snooze 1d</button>
+          <button onClick={() => bulk('ignored')} className="text-sm hover:text-action transition-colors">Ignore</button>
+          <div className="h-4 w-px bg-white/20" />
+          <button onClick={() => setSelectedIds(new Set())} className="text-sm text-white/60 hover:text-white">Clear</button>
+        </div>
+      )}
     </>
   )
 }

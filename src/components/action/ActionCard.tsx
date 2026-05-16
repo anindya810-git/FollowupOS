@@ -1,18 +1,37 @@
 'use client'
 import { useState } from 'react'
 import { categoryLabel, timeAgo } from '@/lib/utils'
-import { ExternalLink, Clock, Check, EyeOff } from 'lucide-react'
+import { ExternalLink, Clock, Check, EyeOff, Calendar as CalendarIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { playChime } from '@/lib/sounds'
+import { SnoozeMenu } from './SnoozeMenu'
 import type { ActionItemWithThread } from '@/types'
 
 interface ActionCardProps {
   item: ActionItemWithThread
   onStatusChange: (id: string, status: string, extra?: Record<string, string>) => void
   onSelect: (item: ActionItemWithThread) => void
+  selected?: boolean
+  onSelectChange?: (checked: boolean) => void
+  meeting?: { subject: string; startTime: string }
 }
 
-export function ActionCard({ item, onStatusChange, onSelect }: ActionCardProps) {
+function formatMeetingTime(iso: string): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ''
+  const now = new Date()
+  const sameDay = d.toDateString() === now.toDateString()
+  const tomorrow = new Date(now)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  const isTomorrow = d.toDateString() === tomorrow.toDateString()
+  const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+  if (sameDay) return `Meeting at ${time}`
+  if (isTomorrow) return `Meeting tomorrow ${time}`
+  return `Meeting ${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${time}`
+}
+
+export function ActionCard({ item, onStatusChange, onSelect, selected, onSelectChange, meeting }: ActionCardProps) {
   const [loading, setLoading] = useState(false)
 
   const handle = async (status: string, extra?: Record<string, string>) => {
@@ -21,18 +40,28 @@ export function ActionCard({ item, onStatusChange, onSelect }: ActionCardProps) 
     setLoading(false)
   }
 
-  const tomorrow = () => {
-    const d = new Date()
-    d.setDate(d.getDate() + 1)
-    return d.toISOString().split('T')[0]
-  }
+  const selectable = typeof onSelectChange === 'function'
 
   return (
     <div
-      className="group animate-fade-up card-lift bg-white border border-[rgb(11_18_32/8%)] rounded-lg hover:border-[rgb(11_18_32/20%)] cursor-pointer"
+      className="group animate-fade-up card-lift bg-white border border-[rgb(11_18_32/8%)] rounded-lg hover:border-[rgb(11_18_32/20%)] cursor-pointer relative"
       onClick={() => onSelect(item)}
     >
-      <div className="p-4">
+      {selectable && (
+        <div
+          className="absolute top-3 left-3 z-10"
+          onClick={e => e.stopPropagation()}
+        >
+          <input
+            type="checkbox"
+            checked={!!selected}
+            onChange={e => onSelectChange?.(e.target.checked)}
+            className="h-4 w-4 rounded border-[rgb(11_18_32/20%)] text-action focus:ring-action cursor-pointer"
+            aria-label="Select item"
+          />
+        </div>
+      )}
+      <div className={`p-4 ${selectable ? 'pl-10' : ''}`}>
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1.5">
@@ -55,6 +84,12 @@ export function ActionCard({ item, onStatusChange, onSelect }: ActionCardProps) 
             {item.reason && (
               <p className="text-xs text-[rgb(11_18_32/55%)] mt-1.5 line-clamp-1">{item.reason}</p>
             )}
+            {meeting && (
+              <span className="inline-flex items-center gap-1 mt-1.5 text-[10px] text-action font-medium" style={{ fontFamily: 'var(--font-mono)' }}>
+                <CalendarIcon className="h-2.5 w-2.5" />
+                {formatMeetingTime(meeting.startTime)}
+              </span>
+            )}
           </div>
           <div className="text-right flex-shrink-0">
             <p className="text-[11px] text-[rgb(11_18_32/30%)]">{timeAgo(item.lastActivityAt || item.updatedAt)}</p>
@@ -75,16 +110,19 @@ export function ActionCard({ item, onStatusChange, onSelect }: ActionCardProps) 
             Open
           </Button>
         )}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="transition-all duration-150"
-          onClick={() => { playChime('info'); handle('snoozed', { snoozed_until: tomorrow() }) }}
-          disabled={loading}
+        <SnoozeMenu
+          onSelect={(d) => { playChime('info'); handle('snoozed', { snoozed_until: d }) }}
         >
-          <Clock className="h-3 w-3 mr-1" />
-          Snooze
-        </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="transition-all duration-150"
+            disabled={loading}
+          >
+            <Clock className="h-3 w-3 mr-1" />
+            Snooze
+          </Button>
+        </SnoozeMenu>
         <Button
           variant="ghost"
           size="sm"

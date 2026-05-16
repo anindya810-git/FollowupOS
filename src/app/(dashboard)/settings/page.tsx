@@ -6,6 +6,8 @@ import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Trash2, Plus, AlertTriangle } from 'lucide-react'
+import { PushNotificationToggle } from '@/components/PushNotificationToggle'
+import { DEFAULT_FOLLOWUP_TEMPLATE } from '@/lib/templates'
 
 interface EmailAccount {
   id: string
@@ -16,8 +18,8 @@ interface EmailAccount {
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<{
-    appSettings: { defaultFollowupDays: number; scanWindowDays: number; conservativeMode: boolean } | null
-    digestSettings: { isEnabled: boolean; digestTime: string; timezone: string } | null
+    appSettings: { defaultFollowupDays: number; scanWindowDays: number; conservativeMode: boolean; autoFollowupEnabled?: boolean; autoFollowupDays?: number; autoFollowupTemplate?: string | null } | null
+    digestSettings: { isEnabled: boolean; digestTime: string; timezone: string; slackWebhookUrl?: string | null; slackEnabled?: boolean } | null
     ignoredSenders: Array<{ id: string; senderEmail?: string; domain?: string; reason?: string }>
   }>({ appSettings: null, digestSettings: null, ignoredSenders: [] })
   const [integrations, setIntegrations] = useState<EmailAccount[]>([])
@@ -26,6 +28,8 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false)
   const [syncingContacts, setSyncingContacts] = useState(false)
   const [contactsSynced, setContactsSynced] = useState<number | null>(null)
+  const [slackTesting, setSlackTesting] = useState(false)
+  const [slackTestResult, setSlackTestResult] = useState<string | null>(null)
 
   useEffect(() => {
     Promise.all([
@@ -47,6 +51,8 @@ export default function SettingsPage() {
         conservativeMode: settings.appSettings?.conservativeMode,
         isEnabled: settings.digestSettings?.isEnabled,
         digestTime: settings.digestSettings?.digestTime,
+        slackWebhookUrl: settings.digestSettings?.slackWebhookUrl ?? null,
+        slackEnabled: settings.digestSettings?.slackEnabled ?? false,
       }),
     })
     setSaving(false)
@@ -230,6 +236,69 @@ export default function SettingsPage() {
                   onChange={e => setSettings(s => ({ ...s, digestSettings: { ...s.digestSettings!, digestTime: e.target.value } }))}
                   className="w-32"
                 />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Slack Integration */}
+          <Card>
+            <CardHeader><CardTitle>Slack Integration</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="slackEnabled"
+                  checked={settings.digestSettings?.slackEnabled ?? false}
+                  onChange={e => setSettings(s => ({ ...s, digestSettings: { ...(s.digestSettings ?? { isEnabled: true, digestTime: '09:00', timezone: 'Asia/Kolkata' }), slackEnabled: e.target.checked } }))}
+                  className="h-4 w-4 accent-action"
+                />
+                <label htmlFor="slackEnabled" className="text-sm font-medium text-ink">
+                  Send daily digest to Slack
+                </label>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-ink mb-1">Webhook URL</label>
+                <Input
+                  type="url"
+                  placeholder="https://hooks.slack.com/services/..."
+                  value={settings.digestSettings?.slackWebhookUrl ?? ''}
+                  onChange={e => setSettings(s => ({ ...s, digestSettings: { ...(s.digestSettings ?? { isEnabled: true, digestTime: '09:00', timezone: 'Asia/Kolkata' }), slackWebhookUrl: e.target.value } }))}
+                />
+                <p className="text-xs text-[rgb(11_18_32/55%)] mt-1">
+                  Get a webhook URL from{' '}
+                  <a href="https://api.slack.com/messaging/webhooks" target="_blank" rel="noreferrer" className="underline">
+                    https://api.slack.com/messaging/webhooks
+                  </a>
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={slackTesting || !settings.digestSettings?.slackWebhookUrl}
+                  onClick={async () => {
+                    setSlackTesting(true)
+                    setSlackTestResult(null)
+                    try {
+                      const res = await fetch('/api/integrations/slack/test', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ webhookUrl: settings.digestSettings?.slackWebhookUrl }),
+                      })
+                      const data = await res.json()
+                      setSlackTestResult(res.ok ? 'Test message sent!' : (data.error || 'Failed'))
+                    } catch {
+                      setSlackTestResult('Failed')
+                    } finally {
+                      setSlackTesting(false)
+                    }
+                  }}
+                >
+                  {slackTesting ? 'Sending...' : 'Send Test'}
+                </Button>
+                {slackTestResult && (
+                  <span className="text-xs text-[rgb(11_18_32/55%)]">{slackTestResult}</span>
+                )}
               </div>
             </CardContent>
           </Card>

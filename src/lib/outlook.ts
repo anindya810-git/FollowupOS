@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma'
 const TENANT = 'common'
 const AUTH_URL = `https://login.microsoftonline.com/${TENANT}/oauth2/v2.0/authorize`
 const TOKEN_URL = `https://login.microsoftonline.com/${TENANT}/oauth2/v2.0/token`
-const SCOPES = 'https://graph.microsoft.com/Mail.Read offline_access openid email profile'
+const SCOPES = 'https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Calendars.Read offline_access openid email profile'
 
 export interface OutlookMessage {
   id: string
@@ -272,4 +272,15 @@ export function isNoisyOutlookMessage(senderEmail: string, categories: string[] 
   if (categories.some(c => NOISE_CATEGORIES.includes(c))) return true
   const lowerSender = senderEmail.toLowerCase()
   return NOISE_SENDER_PATTERNS.some(p => lowerSender.includes(p))
+}
+
+export async function getUpcomingOutlookEvents(emailAccountId: string, hoursAhead = 48) {
+  const token = await getOutlookAccessToken(emailAccountId)
+  const start = new Date().toISOString()
+  const end = new Date(Date.now() + hoursAhead * 3600_000).toISOString()
+  const url = `https://graph.microsoft.com/v1.0/me/calendarView?startDateTime=${start}&endDateTime=${end}&$select=subject,start,attendees&$orderby=start/dateTime`
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}`, Prefer: 'outlook.timezone="UTC"' } })
+  if (!res.ok) return []
+  const data = await res.json()
+  return (data.value ?? []) as Array<{ id: string; subject?: string; start: { dateTime: string }; attendees?: Array<{ emailAddress: { address: string; name?: string } }> }>
 }

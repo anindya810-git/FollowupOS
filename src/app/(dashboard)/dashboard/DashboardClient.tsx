@@ -18,6 +18,7 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
   const [topItems, setTopItems] = useState<ActionItemWithThread[]>([])
   const [selected, setSelected] = useState<ActionItemWithThread | null>(null)
+  const [meetingsByEmail, setMeetingsByEmail] = useState<Record<string, { subject: string; startTime: string }>>({})
 
   const fetchData = async () => {
     const [s, t] = await Promise.all([
@@ -29,6 +30,13 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
   }
 
   useEffect(() => { fetchData() }, [])
+
+  useEffect(() => {
+    fetch('/api/calendar/meetings')
+      .then(r => r.ok ? r.json() : { meetings: {} })
+      .then(d => setMeetingsByEmail(d.meetings || {}))
+      .catch(() => {})
+  }, [])
 
   const handleStatusChange = async (id: string, status: string, extra?: Record<string, string>) => {
     await fetch(`/api/action-items/${id}/status`, {
@@ -74,14 +82,18 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
             </div>
           ) : (
             <div className="space-y-2">
-              {topItems.map(item => (
-                <ActionCard
-                  key={item.id}
-                  item={item}
-                  onStatusChange={handleStatusChange}
-                  onSelect={setSelected}
-                />
-              ))}
+              {topItems.map(item => {
+                const meeting = item.ownerEmail ? meetingsByEmail[item.ownerEmail.toLowerCase()] : undefined
+                return (
+                  <ActionCard
+                    key={item.id}
+                    item={item}
+                    meeting={meeting}
+                    onStatusChange={handleStatusChange}
+                    onSelect={setSelected}
+                  />
+                )
+              })}
             </div>
           )}
         </div>
