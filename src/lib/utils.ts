@@ -26,14 +26,7 @@ export function timeAgo(date: Date | string | null | undefined): string {
   return formatDate(d)
 }
 
-export function encrypt(text: string): string {
-  // Simple base64 encoding for MVP - in production use proper AES-256 encryption
-  return Buffer.from(text).toString('base64')
-}
-
-export function decrypt(text: string): string {
-  return Buffer.from(text, 'base64').toString('utf-8')
-}
+export { encrypt, decrypt } from './crypto'
 
 export function isBusinessDay(date: Date): boolean {
   const day = date.getDay()

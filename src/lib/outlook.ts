@@ -230,6 +230,41 @@ export async function getOutlookThreads(
   return threads
 }
 
+export async function sendOutlookReply(
+  emailAccountId: string,
+  _conversationId: string,
+  toEmail: string,
+  subject: string,
+  body: string,
+): Promise<unknown> {
+  const accessToken = await getOutlookAccessToken(emailAccountId)
+
+  const payload = {
+    message: {
+      subject,
+      body: { contentType: 'Text', content: body },
+      toRecipients: [{ emailAddress: { address: toEmail } }],
+    },
+    saveToSentItems: true,
+  }
+
+  const res = await fetch('https://graph.microsoft.com/v1.0/me/sendMail', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(`Outlook send failed: ${err}`)
+  }
+  // sendMail returns 202 Accepted with no body
+  return { accepted: true }
+}
+
 const NOISE_CATEGORIES = ['Junk Email', 'Newsletters']
 const NOISE_SENDER_PATTERNS = ['noreply', 'no-reply', 'donotreply', 'newsletter', 'marketing']
 

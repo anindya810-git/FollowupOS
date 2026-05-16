@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { categoryLabel, timeAgo } from '@/lib/utils'
-import { X, ExternalLink, Copy, Loader2, Check } from 'lucide-react'
+import { X, ExternalLink, Copy, Loader2, Check, Send } from 'lucide-react'
 import { playChime } from '@/lib/sounds'
 import type { ActionItemWithThread } from '@/types'
 
@@ -19,6 +19,9 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
   const [generating, setGenerating] = useState(false)
   const [copied, setCopied] = useState(false)
   const [detail, setDetail] = useState<ActionItemWithThread | null>(null)
+  const [sending, setSending] = useState(false)
+  const [confirmingSend, setConfirmingSend] = useState(false)
+  const [sendError, setSendError] = useState<string | null>(null)
 
   useEffect(() => {
     if (item) {
@@ -53,6 +56,31 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
     navigator.clipboard.writeText(draft)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const sendReply = async () => {
+    if (!item) return
+    setSending(true)
+    setSendError(null)
+    try {
+      const res = await fetch(`/api/action-items/${item.id}/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: draft }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Send failed')
+      }
+      playChime('done')
+      onStatusChange(item.id, 'done')
+      onClose()
+    } catch (e) {
+      setSendError(e instanceof Error ? e.message : 'Send failed')
+    } finally {
+      setSending(false)
+      setConfirmingSend(false)
+    }
   }
 
   const providerLabel = active.emailThread?.providerUrl?.includes('outlook') ? 'Outlook' : 'Gmail'
@@ -150,17 +178,51 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
                 </Button>
               </div>
               {draft && (
-                <div className="relative">
-                  <pre className="whitespace-pre-wrap text-sm text-ink bg-paper-2 border border-rule rounded-md p-3 font-sans text-xs leading-relaxed">
-                    {draft}
-                  </pre>
-                  <button
-                    onClick={copy}
-                    className="absolute top-2 right-2 flex items-center gap-1 text-[11px] text-[rgb(11_18_32/55%)] hover:text-ink bg-white border border-[rgb(11_18_32/10%)] rounded px-2 py-1 transition-colors"
-                  >
-                    {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                    {copied ? 'Copied' : 'Copy'}
-                  </button>
+                <div className="space-y-2">
+                  <div className="relative">
+                    <pre className="whitespace-pre-wrap text-sm text-ink bg-paper-2 border border-rule rounded-md p-3 font-sans text-xs leading-relaxed">
+                      {draft}
+                    </pre>
+                    <button
+                      onClick={copy}
+                      className="absolute top-2 right-2 flex items-center gap-1 text-[11px] text-[rgb(11_18_32/55%)] hover:text-ink bg-white border border-[rgb(11_18_32/10%)] rounded px-2 py-1 transition-colors"
+                    >
+                      {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                      {copied ? 'Copied' : 'Copy'}
+                    </button>
+                  </div>
+                  {!confirmingSend ? (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => { setSendError(null); setConfirmingSend(true) }}
+                        disabled={sending || !active.ownerEmail}
+                      >
+                        <Send className="h-3.5 w-3.5 mr-1.5" />
+                        Send Reply
+                      </Button>
+                      {sendError && (
+                        <span className="text-[11px] text-action">{sendError}</span>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 bg-paper-2 border border-rule rounded-md px-3 py-2">
+                      <span className="text-xs text-ink">
+                        Send this reply to {active.ownerEmail || active.emailThread?.messages?.[0]?.senderEmail}?
+                      </span>
+                      <Button size="sm" onClick={sendReply} disabled={sending}>
+                        {sending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Confirm'}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setConfirmingSend(false)}
+                        disabled={sending}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
