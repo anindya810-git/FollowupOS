@@ -1,0 +1,239 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id                   String    @id @default(cuid())
+  name                 String?
+  email                String    @unique
+  emailVerified        DateTime?
+  image                String?
+  timezone             String    @default("Asia/Kolkata")
+  onboardingCompleted  Boolean   @default(false)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  accounts       Account[]
+  sessions       Session[]
+  emailAccounts  EmailAccount[]
+  emailThreads   EmailThread[]
+  emailMessages  EmailMessage[]
+  actionItems    ActionItem[]
+  aiLogs         AiClassificationLog[]
+  userFeedback   UserFeedback[]
+  ignoredSenders IgnoredSender[]
+  digestSettings DigestSettings?
+  appSettings    AppSettings?
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model EmailAccount {
+  id                    String    @id @default(cuid())
+  userId                String
+  provider              String    @default("gmail")
+  emailAddress          String
+  accessTokenEncrypted  String?
+  refreshTokenEncrypted String?
+  tokenExpiresAt        DateTime?
+  connectedStatus       String    @default("connected")
+  lastSyncedAt          DateTime?
+  initialScanCompleted  Boolean   @default(false)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailThreads EmailThread[]
+
+  @@unique([userId, emailAddress])
+}
+
+model EmailThread {
+  id                  String    @id @default(cuid())
+  userId              String
+  emailAccountId      String
+  provider            String    @default("gmail")
+  providerThreadId    String
+  subject             String?
+  participants        String?
+  lastMessageAt       DateTime?
+  lastMessageFromUser Boolean   @default(false)
+  providerUrl         String?
+  threadHash          String?
+  isNoise             Boolean   @default(false)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailAccount EmailAccount   @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  messages     EmailMessage[]
+  actionItems  ActionItem[]
+  aiLogs       AiClassificationLog[]
+
+  @@unique([emailAccountId, providerThreadId])
+}
+
+model EmailMessage {
+  id                String    @id @default(cuid())
+  userId            String
+  emailThreadId     String
+  providerMessageId String
+  senderEmail       String?
+  senderName        String?
+  recipients        String?
+  cc                String?
+  sentAt            DateTime?
+  snippet           String?
+  bodyExcerpt       String?
+  bodyHash          String?
+  isFromUser        Boolean   @default(false)
+  labels            String?
+  createdAt         DateTime  @default(now())
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailThread EmailThread @relation(fields: [emailThreadId], references: [id], onDelete: Cascade)
+
+  @@unique([emailThreadId, providerMessageId])
+}
+
+model ActionItem {
+  id              String    @id @default(cuid())
+  userId          String
+  emailThreadId   String?
+  source          String    @default("gmail")
+  category        String
+  status          String    @default("open")
+  priority        String    @default("medium")
+  title           String?
+  reason          String?
+  suggestedAction String?
+  dueDate         String?
+  ownerType       String?
+  ownerName       String?
+  ownerEmail      String?
+  confidenceScore Float?
+  lastActivityAt  DateTime?
+  snoozedUntil    String?
+  completedAt     DateTime?
+  ignoredReason   String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailThread EmailThread? @relation(fields: [emailThreadId], references: [id], onDelete: Cascade)
+  feedback    UserFeedback[]
+}
+
+model AiClassificationLog {
+  id              String   @id @default(cuid())
+  userId          String
+  emailThreadId   String?
+  modelProvider   String?
+  modelName       String?
+  inputHash       String?
+  outputJson      String?
+  confidenceScore Float?
+  errorMessage    String?
+  createdAt       DateTime @default(now())
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailThread EmailThread? @relation(fields: [emailThreadId], references: [id], onDelete: Cascade)
+}
+
+model UserFeedback {
+  id            String   @id @default(cuid())
+  userId        String
+  actionItemId  String?
+  feedbackType  String
+  feedbackValue String?
+  createdAt     DateTime @default(now())
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  actionItem ActionItem? @relation(fields: [actionItemId], references: [id], onDelete: Cascade)
+}
+
+model IgnoredSender {
+  id          String   @id @default(cuid())
+  userId      String
+  senderEmail String?
+  domain      String?
+  reason      String?
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model DigestSettings {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  isEnabled  Boolean  @default(true)
+  digestTime String   @default("09:00")
+  timezone   String   @default("Asia/Kolkata")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AppSettings {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  defaultFollowupDays Int      @default(3)
+  scanWindowDays      Int      @default(30)
+  conservativeMode    Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ScanJob {
+  id                 String   @id @default(cuid())
+  userId             String
+  emailAccountId     String
+  status             String   @default("queued")
+  threadsFound       Int      @default(0)
+  threadsProcessed   Int      @default(0)
+  actionItemsCreated Int      @default(0)
+  errorMessage       String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
