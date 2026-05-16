@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Header } from '@/components/layout/Header'
 import { ActionCard } from '@/components/action/ActionCard'
 import { ActionDrawer } from '@/components/action/ActionDrawer'
+import { OnboardingTour } from '@/components/onboarding/OnboardingTour'
 import type { DashboardSummary, ActionItemWithThread } from '@/types'
 
 const METRICS = [
@@ -14,11 +15,12 @@ const METRICS = [
   { key: 'snoozed', label: 'Snoozed', href: '/queue?status=snoozed' },
 ] as const
 
-export function DashboardClient({ userEmail }: { userEmail: string }) {
+export function DashboardClient({ userEmail, showOnboarding = false }: { userEmail: string; showOnboarding?: boolean }) {
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
   const [topItems, setTopItems] = useState<ActionItemWithThread[]>([])
   const [selected, setSelected] = useState<ActionItemWithThread | null>(null)
   const [meetingsByEmail, setMeetingsByEmail] = useState<Record<string, { subject: string; startTime: string }>>({})
+  const [showTour, setShowTour] = useState(showOnboarding)
 
   const fetchData = async () => {
     const [s, t] = await Promise.all([
@@ -100,6 +102,8 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
       </main>
 
       <ActionDrawer item={selected} onClose={() => setSelected(null)} onStatusChange={handleStatusChange} />
+
+      {showTour && <OnboardingTour onComplete={() => setShowTour(false)} />}
     </>
   )
 }
