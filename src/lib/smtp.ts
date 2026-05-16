@@ -17,7 +17,7 @@ function smtpConfigForProvider(provider: string, imapHost: string | null): SmtpC
       return { host: 'smtp.mail.me.com', port: 587, secure: false }
     default: {
       // Generic IMAP — try to derive an SMTP host. Best-effort: replace imap. with smtp.
-      const host = imapHost ? imapHost.replace(/^imap\./i, 'smtp.') : 'localhost'
+      const host = imapHost ? imapHost.replace(/^imap\./i, 'smtp.') : ''
       return { host, port: 587, secure: false }
     }
   }
@@ -36,6 +36,10 @@ export async function sendSmtpReply(
 
   const password = decrypt(account.passwordEncrypted)
   const cfg = smtpConfigForProvider(account.provider, account.imapHost)
+
+  if (!isSafePublicHostname(cfg.host)) {
+    throw new Error(`Refusing to send via unsafe SMTP host: ${cfg.host || '(empty)'}`)
+  }
 
   const transporter = nodemailer.createTransport({
     host: cfg.host,

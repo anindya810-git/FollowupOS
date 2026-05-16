@@ -1,3 +1,5 @@
+import { isSlackWebhookUrl } from './net-safety'
+
 interface DigestPayload {
   userName?: string
   totalOpen: number
@@ -6,6 +8,9 @@ interface DigestPayload {
 }
 
 export async function sendSlackDigest(webhookUrl: string, payload: DigestPayload) {
+  if (!isSlackWebhookUrl(webhookUrl)) {
+    throw new Error('Invalid Slack webhook URL — must be https://hooks.slack.com/...')
+  }
   const blocks: unknown[] = [
     { type: 'header', text: { type: 'plain_text', text: `📬 Your Pendingly digest` } },
     { type: 'section', fields: [

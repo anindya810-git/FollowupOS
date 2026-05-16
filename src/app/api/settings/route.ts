@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { isSlackWebhookUrl } from '@/lib/net-safety'
 
 export async function GET() {
   const session = await auth()
@@ -43,7 +44,12 @@ export async function PATCH(request: NextRequest) {
   if (isEnabled !== undefined) digestData.isEnabled = isEnabled
   if (digestTime !== undefined) digestData.digestTime = digestTime
   if (timezone !== undefined) digestData.timezone = timezone
-  if (slackWebhookUrl !== undefined) digestData.slackWebhookUrl = slackWebhookUrl || null
+  if (slackWebhookUrl !== undefined) {
+    if (slackWebhookUrl && !isSlackWebhookUrl(String(slackWebhookUrl))) {
+      return NextResponse.json({ error: 'Invalid Slack webhook URL' }, { status: 400 })
+    }
+    digestData.slackWebhookUrl = slackWebhookUrl || null
+  }
   if (slackEnabled !== undefined) digestData.slackEnabled = slackEnabled
 
   await Promise.all([
