@@ -25,8 +25,9 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
       setDetail(null)
       setDraft('')
       fetch(`/api/action-items/${item.id}`)
-        .then(r => r.json())
-        .then(d => setDetail(d.item))
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { if (d?.item) setDetail(d.item) })
+        .catch(() => {})
     }
   }, [item?.id])
 
@@ -87,7 +88,7 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
             <h2 className="text-base font-semibold text-ink leading-snug">
               {active.title || active.emailThread?.subject}
             </h2>
-            {active.ownerEmail && (
+            {(active.ownerName || active.ownerEmail) && (
               <p className="text-sm text-[rgb(11_18_32/55%)] mt-1">{active.ownerName} · {active.ownerEmail}</p>
             )}
             <p className="text-xs text-[rgb(11_18_32/30%)] mt-1">

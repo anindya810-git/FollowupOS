@@ -8,8 +8,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const body = await request.json()
-  const { account_id, scan_window_days = 30 } = body
+  let body: Record<string, unknown>
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
+  const account_id = typeof body.account_id === 'string' ? body.account_id : undefined
+  const scan_window_days = typeof body.scan_window_days === 'number' ? body.scan_window_days : 30
 
   const account = await prisma.emailAccount.findFirst({
     where: { id: account_id, userId: session.user.id, connectedStatus: 'connected' },

@@ -23,7 +23,12 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const body = await request.json()
+  let body: Record<string, unknown>
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
   const { defaultFollowupDays, scanWindowDays, conservativeMode, isEnabled, digestTime, timezone } = body
 
   const appData: Record<string, unknown> = {}

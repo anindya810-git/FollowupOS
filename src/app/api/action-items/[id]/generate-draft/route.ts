@@ -13,8 +13,14 @@ export async function POST(
   }
 
   const { id } = await params
-  const body = await request.json()
-  const { tone = 'polite', output_type = 'email_reply' } = body
+  let body: Record<string, unknown>
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
+  const tone = typeof body.tone === 'string' ? body.tone : 'polite'
+  const output_type = typeof body.output_type === 'string' ? body.output_type : 'email_reply'
 
   const item = await prisma.actionItem.findFirst({
     where: { id, userId: session.user.id },

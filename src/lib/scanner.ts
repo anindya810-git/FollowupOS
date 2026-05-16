@@ -718,5 +718,15 @@ async function processThread(params: {
     })
   }
 
+  // Upsert sender contacts from messages
+  for (const sc of senderContactsToUpsert) {
+    await upsertContact(userId, sc.email, sc.name)
+  }
+
+  // Upsert contact for action item owner
+  if (result.owner_email && result.owner_name) {
+    await upsertContact(userId, result.owner_email, result.owner_name)
+  }
+
   return true
 }

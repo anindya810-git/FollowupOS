@@ -24,6 +24,8 @@ export default function SettingsPage() {
   const [newSender, setNewSender] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [syncingContacts, setSyncingContacts] = useState(false)
+  const [contactsSynced, setContactsSynced] = useState<number | null>(null)
 
   useEffect(() => {
     Promise.all([
@@ -96,6 +98,18 @@ export default function SettingsPage() {
     setSettings(s => ({ ...s, ignoredSenders: s.ignoredSenders.filter(x => x.id !== id) }))
   }
 
+  const syncContacts = async () => {
+    setSyncingContacts(true)
+    setContactsSynced(null)
+    try {
+      const res = await fetch('/api/contacts', { method: 'POST' })
+      const data = await res.json()
+      setContactsSynced(data.synced ?? 0)
+    } finally {
+      setSyncingContacts(false)
+    }
+  }
+
   const deleteAccount = async () => {
     if (!confirm('Delete your account and all data? This cannot be undone.')) return
     await fetch('/api/account', { method: 'DELETE' })
@@ -135,7 +149,7 @@ export default function SettingsPage() {
                   ))}
                 </div>
               )}
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <Button
                   variant="outline"
                   size="sm"
@@ -150,6 +164,21 @@ export default function SettingsPage() {
                 >
                   + Add Outlook
                 </Button>
+              </div>
+              <div className="mt-4 flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={syncContacts}
+                  disabled={syncingContacts}
+                >
+                  {syncingContacts ? 'Syncing...' : 'Sync Contact Names'}
+                </Button>
+                {contactsSynced !== null && (
+                  <span className="text-xs text-[rgb(11_18_32/55%)]">
+                    Synced {contactsSynced} contact{contactsSynced !== 1 ? 's' : ''}
+                  </span>
+                )}
               </div>
             </CardContent>
           </Card>
