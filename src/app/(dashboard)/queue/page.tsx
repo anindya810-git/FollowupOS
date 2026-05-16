@@ -45,9 +45,11 @@ function QueueContent() {
     setLoading(false)
   }, [status, category, priority, search, page])
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { fetchItems() }, [fetchItems])
 
   // Clear selection when filters change
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setSelectedIds(new Set()) }, [status, category, priority, search, page])
 
   const handleStatusChange = async (id: string, statusVal: string, extra?: Record<string, string>) => {

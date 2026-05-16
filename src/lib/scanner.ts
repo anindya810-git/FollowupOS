@@ -4,7 +4,7 @@ import { getOutlookAccessToken, getOutlookThreads, isNoisyOutlookMessage } from 
 import { getImapThreads, isNoisyImapSender } from './imap'
 import { classifyThread } from './ai'
 import { upsertContact } from './contacts'
-import type { ClassificationInput, AiClassificationOutput } from '@/types'
+import type { ClassificationInput } from '@/types'
 import crypto from 'crypto'
 
 export async function runInitialScan(jobId: string, userId: string, emailAccountId: string, scanWindowDays: number = 30) {

@@ -5,7 +5,6 @@ import { ImapConnectForm } from './ImapConnectForm'
 
 type OAuthProvider = 'gmail' | 'outlook'
 type ImapProvider = 'zoho' | 'apple' | 'imap'
-type AnyProvider = OAuthProvider | ImapProvider
 
 export function ConnectProviderButtons() {
   const [oauthLoading, setOauthLoading] = useState<OAuthProvider | null>(null)

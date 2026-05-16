@@ -25,6 +25,7 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
 
   useEffect(() => {
     if (item) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDetail(null)
       setDraft('')
       fetch(`/api/action-items/${item.id}`)
@@ -32,6 +33,7 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
         .then(d => { if (d?.item) setDetail(d.item) })
         .catch(() => {})
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item?.id])
 
   if (!item) return null

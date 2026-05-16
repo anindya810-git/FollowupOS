@@ -35,17 +35,20 @@ export function DonutChart({ segments, size = 140 }: DonutChartProps) {
   const circumference = 2 * Math.PI * outerR
 
   // Build segments
-  let offset = 0
   const svgSegments = segments
     .filter(s => s.value > 0)
-    .map(seg => {
-      const ratio = seg.value / total
-      const dash = ratio * circumference
-      const gap = circumference - dash
-      const startOffset = circumference - offset * circumference
-      offset += ratio
-      return { ...seg, dash, gap, strokeDashoffset: startOffset }
-    })
+    .reduce<Array<{ label: string; value: number; color: string; dash: number; gap: number; strokeDashoffset: number }>>(
+      (acc, seg) => {
+        const ratio = seg.value / total
+        const dash = ratio * circumference
+        const gap = circumference - dash
+        const priorOffset = acc.reduce((sum, s) => sum + s.value / total, 0)
+        const startOffset = circumference - priorOffset * circumference
+        acc.push({ ...seg, dash, gap, strokeDashoffset: startOffset })
+        return acc
+      },
+      []
+    )
 
   return (
     <div className="flex flex-col items-center gap-4">

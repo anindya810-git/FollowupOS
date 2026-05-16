@@ -27,6 +27,7 @@ npm run dev                     # http://localhost:3000
 ```
 DATABASE_URL=file:./prisma/dev.db
 NEXTAUTH_URL=http://localhost:3000
+APP_BASE_URL=http://localhost:3000
 NEXTAUTH_SECRET=<openssl rand -base64 32>
 ENCRYPTION_KEY=<openssl rand -base64 32>
 ANTHROPIC_API_KEY=<from console.anthropic.com>

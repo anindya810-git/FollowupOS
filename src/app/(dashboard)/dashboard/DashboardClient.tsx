@@ -31,6 +31,7 @@ export function DashboardClient({ userEmail, showOnboarding = false }: { userEma
     setTopItems(t.items || [])
   }
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { fetchData() }, [])
 
   useEffect(() => {

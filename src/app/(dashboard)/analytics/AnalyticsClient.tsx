@@ -159,6 +159,7 @@ export function AnalyticsClient({ userEmail }: { userEmail: string }) {
     }
   }
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void fetchAll() }, [])
 
   // ── Derived data for charts ──────────────────────────────────────

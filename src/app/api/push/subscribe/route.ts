@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
       p256dh: body.keys.p256dh,
       auth: body.keys.auth,
     },
-    update: { p256dh: body.keys.p256dh, auth: body.keys.auth },
+    update: { userId: session.user.id, p256dh: body.keys.p256dh, auth: body.keys.auth },
   })
   return NextResponse.json({ ok: true })
 }
