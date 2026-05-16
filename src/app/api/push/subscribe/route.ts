@@ -14,6 +14,15 @@ export async function POST(request: NextRequest) {
   if (!body.endpoint || !body.keys?.p256dh || !body.keys?.auth) {
     return NextResponse.json({ error: 'Invalid subscription' }, { status: 400 })
   }
+  // Push endpoints must be https — guard against attacker-controlled subscriptions later.
+  try {
+    const u = new URL(body.endpoint)
+    if (u.protocol !== 'https:') {
+      return NextResponse.json({ error: 'Push endpoint must be https' }, { status: 400 })
+    }
+  } catch {
+    return NextResponse.json({ error: 'Invalid endpoint URL' }, { status: 400 })
+  }
 
   await prisma.pushSubscription.upsert({
     where: { endpoint: body.endpoint },

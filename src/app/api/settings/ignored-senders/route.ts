@@ -8,8 +8,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const body = await request.json()
-  const { sender_email, domain, reason } = body
+  let body: { sender_email?: unknown; domain?: unknown; reason?: unknown }
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
+  const sender_email = typeof body.sender_email === 'string' ? body.sender_email : null
+  const domain = typeof body.domain === 'string' ? body.domain : null
+  const reason = typeof body.reason === 'string' ? body.reason : null
+
+  if (!sender_email && !domain) {
+    return NextResponse.json({ error: 'sender_email or domain required' }, { status: 400 })
+  }
 
   const record = await prisma.ignoredSender.create({
     data: {

@@ -8,8 +8,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const body = await request.json()
-  const { account_id } = body
+  let body: { account_id?: unknown }
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
+  const account_id = typeof body.account_id === 'string' ? body.account_id : null
 
   if (!account_id) {
     return NextResponse.json({ error: 'account_id is required' }, { status: 400 })

@@ -170,6 +170,7 @@ model ActionItem {
   snoozedUntil    String?
   completedAt     DateTime?
   ignoredReason   String?
+  lastAutoFollowupAt DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 

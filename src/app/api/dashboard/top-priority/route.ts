@@ -8,17 +8,16 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  // priority is stored as a string ("high"|"medium"|"low"). Alphabetical
+  // sort puts "high" first only by accident; sort in app code for correctness.
   const items = await prisma.actionItem.findMany({
     where: {
       userId: session.user.id,
       status: 'open',
       category: { not: 'no_action_needed' },
     },
-    orderBy: [
-      { priority: 'asc' },
-      { lastActivityAt: 'desc' },
-    ],
-    take: 10,
+    orderBy: { lastActivityAt: 'desc' },
+    take: 50,
     include: {
       emailThread: {
         select: {
@@ -31,5 +30,8 @@ export async function GET() {
     },
   })
 
-  return NextResponse.json({ items })
+  const rank: Record<string, number> = { high: 0, medium: 1, low: 2 }
+  items.sort((a, b) => (rank[a.priority] ?? 3) - (rank[b.priority] ?? 3))
+
+  return NextResponse.json({ items: items.slice(0, 10) })
 }

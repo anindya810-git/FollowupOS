@@ -9,6 +9,9 @@ export async function POST(request: NextRequest) {
   let body: { webhookUrl?: string }
   try { body = await request.json() } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
   if (!body.webhookUrl) return NextResponse.json({ error: 'Webhook URL required' }, { status: 400 })
+  if (!isSlackWebhookUrl(body.webhookUrl)) {
+    return NextResponse.json({ error: 'Invalid Slack webhook URL — must be https://hooks.slack.com/...' }, { status: 400 })
+  }
   try {
     await sendSlackDigest(body.webhookUrl, {
       totalOpen: 0, overdueCount: 0,

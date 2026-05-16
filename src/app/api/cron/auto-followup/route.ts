@@ -12,7 +12,8 @@ async function runAutoFollowup() {
   let failed = 0
 
   for (const settings of enabledUsers) {
-    const cutoff = new Date(Date.now() - settings.autoFollowupDays * 86400_000)
+    const intervalMs = settings.autoFollowupDays * 86400_000
+    const cutoff = new Date(Date.now() - intervalMs)
     const items = await prisma.actionItem.findMany({
       where: {
         userId: settings.userId,
@@ -20,6 +21,11 @@ async function runAutoFollowup() {
         category: 'waiting_on_them',
         lastActivityAt: { lt: cutoff },
         ownerEmail: { not: null },
+        // Skip items we've already auto-followed-up on within the configured interval
+        OR: [
+          { lastAutoFollowupAt: null },
+          { lastAutoFollowupAt: { lt: cutoff } },
+        ],
       },
       include: {
         emailThread: {
@@ -85,11 +91,13 @@ async function runAutoFollowup() {
           }
         }
 
+        const now = new Date()
         await prisma.actionItem.update({
           where: { id: item.id },
           data: {
-            lastActivityAt: new Date(),
-            reason: `Auto-follow-up sent on ${new Date().toISOString().split('T')[0]}`,
+            lastActivityAt: now,
+            lastAutoFollowupAt: now,
+            reason: `Auto-follow-up sent on ${now.toISOString().split('T')[0]}`,
           },
         })
         sent++
