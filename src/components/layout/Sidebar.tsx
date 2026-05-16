@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   Archive,
   Settings,
+  BarChart2,
 } from 'lucide-react'
 
 const navGroups = [
@@ -19,6 +20,7 @@ const navGroups = [
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { href: '/queue', label: 'All Items', icon: ListTodo },
+      { href: '/analytics', label: 'Analytics', icon: BarChart2 },
     ],
   },
   {
