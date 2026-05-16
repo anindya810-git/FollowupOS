@@ -18,6 +18,7 @@ export async function GET() {
       lastSyncedAt: true,
       initialScanCompleted: true,
     },
+    orderBy: { createdAt: 'asc' },
   })
 
   return NextResponse.json({ accounts })
