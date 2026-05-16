@@ -7,13 +7,20 @@ import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Trash2, Plus, AlertTriangle } from 'lucide-react'
 
+interface EmailAccount {
+  id: string
+  emailAddress: string
+  provider: string
+  connectedStatus: string
+}
+
 export default function SettingsPage() {
   const [settings, setSettings] = useState<{
     appSettings: { defaultFollowupDays: number; scanWindowDays: number; conservativeMode: boolean } | null
     digestSettings: { isEnabled: boolean; digestTime: string; timezone: string } | null
     ignoredSenders: Array<{ id: string; senderEmail?: string; domain?: string; reason?: string }>
   }>({ appSettings: null, digestSettings: null, ignoredSenders: [] })
-  const [integrations, setIntegrations] = useState<Array<{ id: string; emailAddress: string; connectedStatus: string }>>([])
+  const [integrations, setIntegrations] = useState<EmailAccount[]>([])
   const [newSender, setNewSender] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -45,10 +52,22 @@ export default function SettingsPage() {
     setTimeout(() => setSaved(false), 2000)
   }
 
-  const disconnectGmail = async () => {
-    if (!confirm('Disconnect Gmail? This will stop future scans.')) return
-    await fetch('/api/integrations/gmail/disconnect', { method: 'POST' })
-    window.location.href = '/'
+  const disconnectAccount = async (account: EmailAccount) => {
+    const providerLabel = account.provider === 'outlook' ? 'Outlook' : 'Gmail'
+    if (!confirm(`Disconnect ${account.emailAddress} (${providerLabel})? This will stop future scans.`)) return
+
+    const endpoint =
+      account.provider === 'outlook'
+        ? '/api/integrations/outlook/disconnect'
+        : '/api/integrations/gmail/disconnect'
+
+    await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ account_id: account.id }),
+    })
+
+    setIntegrations(prev => prev.filter(a => a.id !== account.id))
   }
 
   const addIgnoredSender = async () => {
@@ -84,21 +103,49 @@ export default function SettingsPage() {
             <CardHeader><CardTitle>Connected Inboxes</CardTitle></CardHeader>
             <CardContent>
               {integrations.length === 0 ? (
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-500">No Gmail account connected</span>
-                  <Button onClick={() => window.location.href = '/connect'}>Connect Gmail</Button>
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-gray-500">No email accounts connected</span>
                 </div>
               ) : (
-                integrations.map(account => (
-                  <div key={account.id} className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">{account.emailAddress}</p>
-                      <p className="text-sm text-gray-500 capitalize">{account.connectedStatus}</p>
+                <div className="space-y-3 mb-4">
+                  {integrations.map(account => (
+                    <div key={account.id} className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-4 py-3">
+                      <div>
+                        <p className="font-medium text-gray-900">{account.emailAddress}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium ${
+                            account.provider === 'outlook'
+                              ? 'bg-blue-100 text-blue-700'
+                              : 'bg-red-100 text-red-700'
+                          }`}>
+                            {account.provider === 'outlook' ? 'Outlook' : 'Gmail'}
+                          </span>
+                          <span className="text-xs text-gray-500 capitalize">{account.connectedStatus}</span>
+                        </div>
+                      </div>
+                      <Button variant="destructive" size="sm" onClick={() => disconnectAccount(account)}>
+                        Disconnect
+                      </Button>
                     </div>
-                    <Button variant="destructive" size="sm" onClick={disconnectGmail}>Disconnect</Button>
-                  </div>
-                ))
+                  ))}
+                </div>
               )}
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { window.location.href = '/api/integrations/gmail/connect' }}
+                >
+                  + Add Gmail
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { window.location.href = '/api/integrations/outlook/connect' }}
+                >
+                  + Add Outlook
+                </Button>
+              </div>
             </CardContent>
           </Card>
 

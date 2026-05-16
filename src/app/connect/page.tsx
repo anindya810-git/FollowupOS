@@ -1,6 +1,6 @@
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
-import { ConnectGmailButton } from '@/components/auth/ConnectGmailButton'
+import { ConnectProviderButtons } from '@/components/auth/ConnectProviderButtons'
 import { Shield, Eye, Zap, Clock } from 'lucide-react'
 
 export default async function ConnectPage() {
@@ -9,13 +9,13 @@ export default async function ConnectPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full">
+      <div className="max-w-lg w-full">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-4">
             <Zap className="h-8 w-8 text-indigo-600" />
             <span className="text-2xl font-bold text-gray-900">FollowUpOS</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Connect your Gmail</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Choose your email provider</h1>
           <p className="text-gray-600">
             FollowUpOS will scan your last 30 days of emails to build your action queue.
           </p>
@@ -38,7 +38,7 @@ export default async function ConnectPage() {
           </div>
         </div>
 
-        <ConnectGmailButton />
+        <ConnectProviderButtons />
 
         <p className="mt-4 text-center text-xs text-gray-400">
           Your data is processed to detect follow-ups only. We do not train AI models on your email data.
