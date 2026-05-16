@@ -53,6 +53,9 @@ export default function SettingsPage() {
         digestTime: settings.digestSettings?.digestTime,
         slackWebhookUrl: settings.digestSettings?.slackWebhookUrl ?? null,
         slackEnabled: settings.digestSettings?.slackEnabled ?? false,
+        autoFollowupEnabled: settings.appSettings?.autoFollowupEnabled ?? false,
+        autoFollowupDays: settings.appSettings?.autoFollowupDays ?? 3,
+        autoFollowupTemplate: settings.appSettings?.autoFollowupTemplate ?? null,
       }),
     })
     setSaving(false)
@@ -326,6 +329,69 @@ export default function SettingsPage() {
                   </Button>
                 </div>
               ))}
+            </CardContent>
+          </Card>
+
+          {/* Notifications */}
+          <Card>
+            <CardHeader><CardTitle>Notifications</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-[rgb(11_18_32/55%)]">
+                Get push notifications on this device when follow-ups are pending.
+              </p>
+              <PushNotificationToggle />
+            </CardContent>
+          </Card>
+
+          {/* Automation */}
+          <Card>
+            <CardHeader><CardTitle>Automation</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="rounded-md border border-[rgb(242_90_60/30%)] bg-[rgb(242_90_60/8%)] p-3 flex gap-2 items-start">
+                <AlertTriangle className="h-4 w-4 text-action mt-0.5 shrink-0" />
+                <p className="text-xs text-ink">
+                  Auto-follow-up will send emails on your behalf. Review your template carefully.
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="autoFollowupEnabled"
+                  checked={settings.appSettings?.autoFollowupEnabled ?? false}
+                  onChange={e => setSettings(s => ({ ...s, appSettings: { ...s.appSettings!, autoFollowupEnabled: e.target.checked } }))}
+                  className="h-4 w-4 accent-action"
+                />
+                <label htmlFor="autoFollowupEnabled" className="text-sm font-medium text-ink">
+                  Enable auto follow-up
+                </label>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-ink mb-1">
+                  Days of silence before sending
+                </label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={30}
+                  value={settings.appSettings?.autoFollowupDays ?? 3}
+                  onChange={e => setSettings(s => ({ ...s, appSettings: { ...s.appSettings!, autoFollowupDays: parseInt(e.target.value) || 3 } }))}
+                  className="w-32"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-ink mb-1">
+                  Email template
+                </label>
+                <textarea
+                  value={settings.appSettings?.autoFollowupTemplate ?? DEFAULT_FOLLOWUP_TEMPLATE}
+                  onChange={e => setSettings(s => ({ ...s, appSettings: { ...s.appSettings!, autoFollowupTemplate: e.target.value } }))}
+                  rows={8}
+                  className="w-full rounded-md border border-rule bg-white px-3 py-2 text-sm text-ink"
+                />
+                <p className="text-xs text-[rgb(11_18_32/55%)] mt-1">
+                  Available variables: {`{{name}}`}, {`{{firstName}}`}
+                </p>
+              </div>
             </CardContent>
           </Card>
 
