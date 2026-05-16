@@ -34,14 +34,19 @@ const navGroups = [
   },
 ]
 
-export function Sidebar() {
+export function Sidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname()
 
   return (
-    <div className="flex h-screen w-60 flex-col bg-ink text-white">
+    <div className="flex h-screen w-60 flex-shrink-0 flex-col bg-ink text-white">
       <div className="flex h-14 items-center px-5 border-b border-[rgb(255_255_255/8%)]">
         <LogoMark className="h-6 w-6 mr-2.5 flex-shrink-0" variant="reversed" />
         <span className="text-xl font-semibold tracking-[-0.028em] leading-none text-white">Pendingly</span>
+        <button onClick={onClose} className="ml-auto flex items-center justify-center w-8 h-8 rounded text-[#8C94A4] hover:text-white md:hidden" aria-label="Close menu">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M1 1L13 13M13 1L1 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+          </svg>
+        </button>
       </div>
 
       <nav className="flex-1 overflow-y-auto py-4 px-2">
@@ -61,7 +66,7 @@ export function Sidebar() {
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    'flex items-center gap-2.5 px-4 py-2 text-sm rounded-md transition-all duration-150',
+                    'flex items-center gap-2.5 px-4 py-2.5 md:py-2 text-sm rounded-md transition-all duration-150',
                     isActive
                       ? 'border-l-2 border-action bg-[rgb(255_255_255/8%)] text-white pl-[14px]'
                       : 'text-[#8C94A4] hover:text-white hover:bg-[rgb(255_255_255/5%)]'
