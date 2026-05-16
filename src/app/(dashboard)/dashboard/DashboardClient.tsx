@@ -4,6 +4,7 @@ import { Header } from '@/components/layout/Header'
 import { ActionCard } from '@/components/action/ActionCard'
 import { ActionDrawer } from '@/components/action/ActionDrawer'
 import { OnboardingTour } from '@/components/onboarding/OnboardingTour'
+import { IntelliAction, type SerializedItem } from '@/components/dashboard/IntelliAction'
 import type { DashboardSummary, ActionItemWithThread } from '@/types'
 
 const METRICS = [
@@ -50,11 +51,34 @@ export function DashboardClient({ userEmail, showOnboarding = false }: { userEma
     fetchData()
   }
 
+  const handleSelectFromIntelli = async (s: SerializedItem) => {
+    try {
+      const res = await fetch(`/api/action-items/${s.id}`)
+      if (!res.ok) return
+      const data = await res.json()
+      if (data?.item) setSelected(data.item)
+    } catch {
+      // ignore
+    }
+  }
+
   return (
     <>
       <Header title="Dashboard" userEmail={userEmail} onSync={fetchData} />
       <main className="p-4 md:p-6 max-w-4xl">
-        {/* Metric grid */}
+        <IntelliAction
+          onSelectItem={handleSelectFromIntelli}
+          onStatusChange={handleStatusChange}
+          meetingsByEmail={meetingsByEmail}
+        />
+
+        {/* At-a-glance metrics */}
+        <p
+          className="text-[11px] uppercase tracking-widest text-mute mb-3"
+          style={{ fontFamily: 'var(--font-mono)' }}
+        >
+          At a glance
+        </p>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-8 stagger animate-fade-up">
           {METRICS.map(({ key, label, href }) => (
             <a
