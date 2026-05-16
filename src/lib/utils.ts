@@ -62,23 +62,15 @@ export function categoryLabel(category: string): string {
   return labels[category] || category
 }
 
-export function categoryColor(category: string): string {
-  const colors: Record<string, string> = {
-    reply_needed: 'bg-red-100 text-red-700 border-red-200',
-    waiting_on_them: 'bg-blue-100 text-blue-700 border-blue-200',
-    followup_due: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-    commitment_detected: 'bg-purple-100 text-purple-700 border-purple-200',
-    overdue_commitment: 'bg-orange-100 text-orange-700 border-orange-200',
-    no_action_needed: 'bg-gray-100 text-gray-600 border-gray-200',
-  }
-  return colors[category] || 'bg-gray-100 text-gray-600'
+export function categoryColor(_category: string): string {
+  return 'bg-gray-100 text-gray-700 border-gray-200'
 }
 
 export function priorityColor(priority: string): string {
   const colors: Record<string, string> = {
-    high: 'bg-red-500',
-    medium: 'bg-yellow-500',
-    low: 'bg-green-500',
+    high: 'bg-gray-900',
+    medium: 'bg-gray-400',
+    low: 'bg-gray-200',
   }
-  return colors[priority] || 'bg-gray-400'
+  return colors[priority] || 'bg-gray-300'
 }

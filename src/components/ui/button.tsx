@@ -9,23 +9,23 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'default', size = 'md', ...props }, ref) => {
     const variants = {
-      default: 'bg-indigo-600 text-white hover:bg-indigo-700',
+      default: 'bg-gray-900 text-white hover:bg-gray-700',
       outline: 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50',
-      ghost: 'text-gray-600 hover:bg-gray-100',
-      destructive: 'bg-red-600 text-white hover:bg-red-700',
-      secondary: 'bg-gray-100 text-gray-900 hover:bg-gray-200',
+      ghost: 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+      destructive: 'border border-red-200 bg-red-50 text-red-700 hover:bg-red-100',
+      secondary: 'bg-gray-100 text-gray-800 hover:bg-gray-200',
     }
     const sizes = {
-      sm: 'h-8 px-3 text-sm',
-      md: 'h-10 px-4 text-sm',
-      lg: 'h-11 px-6 text-base',
+      sm: 'h-8 px-3 text-xs',
+      md: 'h-9 px-4 text-sm',
+      lg: 'h-11 px-6 text-sm',
       icon: 'h-9 w-9',
     }
     return (
       <button
         ref={ref}
         className={cn(
-          'inline-flex items-center justify-center rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none',
+          'inline-flex items-center justify-center rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2 disabled:opacity-40 disabled:pointer-events-none',
           variants[variant],
           sizes[size],
           className

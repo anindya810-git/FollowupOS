@@ -1,49 +1,43 @@
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { SignInButton } from '@/components/auth/SignInButton'
-import { Zap, CheckCircle, Clock, Bell } from 'lucide-react'
 
 export default async function HomePage() {
   const session = await auth()
-  if (session?.user) {
-    redirect('/dashboard')
-  }
+  if (session?.user) redirect('/dashboard')
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 flex flex-col">
-      <header className="flex items-center gap-2 p-6">
-        <Zap className="h-8 w-8 text-indigo-400" />
-        <span className="text-xl font-bold text-white">FollowUpOS</span>
+    <div className="min-h-screen bg-white flex flex-col">
+      <header className="flex items-center justify-between px-8 py-5 border-b border-gray-100">
+        <span className="text-sm font-semibold tracking-widest uppercase text-gray-900">FollowUpOS</span>
+        <SignInButton />
       </header>
 
-      <main className="flex-1 flex items-center justify-center px-4">
-        <div className="text-center max-w-2xl">
-          <h1 className="text-5xl font-bold text-white mb-4 leading-tight">
-            Your daily follow-up radar<br />
-            <span className="text-indigo-400">for Gmail.</span>
+      <main className="flex-1 flex items-center justify-center px-6">
+        <div className="max-w-xl w-full py-24">
+          <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-6">Email follow-up, automated</p>
+          <h1 className="text-5xl font-bold text-gray-900 leading-tight mb-6">
+            Never miss a follow-up again.
           </h1>
-          <p className="text-xl text-slate-300 mb-8">
-            FollowUpOS finds emails where you need to reply, where others owe you a response,
-            and where follow-ups are overdue — automatically.
+          <p className="text-lg text-gray-500 mb-10 leading-relaxed">
+            FollowUpOS connects to Gmail and Outlook, scans your inbox with AI, and surfaces exactly
+            who needs a reply, who owes you one, and what's overdue — every day.
           </p>
-
           <SignInButton />
-
-          <p className="mt-4 text-sm text-slate-400">
-            We only read your emails to detect follow-ups. We never send emails on your behalf.
-            You can disconnect anytime.
+          <p className="mt-4 text-xs text-gray-400">
+            Read-only access · No emails sent on your behalf · Disconnect anytime
           </p>
 
-          <div className="mt-16 grid grid-cols-3 gap-6 text-left">
+          <div className="mt-16 grid grid-cols-3 gap-6 border-t border-gray-100 pt-12">
             {[
-              { icon: Bell, title: 'Reply Needed', desc: 'Instantly see who is waiting for your response' },
-              { icon: Clock, title: 'Follow-up Due', desc: 'Never forget to follow up on pending requests' },
-              { icon: CheckCircle, title: 'Commitment Tracker', desc: 'Track commitments with dates and deadlines' },
-            ].map(({ icon: Icon, title, desc }) => (
-              <div key={title} className="rounded-xl bg-white/10 backdrop-blur p-5">
-                <Icon className="h-6 w-6 text-indigo-400 mb-3" />
-                <h3 className="font-semibold text-white mb-1">{title}</h3>
-                <p className="text-sm text-slate-400">{desc}</p>
+              { num: '01', title: 'Connect', desc: 'Link Gmail and/or Outlook in one click' },
+              { num: '02', title: 'Scan', desc: 'AI reads 30 days of threads in ~2 minutes' },
+              { num: '03', title: 'Act', desc: 'Work through your prioritised queue daily' },
+            ].map(({ num, title, desc }) => (
+              <div key={num}>
+                <p className="text-xs text-gray-300 font-medium mb-2">{num}</p>
+                <p className="text-sm font-semibold text-gray-900 mb-1">{title}</p>
+                <p className="text-sm text-gray-400">{desc}</p>
               </div>
             ))}
           </div>

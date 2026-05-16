@@ -21,20 +21,25 @@ export function Header({ title, userEmail, onSync }: HeaderProps) {
   }
 
   return (
-    <div className="flex h-16 items-center justify-between border-b border-gray-200 bg-white px-6">
-      <h1 className="text-xl font-semibold text-gray-900">{title}</h1>
-      <div className="flex items-center gap-3">
+    <div className="flex h-14 items-center justify-between border-b border-gray-100 bg-white px-6">
+      <h1 className="text-sm font-semibold text-gray-900 tracking-tight">{title}</h1>
+      <div className="flex items-center gap-2">
         {onSync && (
-          <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
-            Sync
+          <Button variant="ghost" size="sm" onClick={handleSync} disabled={syncing}>
+            <RefreshCw className={cn('h-3.5 w-3.5', syncing && 'animate-spin')} />
           </Button>
         )}
-        <span className="text-sm text-gray-500">{userEmail}</span>
+        {userEmail && (
+          <span className="text-xs text-gray-400 hidden sm:block">{userEmail}</span>
+        )}
         <Button variant="ghost" size="icon" onClick={() => signOut({ callbackUrl: '/' })}>
-          <LogOut className="h-4 w-4" />
+          <LogOut className="h-3.5 w-3.5" />
         </Button>
       </div>
     </div>
   )
+}
+
+function cn(...classes: (string | boolean | undefined)[]) {
+  return classes.filter(Boolean).join(' ')
 }
