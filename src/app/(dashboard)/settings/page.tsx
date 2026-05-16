@@ -104,26 +104,22 @@ export default function SettingsPage() {
             <CardContent>
               {integrations.length === 0 ? (
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-gray-500">No email accounts connected</span>
+                  <span className="text-[rgb(11_18_32/55%)]">No email accounts connected</span>
                 </div>
               ) : (
                 <div className="space-y-3 mb-4">
                   {integrations.map(account => (
-                    <div key={account.id} className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-4 py-3">
+                    <div key={account.id} className="flex items-center justify-between rounded-lg border border-[rgb(11_18_32/8%)] bg-paper px-4 py-3">
                       <div>
-                        <p className="font-medium text-gray-900">{account.emailAddress}</p>
+                        <p className="font-medium text-ink">{account.emailAddress}</p>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium ${
-                            account.provider === 'outlook'
-                              ? 'bg-blue-100 text-blue-700'
-                              : 'bg-red-100 text-red-700'
-                          }`}>
+                          <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium bg-[rgb(11_18_32/8%)] text-ink">
                             {account.provider === 'outlook' ? 'Outlook' : 'Gmail'}
                           </span>
-                          <span className="text-xs text-gray-500 capitalize">{account.connectedStatus}</span>
+                          <span className="text-xs text-[rgb(11_18_32/55%)] capitalize">{account.connectedStatus}</span>
                         </div>
                       </div>
-                      <Button variant="destructive" size="sm" onClick={() => disconnectAccount(account)}>
+                      <Button variant="outline" size="sm" onClick={() => disconnectAccount(account)}>
                         Disconnect
                       </Button>
                     </div>
@@ -154,7 +150,7 @@ export default function SettingsPage() {
             <CardHeader><CardTitle>Follow-up Rules</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-ink mb-1">
                   Default follow-up threshold (business days)
                 </label>
                 <Select
@@ -182,14 +178,14 @@ export default function SettingsPage() {
                   id="digestEnabled"
                   checked={settings.digestSettings?.isEnabled ?? true}
                   onChange={e => setSettings(s => ({ ...s, digestSettings: { ...s.digestSettings!, isEnabled: e.target.checked } }))}
-                  className="h-4 w-4 text-indigo-600"
+                  className="h-4 w-4 accent-action"
                 />
-                <label htmlFor="digestEnabled" className="text-sm font-medium text-gray-700">
+                <label htmlFor="digestEnabled" className="text-sm font-medium text-ink">
                   Enable daily digest email
                 </label>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Digest time</label>
+                <label className="block text-sm font-medium text-ink mb-1">Digest time</label>
                 <Input
                   type="time"
                   value={settings.digestSettings?.digestTime ?? '09:00'}
@@ -216,10 +212,10 @@ export default function SettingsPage() {
                 </Button>
               </div>
               {settings.ignoredSenders.map(s => (
-                <div key={s.id} className="flex items-center justify-between rounded-md bg-gray-50 px-3 py-2">
-                  <span className="text-sm text-gray-700">{s.senderEmail || s.domain}</span>
+                <div key={s.id} className="flex items-center justify-between rounded-md bg-paper px-3 py-2">
+                  <span className="text-sm text-ink">{s.senderEmail || s.domain}</span>
                   <Button variant="ghost" size="icon" onClick={() => removeIgnoredSender(s.id)}>
-                    <Trash2 className="h-4 w-4 text-red-500" />
+                    <Trash2 className="h-4 w-4 text-action" />
                   </Button>
                 </div>
               ))}
@@ -231,11 +227,11 @@ export default function SettingsPage() {
           </Button>
 
           {/* Danger Zone */}
-          <Card className="border-red-200">
-            <CardHeader><CardTitle className="text-red-600 flex items-center gap-2"><AlertTriangle className="h-5 w-5" />Danger Zone</CardTitle></CardHeader>
+          <Card className="border-[rgb(242_90_60/20%)]">
+            <CardHeader><CardTitle className="text-action flex items-center gap-2"><AlertTriangle className="h-5 w-5" />Danger Zone</CardTitle></CardHeader>
             <CardContent>
               <Button variant="destructive" onClick={deleteAccount}>Delete Account &amp; All Data</Button>
-              <p className="text-xs text-gray-500 mt-2">This permanently deletes your account and all stored data. Cannot be undone.</p>
+              <p className="text-xs text-[rgb(11_18_32/55%)] mt-2">This permanently deletes your account and all stored data. Cannot be undone.</p>
             </CardContent>
           </Card>
         </div>

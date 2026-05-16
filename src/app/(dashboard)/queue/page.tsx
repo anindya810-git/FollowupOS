@@ -58,7 +58,7 @@ function QueueContent() {
       <main className="p-6">
         <div className="flex gap-3 mb-6">
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[rgb(11_18_32/30%)]" />
             <Input
               placeholder="Search by subject, contact..."
               className="pl-10"
@@ -70,18 +70,18 @@ function QueueContent() {
 
         {loading ? (
           <div className="flex items-center justify-center h-48">
-            <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+            <Loader2 className="h-8 w-8 animate-spin text-action" />
           </div>
         ) : items.length === 0 ? (
-          <div className="rounded-xl bg-white border border-gray-200 p-12 text-center">
-            <p className="text-gray-500 text-lg">No items found.</p>
-            <p className="text-gray-400 text-sm mt-1">
+          <div className="rounded-xl bg-white border border-[rgb(11_18_32/8%)] p-12 text-center">
+            <p className="text-[rgb(11_18_32/55%)] text-lg">No items found.</p>
+            <p className="text-[rgb(11_18_32/30%)] text-sm mt-1">
               {status === 'open' ? 'Your inbox is clear — no follow-ups needed.' : 'Nothing here yet.'}
             </p>
           </div>
         ) : (
           <>
-            <p className="text-sm text-gray-500 mb-3">{total} items</p>
+            <p className="text-sm text-[rgb(11_18_32/55%)] mb-3">{total} items</p>
             <div className="space-y-3">
               {items.map(item => (
                 <ActionCard

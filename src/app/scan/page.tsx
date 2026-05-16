@@ -1,8 +1,9 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { Zap, CheckCircle, Loader2 } from 'lucide-react'
+import { CheckCircle, Loader2 } from 'lucide-react'
 import { Suspense } from 'react'
+import { LogoMark } from '@/components/ui/Logo'
 
 const STEPS = [
   'Connecting Gmail',
@@ -80,35 +81,35 @@ function ScanProgress() {
   }, [jobId, router, triggerScan])
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-paper flex items-center justify-center p-4">
       <div className="max-w-md w-full text-center">
-        <div className="flex items-center justify-center gap-2 mb-8">
-          <Zap className="h-8 w-8 text-indigo-600" />
-          <span className="text-2xl font-bold text-gray-900">FollowUpOS</span>
+        <div className="flex items-center justify-center gap-2.5 mb-8">
+          <LogoMark className="h-7 w-8 flex-shrink-0" />
+          <span className="text-2xl font-bold text-ink">Pendingly</span>
         </div>
 
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Building your action queue</h1>
-        <p className="text-gray-600 mb-8">
+        <h1 className="text-2xl font-bold text-ink mb-2">Building your action queue</h1>
+        <p className="text-[rgb(11_18_32/55%)] mb-8">
           {progress.found > 0
             ? `Analyzing ${progress.found} threads, found ${progress.created} action items so far...`
             : 'Scanning your Gmail inbox...'}
         </p>
 
         {error ? (
-          <div className="text-red-600 bg-red-50 rounded-lg p-4">{error}</div>
+          <div className="text-action bg-[rgb(242_90_60/8%)] rounded-lg p-4 border border-[rgb(242_90_60/20%)]">{error}</div>
         ) : (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="bg-white rounded-xl border border-[rgb(11_18_32/8%)] p-6">
             <div className="space-y-4">
               {STEPS.map((step, i) => (
                 <div key={step} className="flex items-center gap-3">
                   {i < currentStep ? (
-                    <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                    <CheckCircle className="h-5 w-5 text-action flex-shrink-0" />
                   ) : i === currentStep ? (
-                    <Loader2 className="h-5 w-5 text-indigo-600 animate-spin flex-shrink-0" />
+                    <Loader2 className="h-5 w-5 text-action animate-spin flex-shrink-0" />
                   ) : (
-                    <div className="h-5 w-5 rounded-full border-2 border-gray-300 flex-shrink-0" />
+                    <div className="h-5 w-5 rounded-full border-2 border-[rgb(11_18_32/20%)] flex-shrink-0" />
                   )}
-                  <span className={`text-sm ${i <= currentStep ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>
+                  <span className={`text-sm ${i <= currentStep ? 'text-ink font-medium' : 'text-[rgb(11_18_32/30%)]'}`}>
                     {step}
                   </span>
                 </div>
@@ -123,7 +124,7 @@ function ScanProgress() {
 
 export default function ScanPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
+    <Suspense fallback={<div className="min-h-screen bg-paper flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-action" /></div>}>
       <ScanProgress />
     </Suspense>
   )
