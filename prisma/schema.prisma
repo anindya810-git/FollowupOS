@@ -75,6 +75,9 @@ model EmailAccount {
   refreshTokenEncrypted String?
   tokenExpiresAt        DateTime?
   connectedStatus       String    @default("connected")
+  imapHost              String?
+  imapPort              Int?
+  passwordEncrypted     String?
   lastSyncedAt          DateTime?
   initialScanCompleted  Boolean   @default(false)
   createdAt             DateTime  @default(now())

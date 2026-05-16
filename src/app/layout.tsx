@@ -1,9 +1,9 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Hanken_Grotesk } from 'next/font/google'
 import './globals.css'
 import { SessionProvider } from 'next-auth/react'
 
-const inter = Inter({ subsets: ['latin'] })
+const hanken = Hanken_Grotesk({ subsets: ['latin'], variable: '--font-hanken' })
 
 export const metadata: Metadata = {
   title: 'Pendingly — Your follow-up radar',
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body className={hanken.className}>
         <SessionProvider>{children}</SessionProvider>
       </body>
     </html>
