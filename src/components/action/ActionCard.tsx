@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { categoryLabel, timeAgo } from '@/lib/utils'
 import { ExternalLink, Clock, Check, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { playChime } from '@/lib/sounds'
 import type { ActionItemWithThread } from '@/types'
 
 interface ActionCardProps {
@@ -28,7 +29,7 @@ export function ActionCard({ item, onStatusChange, onSelect }: ActionCardProps) 
 
   return (
     <div
-      className="group bg-white border border-[rgb(11_18_32/8%)] rounded-lg hover:border-[rgb(11_18_32/20%)] transition-all cursor-pointer"
+      className="group animate-fade-up card-lift bg-white border border-[rgb(11_18_32/8%)] rounded-lg hover:border-[rgb(11_18_32/20%)] cursor-pointer"
       onClick={() => onSelect(item)}
     >
       <div className="p-4">
@@ -69,20 +70,38 @@ export function ActionCard({ item, onStatusChange, onSelect }: ActionCardProps) 
         onClick={e => e.stopPropagation()}
       >
         {item.emailThread?.providerUrl && (
-          <Button variant="ghost" size="sm" onClick={() => window.open(item.emailThread!.providerUrl!, '_blank')}>
+          <Button variant="ghost" size="sm" className="transition-all duration-150" onClick={() => window.open(item.emailThread!.providerUrl!, '_blank')}>
             <ExternalLink className="h-3 w-3 mr-1" />
             Open
           </Button>
         )}
-        <Button variant="ghost" size="sm" onClick={() => handle('snoozed', { snoozed_until: tomorrow() })} disabled={loading}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="transition-all duration-150"
+          onClick={() => { playChime('info'); handle('snoozed', { snoozed_until: tomorrow() }) }}
+          disabled={loading}
+        >
           <Clock className="h-3 w-3 mr-1" />
           Snooze
         </Button>
-        <Button variant="ghost" size="sm" onClick={() => handle('done')} disabled={loading}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="transition-all duration-150"
+          onClick={() => { playChime('done'); handle('done') }}
+          disabled={loading}
+        >
           <Check className="h-3 w-3 mr-1" />
           Done
         </Button>
-        <Button variant="ghost" size="sm" onClick={() => handle('ignored')} disabled={loading}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="transition-all duration-150"
+          onClick={() => handle('ignored')}
+          disabled={loading}
+        >
           <EyeOff className="h-3 w-3 mr-1" />
           Ignore
         </Button>

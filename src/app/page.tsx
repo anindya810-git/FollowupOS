@@ -20,30 +20,38 @@ export default async function HomePage() {
       <main className="flex-1 flex items-center justify-center px-6">
         <div className="max-w-xl w-full py-24">
           <p className="text-xs font-semibold uppercase tracking-widest text-[rgb(11_18_32/30%)] mb-6">Email follow-up, automated</p>
-          <h1 className="text-5xl font-bold text-ink leading-tight mb-6">
-            Never miss a follow-up again.
-          </h1>
-          <p className="text-lg text-[rgb(11_18_32/55%)] mb-10 leading-relaxed">
-            Pendingly connects to Gmail and Outlook, scans your inbox with AI, and surfaces exactly
-            who needs a reply, who owes you one, and what&apos;s overdue — every day.
-          </p>
-          <SignInButton />
-          <p className="mt-4 text-xs text-[rgb(11_18_32/30%)]">
-            Read-only access · No emails sent on your behalf · Disconnect anytime
-          </p>
+          <div className="animate-fade-up">
+            <h1 className="text-5xl font-bold text-ink leading-tight mb-6">
+              Never miss a follow-up again.
+            </h1>
+          </div>
+          <div className="animate-fade-up" style={{ animationDelay: '60ms' }}>
+            <p className="text-lg text-[rgb(11_18_32/55%)] mb-10 leading-relaxed">
+              Pendingly connects to Gmail and Outlook, scans your inbox with AI, and surfaces exactly
+              who needs a reply, who owes you one, and what&apos;s overdue — every day.
+            </p>
+          </div>
+          <div className="animate-fade-up" style={{ animationDelay: '120ms' }}>
+            <SignInButton />
+            <p className="mt-4 text-xs text-[rgb(11_18_32/30%)]">
+              Read-only access · No emails sent on your behalf · Disconnect anytime
+            </p>
+          </div>
 
-          <div className="mt-16 grid grid-cols-3 gap-6 border-t border-[rgb(11_18_32/8%)] pt-12">
-            {[
-              { num: '01', title: 'Connect', desc: 'Link Gmail and/or Outlook in one click' },
-              { num: '02', title: 'Scan', desc: 'AI reads 30 days of threads in ~2 minutes' },
-              { num: '03', title: 'Act', desc: 'Work through your prioritised queue daily' },
-            ].map(({ num, title, desc }) => (
-              <div key={num}>
-                <p className="text-xs text-[rgb(11_18_32/30%)] font-medium mb-2">{num}</p>
-                <p className="text-sm font-semibold text-ink mb-1">{title}</p>
-                <p className="text-sm text-[rgb(11_18_32/55%)]">{desc}</p>
-              </div>
-            ))}
+          <div className="mt-16 border-t border-[rgb(11_18_32/8%)] pt-12">
+            <div className="grid grid-cols-3 gap-6 stagger">
+              {[
+                { num: '01', title: 'Connect', desc: 'Link Gmail and/or Outlook in one click' },
+                { num: '02', title: 'Scan', desc: 'AI reads 30 days of threads in ~2 minutes' },
+                { num: '03', title: 'Act', desc: 'Work through your prioritised queue daily' },
+              ].map(({ num, title, desc }) => (
+                <div key={num} className="animate-fade-up">
+                  <p className="text-xs text-[rgb(11_18_32/30%)] font-medium mb-2">{num}</p>
+                  <p className="text-sm font-semibold text-ink mb-1">{title}</p>
+                  <p className="text-sm text-[rgb(11_18_32/55%)]">{desc}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </main>

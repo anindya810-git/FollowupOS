@@ -44,16 +44,18 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
       <Header title="Dashboard" userEmail={userEmail} onSync={fetchData} />
       <main className="p-6 max-w-4xl">
         {/* Metric grid */}
-        <div className="grid grid-cols-3 gap-3 mb-8">
+        <div className="grid grid-cols-3 gap-3 mb-8 stagger animate-fade-up">
           {METRICS.map(({ key, label, href }) => (
             <a
               key={key}
               href={href}
-              className="bg-white border border-[rgb(11_18_32/8%)] rounded-lg p-5 hover:border-[rgb(11_18_32/20%)] transition-colors group"
+              className="card-lift bg-card border border-rule rounded-lg p-5 hover:border-[rgb(11_18_32/20%)] transition-colors group"
             >
               <p className="text-xs text-[rgb(11_18_32/55%)] mb-2">{label}</p>
-              <p className="text-3xl font-semibold text-ink tabular-nums">
-                {summary ? (summary[key as keyof DashboardSummary] ?? 0) : '—'}
+              <p className="text-3xl font-semibold text-ink">
+                <span className="animate-count tabular-nums">
+                  {summary ? (summary[key as keyof DashboardSummary] ?? 0) : '—'}
+                </span>
               </p>
             </a>
           ))}
@@ -67,7 +69,7 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
           </div>
 
           {topItems.length === 0 ? (
-            <div className="bg-white border border-[rgb(11_18_32/8%)] rounded-lg p-12 text-center">
+            <div className="bg-card border border-rule rounded-lg p-12 text-center">
               <p className="text-[rgb(11_18_32/55%)] text-sm">No urgent follow-ups. You&apos;re clear.</p>
             </div>
           ) : (

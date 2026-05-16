@@ -1,9 +1,9 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { CheckCircle, Loader2 } from 'lucide-react'
 import { Suspense } from 'react'
-import { LogoMark } from '@/components/ui/Logo'
+import { LogoLockup } from '@/components/ui/Logo'
 
 const STEPS = [
   'Connecting Gmail',
@@ -21,6 +21,8 @@ function ScanProgress() {
   const [progress, setProgress] = useState({ found: 0, processed: 0, created: 0 })
   const [currentStep, setCurrentStep] = useState(0)
   const [error, setError] = useState('')
+  const prevStepRef = useRef(0)
+  const completedRef = useRef(false)
 
   const triggerScan = useCallback(async () => {
     if (!jobId) return
@@ -80,12 +82,29 @@ function ScanProgress() {
     return () => clearInterval(interval)
   }, [jobId, router, triggerScan])
 
+  // Play chime when a new step completes
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (currentStep > prevStepRef.current && currentStep < STEPS.length) {
+      import('@/lib/sounds').then(({ playChime }) => playChime('info'))
+    }
+    prevStepRef.current = currentStep
+  }, [currentStep])
+
+  // Play done chime when all steps complete
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (status === 'completed' && !completedRef.current) {
+      completedRef.current = true
+      import('@/lib/sounds').then(({ playChime }) => playChime('done'))
+    }
+  }, [status])
+
   return (
     <div className="min-h-screen bg-paper flex items-center justify-center p-4">
       <div className="max-w-md w-full text-center">
-        <div className="flex items-center justify-center gap-2.5 mb-8">
-          <LogoMark className="h-7 w-8 flex-shrink-0" />
-          <span className="text-2xl font-bold text-ink">Pendingly</span>
+        <div className="flex items-center justify-center mb-8">
+          <LogoLockup size="lg" />
         </div>
 
         <h1 className="text-2xl font-bold text-ink mb-2">Building your action queue</h1>
@@ -98,7 +117,7 @@ function ScanProgress() {
         {error ? (
           <div className="text-action bg-[rgb(242_90_60/8%)] rounded-lg p-4 border border-[rgb(242_90_60/20%)]">{error}</div>
         ) : (
-          <div className="bg-white rounded-xl border border-[rgb(11_18_32/8%)] p-6">
+          <div className="bg-white rounded-xl border border-rule p-6">
             <div className="space-y-4">
               {STEPS.map((step, i) => (
                 <div key={step} className="flex items-center gap-3">
@@ -107,7 +126,7 @@ function ScanProgress() {
                   ) : i === currentStep ? (
                     <Loader2 className="h-5 w-5 text-action animate-spin flex-shrink-0" />
                   ) : (
-                    <div className="h-5 w-5 rounded-full border-2 border-[rgb(11_18_32/20%)] flex-shrink-0" />
+                    <div className="h-5 w-5 rounded-full border-2 border-rule flex-shrink-0" />
                   )}
                   <span className={`text-sm ${i <= currentStep ? 'text-ink font-medium' : 'text-[rgb(11_18_32/30%)]'}`}>
                     {step}
