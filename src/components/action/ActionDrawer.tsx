@@ -57,9 +57,9 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
   const providerLabel = active.emailThread?.providerUrl?.includes('outlook') ? 'Outlook' : 'Gmail'
 
   return (
-    <div className="fixed inset-0 z-50 flex">
-      <div className="drawer-backdrop flex-1 bg-ink/20" onClick={onClose} />
-      <div className="drawer-panel w-[540px] bg-white shadow-xl overflow-y-auto flex flex-col">
+    <div className="fixed inset-0 z-50">
+      <div className="drawer-backdrop absolute inset-0 bg-ink/20" onClick={onClose} />
+      <div className="drawer-panel absolute inset-y-0 right-0 w-full sm:w-[480px] md:w-[540px] bg-white shadow-xl overflow-y-auto flex flex-col">
         {/* Header */}
         <div className="sticky top-0 bg-white border-b border-rule px-6 py-4 flex items-center justify-between z-10">
           <span className="text-xs font-semibold uppercase tracking-widest text-[rgb(11_18_32/30%)]">Detail</span>

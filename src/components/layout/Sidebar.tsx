@@ -85,7 +85,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
         <Link
           href="/settings"
           className={cn(
-            'flex items-center gap-2.5 px-4 py-2 text-sm rounded-md transition-all duration-150',
+            'flex items-center gap-2.5 px-4 py-2.5 md:py-2 text-sm rounded-md transition-all duration-150',
             pathname === '/settings'
               ? 'border-l-2 border-action bg-[rgb(255_255_255/8%)] text-white pl-[14px]'
               : 'text-[#8C94A4] hover:text-white hover:bg-[rgb(255_255_255/5%)]'

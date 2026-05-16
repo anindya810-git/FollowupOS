@@ -42,9 +42,9 @@ export function DashboardClient({ userEmail }: { userEmail: string }) {
   return (
     <>
       <Header title="Dashboard" userEmail={userEmail} onSync={fetchData} />
-      <main className="p-6 max-w-4xl">
+      <main className="p-4 md:p-6 max-w-4xl">
         {/* Metric grid */}
-        <div className="grid grid-cols-3 gap-3 mb-8 stagger animate-fade-up">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-8 stagger animate-fade-up">
           {METRICS.map(({ key, label, href }) => (
             <a
               key={key}

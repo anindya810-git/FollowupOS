@@ -39,7 +39,7 @@ export default async function HomePage() {
           </div>
 
           <div className="mt-16 border-t border-[rgb(11_18_32/8%)] pt-12">
-            <div className="grid grid-cols-3 gap-6 stagger">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 stagger">
               {[
                 { num: '01', title: 'Connect', desc: 'Link Gmail and/or Outlook in one click' },
                 { num: '02', title: 'Scan', desc: 'AI reads 30 days of threads in ~2 minutes' },
