@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { DEFAULT_FOLLOWUP_TEMPLATE, renderTemplate } from '@/lib/templates'
+import { isAuthorizedCron } from '@/lib/cron-auth'
 
-export async function POST(request: NextRequest) {
-  if (request.headers.get('x-cron-secret') !== process.env.CRON_SECRET) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
+async function runAutoFollowup() {
   const enabledUsers = await prisma.appSettings.findMany({
     where: { autoFollowupEnabled: true },
   })
@@ -103,5 +100,15 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ sent, failed })
+  return { sent, failed }
+}
+
+export async function GET(request: NextRequest) {
+  if (!isAuthorizedCron(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  return NextResponse.json(await runAutoFollowup())
+}
+
+export async function POST(request: NextRequest) {
+  if (!isAuthorizedCron(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  return NextResponse.json(await runAutoFollowup())
 }

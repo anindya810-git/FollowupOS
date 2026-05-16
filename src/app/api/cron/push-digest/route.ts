@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendPushToUser } from '@/lib/push'
+import { isAuthorizedCron } from '@/lib/cron-auth'
 
-export async function POST(request: NextRequest) {
-  if (request.headers.get('x-cron-secret') !== process.env.CRON_SECRET) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+async function runPushDigest() {
   const today = new Date().toISOString().split('T')[0]
   const subs = await prisma.pushSubscription.findMany({
     select: { userId: true },
@@ -32,5 +30,15 @@ export async function POST(request: NextRequest) {
       console.error('Push send failed for', userId, e)
     }
   }
-  return NextResponse.json({ sent })
+  return { sent }
+}
+
+export async function GET(request: NextRequest) {
+  if (!isAuthorizedCron(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  return NextResponse.json(await runPushDigest())
+}
+
+export async function POST(request: NextRequest) {
+  if (!isAuthorizedCron(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  return NextResponse.json(await runPushDigest())
 }

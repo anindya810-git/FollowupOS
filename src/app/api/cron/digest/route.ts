@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendSlackDigest } from '@/lib/slack'
+import { isAuthorizedCron } from '@/lib/cron-auth'
 
-// Called by external cron (Vercel Cron / GitHub Actions) with secret header
-export async function POST(request: NextRequest) {
-  const secret = request.headers.get('x-cron-secret')
-  if (secret !== process.env.CRON_SECRET) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+async function runDigest() {
   const settings = await prisma.digestSettings.findMany({
     where: { isEnabled: true, slackEnabled: true, slackWebhookUrl: { not: null } },
     include: { user: { select: { name: true, email: true } } },
@@ -43,5 +40,15 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ sent })
+  return { sent }
+}
+
+export async function GET(request: NextRequest) {
+  if (!isAuthorizedCron(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  return NextResponse.json(await runDigest())
+}
+
+export async function POST(request: NextRequest) {
+  if (!isAuthorizedCron(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  return NextResponse.json(await runDigest())
 }
