@@ -3,6 +3,7 @@ import { getGmailClient, getGmailThreadUrl, isNoisyThread, getMessageBody } from
 import { getOutlookAccessToken, getOutlookThreads, isNoisyOutlookMessage } from './outlook'
 import { getImapThreads, isNoisyImapSender } from './imap'
 import { classifyThread } from './ai'
+import { upsertContact } from './contacts'
 import type { ClassificationInput, AiClassificationOutput } from '@/types'
 import crypto from 'crypto'
 
@@ -298,6 +299,10 @@ async function scanOutlookAccount(params: {
         })
       }
 
+      if (result.owner_email && result.owner_name) {
+        await upsertContact(userId, result.owner_email, result.owner_name)
+      }
+
       created++
       processed++
 
@@ -491,6 +496,10 @@ async function scanImapAccount(params: {
         })
       }
 
+      if (result.owner_email && result.owner_name) {
+        await upsertContact(userId, result.owner_email, result.owner_name)
+      }
+
       created++
       processed++
 
@@ -589,17 +598,24 @@ async function processThread(params: {
   const participants = new Set<string>()
   let lastMessageFromUser = false
 
+  const senderContactsToUpsert: Array<{ email: string; name: string | null }> = []
+
   const messageInputs = fullMessages.slice(-10).map(msg => {
     const msgHeaders = msg.payload?.headers || []
     const from = msgHeaders.find(h => h.name === 'From')?.value || ''
     const to = (msgHeaders.find(h => h.name === 'To')?.value || '').split(',')
     const sentAt = msgHeaders.find(h => h.name === 'Date')?.value || ''
     const fromEmail = from.replace(/.*<(.+)>/, '$1').trim()
+    const fromName = from.includes('<') ? from.replace(/<.*>/, '').trim().replace(/^["']|["']$/g, '') : null
     const isFromUser = fromEmail.toLowerCase() === userEmail.toLowerCase()
     const body = getMessageBody(msg.payload as Parameters<typeof getMessageBody>[0])
 
     participants.add(from)
     lastMessageFromUser = isFromUser
+
+    if (fromEmail && !isFromUser) {
+      senderContactsToUpsert.push({ email: fromEmail, name: fromName || null })
+    }
 
     return {
       from: fromEmail,
