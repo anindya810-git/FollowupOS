@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { LogoMark } from '@/components/ui/Logo'
+import { OpenInboxButton } from '@/components/layout/OpenInboxButton'
 import {
   LayoutDashboard,
   ListTodo,
@@ -51,6 +52,9 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
       </div>
 
       <nav className="flex-1 overflow-y-auto py-4 px-2">
+        <div className="mb-5 px-0">
+          <OpenInboxButton variant="sidebar" />
+        </div>
         {navGroups.map(group => (
           <div key={group.label} className="mb-5">
             <p

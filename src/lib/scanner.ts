@@ -481,6 +481,9 @@ async function scanImapAccount(params: {
       }
 
       const lastMessageAt = new Date(thread.lastMessageAt)
+      const imapProviderUrl = account.webmailBaseUrl
+        ? account.webmailBaseUrl.replace(/\/+$/, '')
+        : null
 
       // Upsert thread
       const upsertedThread = await prisma.emailThread.upsert({
@@ -495,6 +498,7 @@ async function scanImapAccount(params: {
           lastMessageAt,
           lastMessageFromUser: thread.lastMessageFromUser,
           threadHash,
+          providerUrl: imapProviderUrl,
         },
         update: {
           subject: thread.subject,
@@ -502,6 +506,7 @@ async function scanImapAccount(params: {
           lastMessageAt,
           lastMessageFromUser: thread.lastMessageFromUser,
           threadHash,
+          providerUrl: imapProviderUrl,
           updatedAt: new Date(),
         },
       })

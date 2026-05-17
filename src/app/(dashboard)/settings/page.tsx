@@ -15,6 +15,7 @@ interface EmailAccount {
   emailAddress: string
   provider: string
   connectedStatus: string
+  webmailBaseUrl?: string | null
 }
 
 export default function SettingsPage() {
@@ -147,22 +148,33 @@ export default function SettingsPage() {
                 </div>
               ) : (
                 <div className="space-y-3 mb-4">
-                  {integrations.map(account => (
-                    <div key={account.id} className="flex items-center justify-between rounded-lg border border-[rgb(11_18_32/8%)] bg-paper px-4 py-3">
-                      <div>
-                        <p className="font-medium text-ink">{account.emailAddress}</p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium bg-[rgb(11_18_32/8%)] text-ink">
-                            {account.provider === 'outlook' ? 'Outlook' : account.provider === 'zoho' ? 'Zoho Mail' : account.provider === 'apple' ? 'Apple Mail' : account.provider === 'imap' ? 'IMAP' : 'Gmail'}
-                          </span>
-                          <span className="text-xs text-[rgb(11_18_32/55%)] capitalize">{account.connectedStatus}</span>
+                  {integrations.map(account => {
+                    const isImapStyle = ['zoho', 'apple', 'imap'].includes(account.provider)
+                    return (
+                    <div key={account.id} className="rounded-lg border border-[rgb(11_18_32/8%)] bg-paper px-4 py-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-ink">{account.emailAddress}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium bg-[rgb(11_18_32/8%)] text-ink">
+                              {account.provider === 'outlook' ? 'Outlook' : account.provider === 'zoho' ? 'Zoho Mail' : account.provider === 'apple' ? 'Apple Mail' : account.provider === 'imap' ? 'IMAP' : 'Gmail'}
+                            </span>
+                            <span className="text-xs text-[rgb(11_18_32/55%)] capitalize">{account.connectedStatus}</span>
+                          </div>
                         </div>
+                        <Button variant="outline" size="sm" onClick={() => disconnectAccount(account)}>
+                          Disconnect
+                        </Button>
                       </div>
-                      <Button variant="outline" size="sm" onClick={() => disconnectAccount(account)}>
-                        Disconnect
-                      </Button>
+                      {isImapStyle && (
+                        <WebmailUrlField
+                          account={account}
+                          onSaved={url => setIntegrations(prev => prev.map(a => a.id === account.id ? { ...a, webmailBaseUrl: url } : a))}
+                        />
+                      )}
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
               <div className="flex gap-2 flex-wrap">
@@ -540,5 +552,60 @@ function AnthropicKeyCard() {
         )}
       </CardContent>
     </Card>
+  )
+}
+
+function WebmailUrlField({ account, onSaved }: { account: EmailAccount; onSaved: (url: string | null) => void }) {
+  const [value, setValue] = useState(account.webmailBaseUrl || '')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const placeholderFor = (provider: string) => {
+    if (provider === 'zoho') return 'https://mail.zoho.com'
+    if (provider === 'apple') return 'https://www.icloud.com/mail'
+    return 'https://mail.your-domain.com'
+  }
+
+  const save = async () => {
+    setSaving(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/integrations/${account.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ webmailBaseUrl: value.trim() || null }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Save failed')
+      onSaved(data.webmailBaseUrl ?? null)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 1800)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Save failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="mt-3 pt-3 border-t border-[rgb(11_18_32/8%)]">
+      <label className="block text-xs font-medium text-ink mb-1">Webmail URL (for the "Open in inbox" button)</label>
+      <div className="flex gap-2">
+        <Input
+          type="url"
+          placeholder={placeholderFor(account.provider)}
+          value={value}
+          onChange={e => setValue(e.target.value)}
+        />
+        <Button size="sm" onClick={save} disabled={saving}>
+          {saved ? 'Saved!' : saving ? 'Saving…' : 'Save'}
+        </Button>
+      </div>
+      {error && <p className="text-xs text-action mt-1">{error}</p>}
+      <p className="text-[11px] text-[rgb(11_18_32/50%)] mt-1">
+        Where you check this account in a browser. Pendingly will deep-link there for the inbox button.
+      </p>
+    </div>
   )
 }

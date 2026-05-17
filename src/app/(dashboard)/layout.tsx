@@ -4,6 +4,7 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { LogoMark } from '@/components/ui/Logo'
+import { OpenInboxButton } from '@/components/layout/OpenInboxButton'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession()
@@ -51,6 +52,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </svg>
           </button>
           <span className="ml-3 text-sm font-semibold text-ink tracking-tight">Pendingly</span>
+          <div className="ml-auto">
+            <OpenInboxButton variant="mobile" />
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto">
           {children}

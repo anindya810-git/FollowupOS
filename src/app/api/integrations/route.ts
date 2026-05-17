@@ -17,6 +17,7 @@ export async function GET() {
       connectedStatus: true,
       lastSyncedAt: true,
       initialScanCompleted: true,
+      webmailBaseUrl: true,
     },
     orderBy: { createdAt: 'asc' },
   })
