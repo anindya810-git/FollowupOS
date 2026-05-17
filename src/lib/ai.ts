@@ -195,12 +195,14 @@ function validateClassification(parsed: AiClassificationOutput): boolean {
 }
 
 async function classifyAnthropic(input: ClassificationInput, config: AiConfig): Promise<AiClassificationOutput | null> {
+  const content = JSON.stringify(input)
+  if (!content) return null
   const client = new Anthropic({ apiKey: config.apiKey })
   const response = await client.messages.create({
     model: config.model,
     max_tokens: 1024,
     system: CLASSIFICATION_SYSTEM,
-    messages: [{ role: 'user', content: JSON.stringify(input) }],
+    messages: [{ role: 'user', content }],
   })
   const text = response.content[0].type === 'text' ? response.content[0].text : ''
   const parsed = JSON.parse(extractJson(text)) as AiClassificationOutput
@@ -238,6 +240,7 @@ async function classifyGemini(input: ClassificationInput, config: AiConfig): Pro
 }
 
 async function suggestAnthropic(userContent: string, config: AiConfig): Promise<string | null> {
+  if (!userContent.trim()) return null
   const client = new Anthropic({ apiKey: config.apiKey })
   const response = await client.messages.create({
     model: config.model,
@@ -275,6 +278,7 @@ async function suggestGemini(userContent: string, config: AiConfig): Promise<str
 }
 
 async function draftAnthropic(userContent: string, config: AiConfig): Promise<{ draft: string; subject_suggestion: string } | null> {
+  if (!userContent.trim()) return null
   const client = new Anthropic({ apiKey: config.apiKey })
   const response = await client.messages.create({
     model: config.model,
@@ -330,11 +334,12 @@ export async function classifyThread(
 }
 
 function buildThreadText(messages: Array<{ from: string; body: string; isFromUser: boolean; sentAt?: string }>): string {
+  if (messages.length === 0) return '(No message content available)'
   return messages
     .map((m, i) => {
       const who = m.isFromUser ? `[Message ${i + 1}] You` : `[Message ${i + 1}] ${m.from}`
       const ts = m.sentAt ? ` (${m.sentAt})` : ''
-      return `${who}${ts}:\n${m.body}`
+      return `${who}${ts}:\n${m.body || '(empty body)'}`
     })
     .join('\n\n---\n\n')
 }

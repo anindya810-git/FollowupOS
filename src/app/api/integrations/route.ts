@@ -23,5 +23,21 @@ export async function GET() {
     orderBy: { createdAt: 'asc' },
   })
 
-  return NextResponse.json({ accounts })
+  const accountsWithScan = await Promise.all(accounts.map(async (account) => {
+    const lastScan = await prisma.scanJob.findFirst({
+      where: { emailAccountId: account.id },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        status: true,
+        threadsFound: true,
+        threadsProcessed: true,
+        actionItemsCreated: true,
+        errorMessage: true,
+        createdAt: true,
+      },
+    })
+    return { ...account, lastScan }
+  }))
+
+  return NextResponse.json({ accounts: accountsWithScan })
 }

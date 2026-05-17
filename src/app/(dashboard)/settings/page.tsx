@@ -18,6 +18,15 @@ const COMMON_TIMEZONES = [
   'America/Sao_Paulo', 'Australia/Sydney', 'Pacific/Auckland', 'UTC',
 ]
 
+interface LastScan {
+  status: string
+  threadsFound: number
+  threadsProcessed: number
+  actionItemsCreated: number
+  errorMessage: string | null
+  createdAt: string
+}
+
 interface EmailAccount {
   id: string
   emailAddress: string
@@ -25,6 +34,7 @@ interface EmailAccount {
   connectedStatus: string
   webmailBaseUrl?: string | null
   webmailSearchUrlTemplate?: string | null
+  lastScan?: LastScan | null
 }
 
 export default function SettingsPage() {
@@ -199,6 +209,17 @@ export default function SettingsPage() {
                           </Button>
                         </div>
                       </div>
+                      {account.lastScan && (
+                        <div className={`mt-2 rounded px-3 py-2 text-xs ${account.lastScan.errorMessage ? 'bg-[rgb(242_90_60/8%)] border border-[rgb(242_90_60/20%)] text-action' : 'bg-[rgb(11_18_32/4%)] text-[rgb(11_18_32/55%)]'}`}>
+                          {account.lastScan.status === 'running' || account.lastScan.status === 'queued' ? (
+                            <span>Scan in progress… {account.lastScan.threadsProcessed}/{account.lastScan.threadsFound} threads</span>
+                          ) : account.lastScan.errorMessage ? (
+                            <span>⚠ Last scan: {account.lastScan.errorMessage}</span>
+                          ) : (
+                            <span>Last scan: {account.lastScan.threadsProcessed} threads · {account.lastScan.actionItemsCreated} action items found</span>
+                          )}
+                        </div>
+                      )}
                       {isImapStyle && (
                         <WebmailUrlField
                           account={account}
