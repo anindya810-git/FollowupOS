@@ -65,15 +65,30 @@ export default function SettingsPage() {
   const [slackTesting, setSlackTesting] = useState(false)
   const [slackTestResult, setSlackTestResult] = useState<string | null>(null)
 
+  const fetchIntegrations = () =>
+    fetch('/api/integrations').then(r => r.json()).then(i => {
+      setIntegrations(i.accounts || [])
+      return i.accounts || []
+    })
+
   useEffect(() => {
     Promise.all([
       fetch('/api/settings').then(r => r.json()),
-      fetch('/api/integrations').then(r => r.json()),
-    ]).then(([s, i]) => {
+      fetchIntegrations(),
+    ]).then(([s]) => {
       setSettings(s)
-      setIntegrations(i.accounts || [])
     })
   }, [])
+
+  // Poll every 4 s while any account has a running/queued scan
+  useEffect(() => {
+    const hasScanRunning = integrations.some(
+      a => a.lastScan?.status === 'running' || a.lastScan?.status === 'queued'
+    )
+    if (!hasScanRunning) return
+    const id = setInterval(fetchIntegrations, 4000)
+    return () => clearInterval(id)
+  }, [integrations])
 
   const save = async () => {
     setSaving(true)
