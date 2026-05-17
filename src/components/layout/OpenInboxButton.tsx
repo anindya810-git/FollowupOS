@@ -8,6 +8,7 @@ interface Account {
   provider: string
   emailAddress: string
   webmailBaseUrl?: string | null
+  connectedStatus?: string
 }
 
 interface OpenInboxButtonProps {
@@ -43,7 +44,9 @@ export function OpenInboxButton({ variant = 'sidebar' }: OpenInboxButtonProps) {
     return () => document.removeEventListener('mousedown', onClick)
   }, [open])
 
-  const usable = accounts.filter(a => getInboxUrl(a) !== null)
+  const usable = accounts.filter(a =>
+    (a.connectedStatus ?? 'connected') === 'connected' && getInboxUrl(a) !== null
+  )
   if (usable.length === 0) return null
 
   const isSidebar = variant === 'sidebar'

@@ -79,7 +79,9 @@ export async function POST(request: NextRequest) {
     },
   })
 
-  // Create ScanJob
+  // Create ScanJob and kick off the scan — the IMAP route was previously
+  // creating a queued job that nothing ever picked up, so the /scan?jobId=…
+  // page polled forever.
   const scanJob = await prisma.scanJob.create({
     data: {
       userId: session.user.id,
@@ -88,5 +90,16 @@ export async function POST(request: NextRequest) {
     },
   })
 
+  triggerScan(scanJob.id, session.user.id, account.id)
+
   return NextResponse.json({ jobId: scanJob.id, success: true })
+}
+
+async function triggerScan(jobId: string, userId: string, accountId: string) {
+  try {
+    const { runInitialScan } = await import('@/lib/scanner')
+    await runInitialScan(jobId, userId, accountId)
+  } catch (error) {
+    console.error('IMAP scan error:', error)
+  }
 }

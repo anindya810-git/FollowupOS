@@ -15,14 +15,28 @@ async function runSendScheduled() {
 
   let sent = 0
   let failed = 0
+  let skipped = 0
 
   for (const msg of due) {
+    // Claim the row by flipping pending → sending. If another cron instance
+    // (or a slower previous run) already claimed it, count is 0 and we skip.
+    const claim = await prisma.scheduledMessage.updateMany({
+      where: { id: msg.id, status: 'pending' },
+      data: { status: 'sending' },
+    })
+    if (claim.count === 0) { skipped++; continue }
+
     try {
-      const account = await prisma.emailAccount.findUnique({ where: { id: msg.emailAccountId } })
-      if (!account) {
+      // Verify the email account still belongs to the same user who scheduled
+      // the message — accounts can be disconnected / deleted between schedule
+      // and send.
+      const account = await prisma.emailAccount.findFirst({
+        where: { id: msg.emailAccountId, userId: msg.userId },
+      })
+      if (!account || account.connectedStatus !== 'connected') {
         await prisma.scheduledMessage.update({
           where: { id: msg.id },
-          data: { status: 'failed', errorMessage: 'Email account not found' },
+          data: { status: 'failed', errorMessage: 'Email account not available' },
         })
         failed++
         continue
@@ -42,8 +56,8 @@ async function runSendScheduled() {
       })
 
       if (msg.actionItemId) {
-        await prisma.actionItem.update({
-          where: { id: msg.actionItemId },
+        await prisma.actionItem.updateMany({
+          where: { id: msg.actionItemId, userId: msg.userId },
           data: { status: 'done', completedAt: new Date() },
         }).catch(() => {})
       }
@@ -57,7 +71,7 @@ async function runSendScheduled() {
     }
   }
 
-  return { processed: due.length, sent, failed }
+  return { processed: due.length, sent, failed, skipped }
 }
 
 export async function GET(request: NextRequest) {

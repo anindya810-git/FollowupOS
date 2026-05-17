@@ -24,6 +24,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Account not found' }, { status: 404 })
   }
 
+  // Idempotency: if a scan is already queued or running for this account,
+  // return that job instead of spinning another one. Prevents the /scan
+  // page from creating duplicate jobs on refresh.
+  const existing = await prisma.scanJob.findFirst({
+    where: {
+      userId: session.user.id,
+      emailAccountId: account.id,
+      status: { in: ['queued', 'running'] },
+    },
+    orderBy: { createdAt: 'desc' },
+  })
+  if (existing) {
+    return NextResponse.json({ job_id: existing.id, status: existing.status, reused: true })
+  }
+
   const scanJob = await prisma.scanJob.create({
     data: {
       userId: session.user.id,

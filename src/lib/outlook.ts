@@ -161,7 +161,9 @@ export async function getOutlookThreads(
   let url: string | null = baseUrl
   let pages = 0
 
-  while (url && pages < 3) {
+  // Paginate up to ~2000 messages (20 pages × 100). Older threads beyond
+  // that are dropped — matches the Gmail path's 500-thread cap roughly.
+  while (url && pages < 20) {
     const res: Response = await fetch(url, {
       headers: {
         Authorization: `Bearer ${accessToken}`,

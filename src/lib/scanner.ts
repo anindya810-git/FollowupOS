@@ -96,6 +96,7 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
 
     let processed = 0
     let created = 0
+    let aiFailures = 0
 
     for (const threadId of allThreadIds) {
       try {
@@ -122,7 +123,9 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
         // Rate limiting
         await new Promise(r => setTimeout(r, 100))
       } catch {
-        // Skip failed threads
+        // Skip failed threads but still count them so the progress denominator
+        // matches threadsFound at the end.
+        processed++
       }
     }
 
@@ -137,6 +140,9 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
         status: 'completed',
         threadsProcessed: processed,
         actionItemsCreated: created,
+        errorMessage: (processed > 5 && aiFailures > processed / 2)
+          ? `AI classification failed for ${aiFailures} of ${processed} threads. Check your API key has credit and isn't rate-limited, or switch provider in Settings.`
+          : null,
       },
     })
   } catch (error) {
@@ -175,6 +181,7 @@ async function scanOutlookAccount(params: {
 
   let processed = 0
   let created = 0
+  let aiFailures = 0
 
   for (const thread of threads) {
     try {
@@ -313,8 +320,8 @@ async function scanOutlookAccount(params: {
         data: {
           userId,
           emailThreadId: upsertedThread.id,
-          modelProvider: 'anthropic',
-          modelName: 'claude-sonnet-4-6',
+          modelProvider: aiConfig.provider,
+          modelName: aiConfig.model,
           inputHash,
           outputJson: result ? JSON.stringify(result) : null,
           confidenceScore: result?.confidence ?? null,
@@ -322,6 +329,7 @@ async function scanOutlookAccount(params: {
         },
       })
 
+      if (!result) aiFailures++
       if (!result || !result.should_show_to_user || result.primary_category === 'no_action_needed') {
         processed++
         continue
@@ -411,6 +419,9 @@ async function scanOutlookAccount(params: {
       status: 'completed',
       threadsProcessed: processed,
       actionItemsCreated: created,
+      errorMessage: (processed > 5 && aiFailures > processed / 2)
+        ? `AI classification failed for ${aiFailures} of ${processed} threads. Check your API key has credit and isn't rate-limited, or switch provider in Settings.`
+        : null,
     },
   })
 }
@@ -439,6 +450,7 @@ async function scanImapAccount(params: {
 
   let processed = 0
   let created = 0
+  let aiFailures = 0
 
   for (const thread of threads) {
     try {
@@ -578,8 +590,8 @@ async function scanImapAccount(params: {
         data: {
           userId,
           emailThreadId: upsertedThread.id,
-          modelProvider: 'anthropic',
-          modelName: 'claude-sonnet-4-6',
+          modelProvider: aiConfig.provider,
+          modelName: aiConfig.model,
           inputHash,
           outputJson: result ? JSON.stringify(result) : null,
           confidenceScore: result?.confidence ?? null,
@@ -587,6 +599,7 @@ async function scanImapAccount(params: {
         },
       })
 
+      if (!result) aiFailures++
       if (!result || !result.should_show_to_user || result.primary_category === 'no_action_needed') {
         processed++
         continue
@@ -676,6 +689,9 @@ async function scanImapAccount(params: {
       status: 'completed',
       threadsProcessed: processed,
       actionItemsCreated: created,
+      errorMessage: (processed > 5 && aiFailures > processed / 2)
+        ? `AI classification failed for ${aiFailures} of ${processed} threads. Check your API key has credit and isn't rate-limited, or switch provider in Settings.`
+        : null,
     },
   })
 }
@@ -880,8 +896,8 @@ async function processThread(params: {
     data: {
       userId,
       emailThreadId: upsertedThread.id,
-      modelProvider: 'anthropic',
-      modelName: 'claude-sonnet-4-6',
+      modelProvider: aiConfig.provider,
+      modelName: aiConfig.model,
       inputHash,
       outputJson: result ? JSON.stringify(result) : null,
       confidenceScore: result?.confidence ?? null,

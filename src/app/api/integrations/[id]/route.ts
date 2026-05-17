@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { isSafePublicHostname } from '@/lib/net-safety'
 
 export async function PATCH(
   request: NextRequest,
@@ -36,8 +37,11 @@ export async function PATCH(
       if (trimmed) {
         try {
           const u = new URL(trimmed)
-          if (u.protocol !== 'http:' && u.protocol !== 'https:') {
-            return NextResponse.json({ error: 'URL must start with http:// or https://' }, { status: 400 })
+          if (u.protocol !== 'https:') {
+            return NextResponse.json({ error: 'URL must use https://' }, { status: 400 })
+          }
+          if (!isSafePublicHostname(u.hostname)) {
+            return NextResponse.json({ error: 'URL must point to a public host (not localhost / private IP)' }, { status: 400 })
           }
           normalisedUrl = u.toString().replace(/\/+$/, '')
         } catch {
@@ -57,8 +61,11 @@ export async function PATCH(
         const probe = trimmed.replace(/\{q\}/g, 'test').replace(/\{query\}/g, 'test')
         try {
           const u = new URL(probe)
-          if (u.protocol !== 'http:' && u.protocol !== 'https:') {
-            return NextResponse.json({ error: 'Template must start with http:// or https://' }, { status: 400 })
+          if (u.protocol !== 'https:') {
+            return NextResponse.json({ error: 'Template must use https://' }, { status: 400 })
+          }
+          if (!isSafePublicHostname(u.hostname)) {
+            return NextResponse.json({ error: 'Template must point to a public host' }, { status: 400 })
           }
           template = trimmed
         } catch {

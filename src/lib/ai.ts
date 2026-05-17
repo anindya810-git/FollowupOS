@@ -39,7 +39,11 @@ export { MissingAiConfigError as MissingAnthropicKeyError }
 // ─── Key resolution ───────────────────────────────────────────────────────────
 
 export async function resolveAiConfig(userId?: string | null): Promise<AiConfig | null> {
-  // 1. Try user's saved keys
+  // 1. Try user's saved keys.
+  // If a preferred provider is set and the user has a key for it, use that.
+  // If a preferred provider is set but the user has no key for it, do NOT
+  // silently fall through to another provider — that contradicts the
+  // "Active" badge in the UI. Fall through only when no preference exists.
   if (userId) {
     try {
       const user = await prisma.user.findUnique({
@@ -54,21 +58,29 @@ export async function resolveAiConfig(userId?: string | null): Promise<AiConfig 
 
       if (user) {
         const preferred = user.preferredAiProvider as AiProvider | null
-        const candidates: AiProvider[] = preferred
-          ? [preferred, ...(['anthropic', 'openai', 'gemini'] as AiProvider[]).filter(p => p !== preferred)]
-          : ['gemini', 'anthropic', 'openai']
+        const keyFor = (p: AiProvider) =>
+          p === 'anthropic' ? user.anthropicApiKeyEncrypted
+          : p === 'openai'  ? user.openaiApiKeyEncrypted
+          :                   user.geminiApiKeyEncrypted
 
-        for (const provider of candidates) {
-          const encrypted =
-            provider === 'anthropic' ? user.anthropicApiKeyEncrypted
-            : provider === 'openai'  ? user.openaiApiKeyEncrypted
-            :                          user.geminiApiKeyEncrypted
-
+        if (preferred) {
+          const encrypted = keyFor(preferred)
           if (encrypted) {
             try {
-              const apiKey = decrypt(encrypted)
-              return { provider, apiKey, model: DEFAULT_MODELS[provider] }
-            } catch { /* fall through */ }
+              return { provider: preferred, apiKey: decrypt(encrypted), model: DEFAULT_MODELS[preferred] }
+            } catch { /* corrupted key — fall through to env */ }
+          }
+          // Preferred is set but no usable key — fall through to env fallback
+          // rather than silently switching to another provider.
+        } else {
+          // No preference: pick the first saved key in order gemini → anthropic → openai
+          for (const provider of ['gemini', 'anthropic', 'openai'] as AiProvider[]) {
+            const encrypted = keyFor(provider)
+            if (encrypted) {
+              try {
+                return { provider, apiKey: decrypt(encrypted), model: DEFAULT_MODELS[provider] }
+              } catch { /* fall through */ }
+            }
           }
         }
       }

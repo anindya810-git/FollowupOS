@@ -20,6 +20,9 @@ export interface ImapMessage {
   date: string
   textBody: string
   isFromUser: boolean
+  messageId?: string
+  inReplyTo?: string
+  references?: string[]
 }
 
 export async function getImapAccessDetails(emailAccountId: string): Promise<{
@@ -77,7 +80,7 @@ export async function getImapThreads(emailAccountId: string, daysBack: number = 
   try {
     for await (const msg of client.fetch(
       { since },
-      { envelope: true, bodyParts: ['text'] }
+      { envelope: true, bodyParts: ['text'], headers: ['references'] }
     )) {
       const from = msg.envelope?.from?.[0]
       const fromEmail = from?.address || ''
@@ -93,6 +96,20 @@ export async function getImapThreads(emailAccountId: string, daysBack: number = 
         textBody = textPart.toString().substring(0, 1000)
       }
 
+      // Pull threading headers — Message-ID, In-Reply-To, References
+      const messageId = (msg.envelope?.messageId || '').trim() || undefined
+      const inReplyTo = (msg.envelope?.inReplyTo || '').trim() || undefined
+      let references: string[] | undefined
+      const headerBuf = msg.headers
+      if (headerBuf) {
+        // headers buffer contains "References: <id1> <id2>\r\n..."
+        const headerStr = headerBuf.toString()
+        const match = headerStr.match(/^references:\s*([\s\S]*?)(?:\r?\n[a-z-]+:|$)/im)
+        if (match) {
+          references = match[1].match(/<[^>]+>/g) || undefined
+        }
+      }
+
       messages.push({
         uid: msg.uid,
         subject,
@@ -102,6 +119,9 @@ export async function getImapThreads(emailAccountId: string, daysBack: number = 
         date,
         textBody,
         isFromUser: fromEmail.toLowerCase() === email.toLowerCase(),
+        messageId,
+        inReplyTo,
+        references,
       })
     }
   } finally {
@@ -110,20 +130,64 @@ export async function getImapThreads(emailAccountId: string, daysBack: number = 
 
   await client.logout()
 
-  // Group by normalized subject to form threads
-  const threadMap = new Map<string, ImapMessage[]>()
+  // Threading: prefer Message-ID / In-Reply-To / References, fall back to
+  // normalised-subject + participants only when no headers exist.
+  // Process oldest first so parents land before replies.
+  messages.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+
+  const messageIdToThreadKey = new Map<string, string>()
+  const subjectKeyToThreadKey = new Map<string, string>()
+  const threadKeyToMessages = new Map<string, ImapMessage[]>()
+  let threadCounter = 0
+
+  const subjectKeyFor = (msg: ImapMessage): string => {
+    const norm = msg.subject.replace(/^(re:|fwd?:|fw:)\s*/i, '').trim().toLowerCase()
+    const parties = [msg.from, ...msg.to].map(s => s.toLowerCase()).sort().join(',')
+    return `${norm}|${parties}`
+  }
+
   for (const msg of messages) {
-    const normalizedSubject = msg.subject.replace(/^(re:|fwd?:|fw:)\s*/i, '').trim().toLowerCase()
-    if (!threadMap.has(normalizedSubject)) threadMap.set(normalizedSubject, [])
-    threadMap.get(normalizedSubject)!.push(msg)
+    // 1. Inherit thread from explicit headers
+    let threadKey: string | undefined
+    if (msg.inReplyTo && messageIdToThreadKey.has(msg.inReplyTo)) {
+      threadKey = messageIdToThreadKey.get(msg.inReplyTo)
+    }
+    if (!threadKey && msg.references) {
+      for (const ref of msg.references) {
+        if (messageIdToThreadKey.has(ref)) {
+          threadKey = messageIdToThreadKey.get(ref)
+          break
+        }
+      }
+    }
+    // 2. Fallback to subject+participants only if no headers matched
+    if (!threadKey) {
+      const sKey = subjectKeyFor(msg)
+      if (subjectKeyToThreadKey.has(sKey)) {
+        threadKey = subjectKeyToThreadKey.get(sKey)
+      } else {
+        threadKey = `t${threadCounter++}`
+        subjectKeyToThreadKey.set(sKey, threadKey)
+      }
+    }
+    if (!threadKey) {
+      threadKey = `t${threadCounter++}`
+    }
+    if (msg.messageId) messageIdToThreadKey.set(msg.messageId, threadKey)
+    if (!threadKeyToMessages.has(threadKey)) threadKeyToMessages.set(threadKey, [])
+    threadKeyToMessages.get(threadKey)!.push(msg)
   }
 
   const threads: ImapThread[] = []
-  for (const [normSubject, msgs] of threadMap) {
+  for (const [, msgs] of threadKeyToMessages) {
     msgs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     const latest = msgs[0]
     const participants = [...new Set(msgs.flatMap(m => [m.from, ...m.to]))]
-    const threadId = Buffer.from(normSubject + participants.sort().join(',')).toString('base64').substring(0, 40)
+    // Stable threadId derived from the root message-id when available,
+    // otherwise from subject+participants so re-scans converge to the same id.
+    const oldest = msgs[msgs.length - 1]
+    const seed = oldest.messageId || `${latest.subject}|${participants.sort().join(',')}`
+    const threadId = Buffer.from(seed).toString('base64').substring(0, 40)
 
     threads.push({
       threadId,
@@ -139,7 +203,9 @@ export async function getImapThreads(emailAccountId: string, daysBack: number = 
 }
 
 export function isNoisyImapSender(fromEmail: string, subject: string): boolean {
-  const noisePatterns = ['noreply', 'no-reply', 'donotreply', 'notifications@', 'newsletter', 'marketing', 'alerts@', 'support@', 'info@']
+  // Removed support@ and info@ — legitimate B2B threads (SaaS support, vendor
+  // contact) often come from these addresses and shouldn't be silently dropped.
+  const noisePatterns = ['noreply', 'no-reply', 'donotreply', 'notifications@', 'newsletter@', 'marketing@', 'alerts@']
   const noiseSubjects = ['unsubscribe', 'newsletter', 'invoice #', 'receipt', 'order confirmation', 'shipping', 'tracking']
   const emailLower = fromEmail.toLowerCase()
   const subjectLower = subject.toLowerCase()

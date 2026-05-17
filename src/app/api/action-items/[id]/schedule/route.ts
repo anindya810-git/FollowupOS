@@ -29,17 +29,20 @@ export async function POST(
     return NextResponse.json({ error: 'scheduledFor must be in the future' }, { status: 400 })
   }
 
-  const item = await prisma.actionItem.findFirst({
-    where: { id, userId: session.user.id },
-    include: {
-      emailThread: {
-        include: {
-          emailAccount: true,
-          messages: { orderBy: { sentAt: 'desc' }, take: 1 },
+  const [item, user] = await Promise.all([
+    prisma.actionItem.findFirst({
+      where: { id, userId: session.user.id },
+      include: {
+        emailThread: {
+          include: {
+            emailAccount: true,
+            messages: { orderBy: { sentAt: 'desc' }, take: 1 },
+          },
         },
       },
-    },
-  })
+    }),
+    prisma.user.findUnique({ where: { id: session.user.id }, select: { timezone: true } }),
+  ])
   if (!item || !item.emailThread) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
@@ -66,10 +69,16 @@ export async function POST(
     },
   })
 
-  // Mark the action item as snoozed until the scheduled send time
+  // Mark the action item as snoozed until the scheduled send time.
+  // Compute the date string in the user's own timezone so an 11pm IST send
+  // doesn't get snoozed to "tomorrow" by UTC.
+  const tz = user?.timezone || 'Asia/Kolkata'
+  const localDate = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(scheduledFor) // yields YYYY-MM-DD
   await prisma.actionItem.update({
     where: { id },
-    data: { status: 'snoozed', snoozedUntil: scheduledFor.toISOString().split('T')[0] },
+    data: { status: 'snoozed', snoozedUntil: localDate },
   })
 
   return NextResponse.json({ ok: true, id: scheduled.id, scheduledFor: scheduledFor.toISOString() })
