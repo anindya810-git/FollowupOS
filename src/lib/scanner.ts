@@ -142,7 +142,8 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
           provider: account.provider,
           aiConfig,
         })
-        if (result) created++
+        if (result === 'created') created++
+        if (result === 'ai_failed') aiFailures++
         processed++
 
         if (processed % 3 === 0) {
@@ -165,15 +166,16 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
       data: { initialScanCompleted: true, lastSyncedAt: new Date() },
     })
 
+    const scanDiagnostic = aiFailures > 0
+      ? `AI classification failed for ${aiFailures} of ${processed} threads — check your API key has credit and isn't rate-limited, or switch provider in Settings.`
+      : null
     await prisma.scanJob.update({
       where: { id: jobId },
       data: {
         status: 'completed',
         threadsProcessed: processed,
         actionItemsCreated: created,
-        errorMessage: (processed > 5 && aiFailures > processed / 2)
-          ? `AI classification failed for ${aiFailures} of ${processed} threads. Check your API key has credit and isn't rate-limited, or switch provider in Settings.`
-          : null,
+        errorMessage: scanDiagnostic,
       },
     })
   } catch (error) {
@@ -784,7 +786,7 @@ async function processThread(params: {
   userPreferences: { default_followup_days: number; conservative_mode: boolean }
   provider?: string
   aiConfig: AiConfig
-}): Promise<boolean> {
+}): Promise<'created' | 'skipped' | 'ai_failed'> {
   const { gmail, threadId, userId, emailAccountId, userEmail, userTimezone, userPreferences, provider = 'gmail', aiConfig } = params
 
   const threadRes = await gmail.users.threads.get({
@@ -796,7 +798,7 @@ async function processThread(params: {
 
   const thread = threadRes.data
   const messages = thread.messages || []
-  if (messages.length === 0) return false
+  if (messages.length === 0) return 'skipped'
 
   const firstMessage = messages[0]
   const headers = firstMessage.payload?.headers || []
@@ -815,9 +817,9 @@ async function processThread(params: {
       ],
     },
   })
-  if (ignoredSender) return false
+  if (ignoredSender) return 'skipped'
 
-  if (isNoisyThread(labels, senderEmail, subject)) return false
+  if (isNoisyThread(labels, senderEmail, subject)) return 'skipped'
 
   // Compute thread hash
   const lastMessage = messages[messages.length - 1]
@@ -830,7 +832,7 @@ async function processThread(params: {
   const existingThread = await prisma.emailThread.findUnique({
     where: { emailAccountId_providerThreadId: { emailAccountId, providerThreadId: threadId } },
   })
-  if (existingThread?.threadHash === threadHash) return false
+  if (existingThread?.threadHash === threadHash) return 'skipped'
 
   // Fetch full thread for classification
   const fullThreadRes = await gmail.users.threads.get({
@@ -1009,8 +1011,9 @@ async function processThread(params: {
     },
   })
 
-  if (!result || !result.should_show_to_user || result.primary_category === 'no_action_needed') {
-    return false
+  if (!result) return 'ai_failed'
+  if (!result.should_show_to_user || result.primary_category === 'no_action_needed') {
+    return 'skipped'
   }
 
   // Create or update action item
@@ -1081,5 +1084,5 @@ async function processThread(params: {
     await upsertContact(userId, result.owner_email, result.owner_name)
   }
 
-  return true
+  return 'created'
 }
