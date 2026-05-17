@@ -47,6 +47,7 @@ model User {
   referralsGiven    Referral[]   @relation("ReferralsGiven")
   referralReceived  Referral?    @relation("ReferralReceived")
   shareEvents       ShareEvent[]
+  payments          Payment[]
 }
 
 model ScheduledMessage {
@@ -382,4 +383,37 @@ model ShareEvent {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// Payment records for Stripe and Razorpay transactions.
+model Payment {
+  id                    String   @id @default(cuid())
+  userId                String
+  amountCents           Int      // amount in smallest currency unit (paise for INR, cents for USD)
+  currency              String   @default("INR")
+  provider              String   // stripe | razorpay
+  status                String   @default("pending") // pending | captured | failed | refunded
+  stripePaymentIntentId String?
+  razorpayOrderId       String?
+  razorpayPaymentId     String?
+  planType              String   // lite | pro
+  planDays              Int      @default(30)
+  notes                 String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// Singleton row for admin-managed gateway credentials.
+model AdminConfig {
+  id                       String   @id @default("singleton")
+  stripeSecretKeyEncrypted  String?
+  stripePublishableKey      String?  // publishable key is not secret
+  razorpayKeyIdEncrypted    String?
+  razorpaySecretEncrypted   String?
+  updatedAt                 DateTime @updatedAt
 }
