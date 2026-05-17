@@ -1,15 +1,8 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import type { Prisma } from '@prisma/client'
 
-type ActionItemWithThread = Prisma.ActionItemGetPayload<{
-  include: {
-    emailThread: {
-      select: { subject: true; providerUrl: true; lastMessageAt: true; participants: true }
-    }
-  }
-}>
+type ActionItemWithThread = any
 
 export async function GET() {
   const session = await auth()
