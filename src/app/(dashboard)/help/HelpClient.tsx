@@ -39,7 +39,7 @@ const SECTIONS: FAQSection[] = [
       },
       {
         q: 'Who can read my emails?',
-        a: 'Nobody at Pendingly. Your data is scoped to your user account by every API endpoint. Classifications run against Anthropic Claude with no training opt-in.',
+        a: 'Nobody at Pendingly. Your data is scoped to your user account by every API endpoint. Classifications run through Pendingly Assist with no training opt-in.',
       },
       {
         q: 'How do I disconnect an inbox?',

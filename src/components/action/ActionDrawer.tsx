@@ -248,7 +248,7 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
               <div className="flex items-center gap-2">
                 <Zap className="h-3.5 w-3.5 text-action" />
                 <p className="text-xs font-semibold text-action uppercase tracking-wider">
-                  Intelligent reply suggestion
+                  Pendingly Assist
                 </p>
               </div>
               <button
