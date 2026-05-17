@@ -232,37 +232,62 @@ export async function getOutlookThreads(
 
 export async function sendOutlookReply(
   emailAccountId: string,
-  _conversationId: string,
+  conversationId: string,
   toEmail: string,
   subject: string,
   body: string,
+  lastProviderMessageId?: string,
 ): Promise<unknown> {
   const accessToken = await getOutlookAccessToken(emailAccountId)
+  const { sanitizeEmailHtml, looksLikeHtml, safeHeaderValue } = await import('./email-safety')
+  const isHtml = looksLikeHtml(body)
+  const sanitisedBody = isHtml ? sanitizeEmailHtml(body) : body
+  const safeTo = safeHeaderValue('To', toEmail)
+  const safeSubject = safeHeaderValue('Subject', subject)
 
+  // If we know the message we're replying to, use /reply so Outlook threads
+  // the conversation and recipients see it as a true reply. Otherwise fall
+  // back to sendMail with a manual In-Reply-To header.
+  if (lastProviderMessageId) {
+    const url = `https://graph.microsoft.com/v1.0/me/messages/${encodeURIComponent(lastProviderMessageId)}/reply`
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: {
+          toRecipients: [{ emailAddress: { address: safeTo } }],
+          body: { contentType: isHtml ? 'HTML' : 'Text', content: sanitisedBody },
+        },
+        comment: '',
+      }),
+    })
+    if (!res.ok && res.status !== 202) {
+      const err = await res.text()
+      throw new Error(`Outlook reply failed: ${err}`)
+    }
+    return { accepted: true, threaded: true }
+  }
+
+  // Fallback for missing message id — at least keep the conversation id
   const payload = {
     message: {
-      subject,
-      body: { contentType: /<[a-z][\s\S]*>/i.test(body) ? 'HTML' : 'Text', content: body },
-      toRecipients: [{ emailAddress: { address: toEmail } }],
+      subject: safeSubject,
+      body: { contentType: isHtml ? 'HTML' : 'Text', content: sanitisedBody },
+      toRecipients: [{ emailAddress: { address: safeTo } }],
+      ...(conversationId ? { conversationId } : {}),
     },
     saveToSentItems: true,
   }
-
   const res = await fetch('https://graph.microsoft.com/v1.0/me/sendMail', {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   })
-
   if (!res.ok) {
     const err = await res.text()
     throw new Error(`Outlook send failed: ${err}`)
   }
-  // sendMail returns 202 Accepted with no body
-  return { accepted: true }
+  return { accepted: true, threaded: false }
 }
 
 const NOISE_CATEGORIES = ['Junk Email', 'Newsletters']

@@ -51,14 +51,22 @@ export async function sendSmtpReply(
     },
   })
 
-  const isHtml = /<[a-z][\s\S]*>/i.test(body)
+  const { sanitizeEmailHtml, looksLikeHtml, htmlToPlainText, safeHeaderValue } = await import('./email-safety')
+  const isHtml = looksLikeHtml(body)
+  const sanitisedHtml = isHtml ? sanitizeEmailHtml(body) : undefined
+  const plain = isHtml ? htmlToPlainText(body) : body
+  const safeTo = safeHeaderValue('To', toEmail)
+  const safeSubject = safeHeaderValue('Subject', subject)
+  const safeInReplyTo = inReplyTo ? safeHeaderValue('In-Reply-To', inReplyTo) : undefined
+
+  // Nodemailer escapes its own headers, but normalise once more for defence in depth.
   const info = await transporter.sendMail({
     from: account.emailAddress,
-    to: toEmail,
-    subject,
-    ...(isHtml ? { html: body, text: body.replace(/<[^>]+>/g, '') } : { text: body }),
-    inReplyTo,
-    references: inReplyTo,
+    to: safeTo,
+    subject: safeSubject,
+    ...(sanitisedHtml ? { html: sanitisedHtml, text: plain } : { text: plain }),
+    inReplyTo: safeInReplyTo,
+    references: safeInReplyTo,
   })
 
   return info

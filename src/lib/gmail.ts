@@ -132,22 +132,28 @@ export async function sendGmailReply(
     }
   }
 
-  // body may be HTML — detect by tag presence
-  const isHtml = /<[a-z][\s\S]*>/i.test(body)
-  const textFallback = isHtml ? body.replace(/<[^>]+>/g, '') : body
-  const htmlBody = isHtml ? body : body.replace(/\n/g, '<br>')
+  // body may be HTML — detect, sanitise, and build both parts
+  const { sanitizeEmailHtml, htmlToPlainText, looksLikeHtml, safeHeaderValue } = await import('./email-safety')
+  const isHtml = looksLikeHtml(body)
+  const htmlBody = isHtml ? sanitizeEmailHtml(body) : body.replace(/\n/g, '<br>')
+  const textFallback = isHtml ? htmlToPlainText(body) : body
+
+  const safeFrom = safeHeaderValue('From', account.emailAddress)
+  const safeTo = safeHeaderValue('To', toEmail)
+  const safeSubject = safeHeaderValue('Subject', subject)
+  const safeInReplyTo = rfcMessageId ? safeHeaderValue('In-Reply-To', rfcMessageId) : null
 
   const boundary = `==pendingly_${Date.now()}_${Math.random().toString(36).slice(2)}`
   const headerLines = [
-    `From: ${account.emailAddress}`,
-    `To: ${toEmail}`,
-    `Subject: ${subject}`,
+    `From: ${safeFrom}`,
+    `To: ${safeTo}`,
+    `Subject: ${safeSubject}`,
     'MIME-Version: 1.0',
     `Content-Type: multipart/alternative; boundary="${boundary}"`,
   ]
-  if (rfcMessageId) {
-    headerLines.push(`In-Reply-To: ${rfcMessageId}`)
-    headerLines.push(`References: ${rfcMessageId}`)
+  if (safeInReplyTo) {
+    headerLines.push(`In-Reply-To: ${safeInReplyTo}`)
+    headerLines.push(`References: ${safeInReplyTo}`)
   }
   const mimeBody = [
     `--${boundary}`,

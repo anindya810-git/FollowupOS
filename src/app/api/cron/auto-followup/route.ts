@@ -14,6 +14,15 @@ async function runAutoFollowup() {
   for (const settings of enabledUsers) {
     const intervalMs = settings.autoFollowupDays * 86400_000
     const cutoff = new Date(Date.now() - intervalMs)
+
+    // Pre-load this user's ignored sender list so we never auto-followup them
+    const ignored = await prisma.ignoredSender.findMany({
+      where: { userId: settings.userId },
+      select: { senderEmail: true, domain: true },
+    })
+    const ignoredEmails = new Set(ignored.map(i => (i.senderEmail || '').toLowerCase()).filter(Boolean))
+    const ignoredDomains = new Set(ignored.map(i => (i.domain || '').toLowerCase()).filter(Boolean))
+
     const items = await prisma.actionItem.findMany({
       where: {
         userId: settings.userId,
@@ -39,11 +48,21 @@ async function runAutoFollowup() {
     })
 
     const template = settings.autoFollowupTemplate || DEFAULT_FOLLOWUP_TEMPLATE
+    const signature = settings.signatureHtml ?? ''
 
     for (const item of items) {
       if (!item.emailThread || !item.ownerEmail) continue
+      const targetEmail = item.ownerEmail.toLowerCase()
+      const targetDomain = targetEmail.split('@')[1] || ''
+      if (ignoredEmails.has(targetEmail) || ignoredDomains.has(targetDomain)) continue
+
       const account = item.emailThread.emailAccount
-      const body = renderTemplate(template, { name: item.ownerName ?? undefined })
+      const rendered = renderTemplate(template, { name: item.ownerName ?? undefined })
+      // Template is plain text; wrap as HTML and append signature when present
+      const htmlBody = signature
+        ? `<p>${rendered.replace(/\n/g, '<br>')}</p><br>${signature}`
+        : `<p>${rendered.replace(/\n/g, '<br>')}</p>`
+      const body = htmlBody
       const subject = item.emailThread.subject?.startsWith('Re:')
         ? item.emailThread.subject
         : `Re: ${item.emailThread.subject ?? 'Follow up'}`
@@ -65,12 +84,14 @@ async function runAutoFollowup() {
         } else if (account.provider === 'outlook') {
           const mod = await import('@/lib/outlook').catch(() => null)
           if (mod && 'sendOutlookReply' in mod) {
+            const lastMsg = item.emailThread.messages[0]
             await (mod as { sendOutlookReply: (...args: unknown[]) => Promise<unknown> }).sendOutlookReply(
               account.id,
               item.emailThread.providerThreadId,
               item.ownerEmail,
               subject,
               body,
+              lastMsg?.providerMessageId,
             )
           } else {
             throw new Error('sendOutlookReply not available')

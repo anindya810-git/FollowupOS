@@ -2,20 +2,38 @@ import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'crypt
 
 const ALGO = 'aes-256-gcm'
 
-function getKey(): Buffer {
-  const secret = process.env.ENCRYPTION_KEY || process.env.NEXTAUTH_SECRET
-  if (!secret) {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('ENCRYPTION_KEY (or NEXTAUTH_SECRET) must be set in production')
-    }
-    // Dev fallback — loud warning so devs notice.
-    console.warn(
-      '[crypto] WARNING: ENCRYPTION_KEY/NEXTAUTH_SECRET not set. Using insecure dev fallback. ' +
-      'Set ENCRYPTION_KEY in your environment before storing real data.'
-    )
-    return scryptSync('pendingly-dev-fallback-key-change-me', 'pendingly-salt', 32)
+export class DecryptError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'DecryptError'
   }
-  return scryptSync(secret, 'pendingly-salt', 32)
+}
+
+function getKey(): Buffer {
+  const explicit = process.env.ENCRYPTION_KEY
+  if (explicit) return scryptSync(explicit, 'pendingly-salt', 32)
+
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'ENCRYPTION_KEY must be set in production. Generate one with: openssl rand -hex 32'
+    )
+  }
+
+  // Dev-only fallback to NEXTAUTH_SECRET so local dev works without two secrets.
+  // Loud warning so devs notice they need a distinct ENCRYPTION_KEY before prod.
+  const dev = process.env.NEXTAUTH_SECRET
+  if (dev) {
+    console.warn(
+      '[crypto] DEV: ENCRYPTION_KEY not set, falling back to NEXTAUTH_SECRET. ' +
+      'Set ENCRYPTION_KEY explicitly before storing real data.'
+    )
+    return scryptSync(dev, 'pendingly-salt', 32)
+  }
+
+  console.warn(
+    '[crypto] WARNING: no encryption secret set. Using insecure dev fallback.'
+  )
+  return scryptSync('pendingly-dev-fallback-key-change-me', 'pendingly-salt', 32)
 }
 
 export function encrypt(plain: string): string {
@@ -30,21 +48,21 @@ export function encrypt(plain: string): string {
 
 export function decrypt(payload: string): string {
   if (!payload) return ''
+  const buf = Buffer.from(payload, 'base64')
+  if (buf.length < 28) {
+    // Too short to be our format. Don't pretend it decoded successfully —
+    // returning garbage here previously led to silent auth failures with the
+    // ciphertext echoed back to clients via error messages.
+    throw new DecryptError('Encrypted payload is too short or malformed')
+  }
+  const iv = buf.subarray(0, 12)
+  const tag = buf.subarray(12, 28)
+  const enc = buf.subarray(28)
   try {
-    const buf = Buffer.from(payload, 'base64')
-    // Legacy support: if this looks like plain base64 (not our format), try old decode
-    if (buf.length < 28) {
-      // Old format: just base64-encoded string
-      return Buffer.from(payload, 'base64').toString('utf-8')
-    }
-    const iv = buf.subarray(0, 12)
-    const tag = buf.subarray(12, 28)
-    const enc = buf.subarray(28)
     const decipher = createDecipheriv(ALGO, getKey(), iv)
     decipher.setAuthTag(tag)
     return Buffer.concat([decipher.update(enc), decipher.final()]).toString('utf8')
   } catch {
-    // Fallback: try treating as old plain-base64 format for legacy data
-    try { return Buffer.from(payload, 'base64').toString('utf-8') } catch { return '' }
+    throw new DecryptError('Failed to decrypt — wrong key or tampered ciphertext')
   }
 }

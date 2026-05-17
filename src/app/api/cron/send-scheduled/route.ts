@@ -31,7 +31,7 @@ async function runSendScheduled() {
       if (account.provider === 'gmail') {
         await sendGmailReply(account.id, msg.threadId || '', msg.toEmail, msg.subject, msg.contentHtml)
       } else if (account.provider === 'outlook') {
-        await sendOutlookReply(account.id, msg.threadId || '', msg.toEmail, msg.subject, msg.contentHtml)
+        await sendOutlookReply(account.id, msg.threadId || '', msg.toEmail, msg.subject, msg.contentHtml, msg.lastMessageId ?? undefined)
       } else {
         await sendSmtpReply(account.id, msg.toEmail, msg.subject, msg.contentHtml, msg.lastMessageId ?? undefined)
       }

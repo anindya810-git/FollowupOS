@@ -52,12 +52,12 @@ export async function POST(
       : `Re: ${item.emailThread.subject ?? ''}`)
 
   try {
+    const lastMsg = item.emailThread.messages[0]
     if (account.provider === 'gmail') {
       await sendGmailReply(account.id, item.emailThread.providerThreadId, toEmail, subject, body.content)
     } else if (account.provider === 'outlook') {
-      await sendOutlookReply(account.id, item.emailThread.providerThreadId, toEmail, subject, body.content)
+      await sendOutlookReply(account.id, item.emailThread.providerThreadId, toEmail, subject, body.content, lastMsg?.providerMessageId)
     } else {
-      const lastMsg = item.emailThread.messages[0]
       await sendSmtpReply(account.id, toEmail, subject, body.content, lastMsg?.providerMessageId)
     }
 
@@ -68,9 +68,11 @@ export async function POST(
 
     return NextResponse.json({ ok: true })
   } catch (e) {
-    console.error('Send failed:', e)
+    console.error('Send failed for item', id, ':', e instanceof Error ? e.name : 'unknown')
+    // Generic message — do not echo raw provider errors which may contain
+    // tokens, ciphertext fragments, or other sensitive data.
     return NextResponse.json(
-      { error: 'Send failed: ' + (e instanceof Error ? e.message : 'unknown') },
+      { error: 'Failed to send. The account may need to be reconnected.' },
       { status: 500 },
     )
   }
