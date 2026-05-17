@@ -1,11 +1,12 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Header } from '@/components/layout/Header'
 import { StatCard } from '@/components/charts/StatCard'
 import { LineChart } from '@/components/charts/LineChart'
 import { BarChart } from '@/components/charts/BarChart'
 import { DonutChart } from '@/components/charts/DonutChart'
 import { LogoMark } from '@/components/ui/Logo'
+import { Share2, ExternalLink } from 'lucide-react'
 
 // ── Types ────────────────────────────────────────────────────────────
 interface Summary {
@@ -123,6 +124,106 @@ function DayOfWeekChart({ data }: { data: Array<{ label: string; value: number }
   )
 }
 
+// ── Share card ────────────────────────────────────────────────────────
+function StatsShareCard() {
+  interface MyStats {
+    period: string
+    thisMonth: { total: number; handled: number; replyRate: number | null }
+  }
+  interface ShareResult { daysAdded: number; totalShares: number }
+
+  const [stats, setStats] = useState<MyStats | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [sharing, setSharing] = useState(false)
+  const [shareResult, setShareResult] = useState<ShareResult | null>(null)
+
+  useEffect(() => {
+    fetch('/api/stats/my').then(r => r.json()).then(setStats).catch(() => {})
+    // get userId from session
+    fetch('/api/user/profile').then(r => r.json()).then((d: { id: string }) => setUserId(d.id)).catch(() => {})
+  }, [])
+
+  const shareUrl = userId ? `${window.location.origin}/s/${userId}` : ''
+
+  const handleShare = async (platform: string) => {
+    setSharing(true)
+    try {
+      const res = await fetch('/api/stats/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platform }),
+      })
+      const data = await res.json()
+      setShareResult(data)
+    } finally {
+      setSharing(false)
+    }
+  }
+
+  if (!stats) return null
+
+  const { period, thisMonth } = stats
+
+  return (
+    <div className="bg-white border border-[rgba(11,18,32,0.08)] rounded-xl p-5">
+      <div className="flex items-start justify-between gap-4 mb-4">
+        <div>
+          <p className="text-xs font-semibold text-[rgba(11,18,32,0.4)] uppercase tracking-wider">Share your stats</p>
+          <p className="text-sm text-[rgba(11,18,32,0.6)] mt-0.5">{period}</p>
+        </div>
+        {shareUrl && (
+          <a href={shareUrl} target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-1 text-xs text-[rgba(11,18,32,0.4)] hover:text-ink transition-colors">
+            <ExternalLink className="h-3.5 w-3.5" /> Preview card
+          </a>
+        )}
+      </div>
+      <div className="flex gap-4 mb-4">
+        {thisMonth.replyRate != null && (
+          <div>
+            <p className="text-3xl font-bold text-[#0b1220]">{thisMonth.replyRate}<span className="text-lg">%</span></p>
+            <p className="text-xs text-[rgba(11,18,32,0.45)]">reply rate</p>
+          </div>
+        )}
+        <div>
+          <p className="text-3xl font-bold text-[#0b1220]">{thisMonth.handled}</p>
+          <p className="text-xs text-[rgba(11,18,32,0.45)]">emails handled</p>
+        </div>
+      </div>
+      {shareResult && (
+        <div className={`mb-3 rounded-lg px-3 py-2 text-xs font-medium ${shareResult.daysAdded > 0 ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-[rgba(11,18,32,0.04)] text-[rgba(11,18,32,0.5)]'}`}>
+          {shareResult.daysAdded > 0
+            ? `+${shareResult.daysAdded} days added to your plan! 🎉`
+            : 'Already shared today — bonus applies once per day.'}
+        </div>
+      )}
+      <div className="flex gap-2">
+        <button
+          disabled={sharing || !shareUrl}
+          onClick={() => {
+            handleShare('twitter')
+            window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(`I handled ${thisMonth.handled} emails and replied to ${thisMonth.replyRate ?? '?'}% on time in ${period} using @pendingly 📧`)}&url=${encodeURIComponent(shareUrl)}`, '_blank')
+          }}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-[#0b1220] text-white text-xs font-medium hover:bg-[#1a2535] transition-colors disabled:opacity-50"
+        >
+          <Share2 className="h-3.5 w-3.5" /> Share on X
+        </button>
+        <button
+          disabled={sharing || !shareUrl}
+          onClick={() => {
+            handleShare('linkedin')
+            window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`, '_blank')
+          }}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-[rgba(11,18,32,0.12)] text-[#0b1220] text-xs font-medium hover:bg-[rgba(11,18,32,0.04)] transition-colors disabled:opacity-50"
+        >
+          Share on LinkedIn
+        </button>
+      </div>
+      <p className="text-[10px] text-[rgba(11,18,32,0.35)] mt-2">Each unique share adds 7 free days to your plan (once per day)</p>
+    </div>
+  )
+}
+
 // ── Main component ────────────────────────────────────────────────────
 export function AnalyticsClient({ userEmail }: { userEmail: string }) {
   const [summary, setSummary] = useState<Summary | null>(null)
@@ -132,7 +233,7 @@ export function AnalyticsClient({ userEmail }: { userEmail: string }) {
   const [loading, setLoading] = useState(true)
   const [hasData, setHasData] = useState(true)
 
-  const fetchAll = async () => {
+  const fetchAll = useCallback(async () => {
     setLoading(true)
     try {
       const [s, t, ta, b] = await Promise.all([
@@ -157,10 +258,9 @@ export function AnalyticsClient({ userEmail }: { userEmail: string }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { void fetchAll() }, [])
+  useEffect(() => { void fetchAll() }, [fetchAll])
 
   // ── Derived data for charts ──────────────────────────────────────
   const donutSegments = breakdown
@@ -216,6 +316,11 @@ export function AnalyticsClient({ userEmail }: { userEmail: string }) {
       <Header title="Analytics" userEmail={userEmail} onSync={fetchAll} />
 
       <main className="p-6 bg-paper min-h-screen">
+        {/* Share your stats card */}
+        <div className="max-w-sm mb-8">
+          <StatsShareCard />
+        </div>
+
         {!loading && !hasData ? (
           <EmptyState />
         ) : (

@@ -36,7 +36,7 @@ export async function PATCH(request: NextRequest) {
     autoFollowupEnabled, autoFollowupDays, autoFollowupTemplate,
     followupSequenceJson,
     calendarAutoCreate, defaultMeetingProvider, reminderPushEnabled,
-    signatureHtml,
+    signatureHtml, emailSignatureEnabled,
     isEnabled, digestTime, timezone, slackWebhookUrl, slackEnabled,
   } = body
 
@@ -74,6 +74,7 @@ export async function PATCH(request: NextRequest) {
     appData.defaultMeetingProvider = defaultMeetingProvider
   }
   if (reminderPushEnabled !== undefined) appData.reminderPushEnabled = !!reminderPushEnabled
+  if (emailSignatureEnabled !== undefined) appData.emailSignatureEnabled = !!emailSignatureEnabled
   if (signatureHtml !== undefined) {
     // Sanitise on save so we never store anything dangerous that would later
     // be rendered into the editor or emailed out.

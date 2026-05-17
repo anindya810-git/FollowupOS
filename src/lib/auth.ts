@@ -2,6 +2,7 @@ import NextAuth from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 import { PrismaAdapter } from '@auth/prisma-adapter'
 import { prisma } from './prisma'
+// prisma used in createUser event below
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -34,6 +35,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.id = user.id
       }
       return session
+    },
+  },
+  events: {
+    async createUser({ user }) {
+      // Set the free trial expiry to 90 days from now
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { planExpiresAt: new Date(Date.now() + 90 * 86_400_000) },
+      })
     },
   },
   pages: {

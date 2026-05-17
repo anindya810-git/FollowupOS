@@ -14,6 +14,8 @@ import {
   Settings,
   BarChart2,
   HelpCircle,
+  Gift,
+  Zap,
 } from 'lucide-react'
 
 const navGroups = [
@@ -23,6 +25,13 @@ const navGroups = [
       { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { href: '/queue', label: 'All Items', icon: ListTodo },
       { href: '/analytics', label: 'Analytics', icon: BarChart2 },
+    ],
+  },
+  {
+    label: 'Account',
+    items: [
+      { href: '/referral', label: 'Referral', icon: Gift },
+      { href: '/upgrade', label: 'Upgrade', icon: Zap },
     ],
   },
   {

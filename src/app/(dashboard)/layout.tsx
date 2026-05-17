@@ -6,14 +6,46 @@ import { Sidebar } from '@/components/layout/Sidebar'
 import { LogoMark } from '@/components/ui/Logo'
 import { OpenInboxButton } from '@/components/layout/OpenInboxButton'
 
+interface PlanInfo { type: string; isActive: boolean; daysLeft: number | null }
+
+function getCookie(name: string): string | null {
+  const match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'))
+  return match ? decodeURIComponent(match[1]) : null
+}
+
+function deleteCookie(name: string) {
+  document.cookie = `${name}=; path=/; max-age=0`
+}
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [plan, setPlan] = useState<PlanInfo | null>(null)
+  const [bannerDismissed, setBannerDismissed] = useState(false)
 
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/')
   }, [status, router])
+
+  // Activate referral code from cookie after sign-in
+  useEffect(() => {
+    if (status !== 'authenticated') return
+    const refCode = getCookie('pending_ref')
+    if (!refCode) return
+    deleteCookie('pending_ref')
+    fetch('/api/referral/activate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: refCode }),
+    }).catch(() => {})
+  }, [status])
+
+  // Load plan info for banner
+  useEffect(() => {
+    if (status !== 'authenticated') return
+    fetch('/api/plan').then(r => r.json()).then(setPlan).catch(() => {})
+  }, [status])
 
   if (status === 'loading' || !session?.user) {
     return (
@@ -39,6 +71,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <Sidebar onClose={() => setSidebarOpen(false)} />
       </div>
       <div className="flex flex-col flex-1 overflow-hidden min-w-0">
+        {/* Plan expiry banner — shown when ≤14 days left on free trial */}
+        {!bannerDismissed && plan?.type === 'free' && plan.isActive && plan.daysLeft != null && plan.daysLeft <= 14 && (
+          <div className="flex items-center justify-between gap-3 px-4 py-2 bg-amber-50 border-b border-amber-200 text-xs text-amber-800 flex-shrink-0">
+            <span>⏳ Your free trial expires in <strong>{plan.daysLeft} day{plan.daysLeft !== 1 ? 's' : ''}</strong>. <a href="/referral" className="underline font-medium">Refer friends</a> or <a href="/upgrade" className="underline font-medium">upgrade</a> to keep access.</span>
+            <button onClick={() => setBannerDismissed(true)} className="flex-shrink-0 text-amber-600 hover:text-amber-900">✕</button>
+          </div>
+        )}
+        {!bannerDismissed && plan && !plan.isActive && (
+          <div className="flex items-center justify-between gap-3 px-4 py-2 bg-red-50 border-b border-red-200 text-xs text-red-800 flex-shrink-0">
+            <span>🔒 Your plan has expired. <a href="/upgrade" className="underline font-medium">Upgrade now</a> to restore full access.</span>
+            <button onClick={() => setBannerDismissed(true)} className="flex-shrink-0 text-red-600 hover:text-red-900">✕</button>
+          </div>
+        )}
         <div className="flex items-center h-12 px-4 border-b border-rule bg-paper-2 md:hidden flex-shrink-0">
           <button
             onClick={() => setSidebarOpen(true)}

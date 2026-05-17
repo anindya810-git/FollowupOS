@@ -5,6 +5,7 @@ import { sendGmailReply } from '@/lib/gmail'
 import { sendOutlookReply } from '@/lib/outlook'
 import { sendSmtpReply } from '@/lib/smtp'
 import { safeLog } from '@/lib/safe-log'
+import { getUserPlan, SIGNATURE_HTML, PLAN_LIMITS } from '@/lib/plan'
 
 export async function POST(
   request: NextRequest,
@@ -52,18 +53,28 @@ export async function POST(
       ? item.emailThread.subject
       : `Re: ${item.emailThread.subject ?? ''}`)
 
+  // Append "Sent via Pendingly" footer.
+  // Free users always get it. Lite/Pro users get it unless they've disabled it.
+  const [userPlan, appSettings] = await Promise.all([
+    getUserPlan(session.user.id),
+    prisma.appSettings.findUnique({ where: { userId: session.user.id }, select: { emailSignatureEnabled: true } }),
+  ])
+  const canDisable = PLAN_LIMITS[userPlan.type].canDisableSignature
+  const sigEnabled = !canDisable || (appSettings?.emailSignatureEnabled ?? true)
+  const finalContent = sigEnabled ? `${body.content}${SIGNATURE_HTML}` : body.content
+
   try {
     const lastMsg = item.emailThread.messages[0]
     if (account.provider === 'gmail') {
-      await sendGmailReply(account.id, item.emailThread.providerThreadId, toEmail, subject, body.content)
+      await sendGmailReply(account.id, item.emailThread.providerThreadId, toEmail, subject, finalContent)
     } else if (account.provider === 'outlook') {
-      await sendOutlookReply(account.id, item.emailThread.providerThreadId, toEmail, subject, body.content, lastMsg?.providerMessageId)
+      await sendOutlookReply(account.id, item.emailThread.providerThreadId, toEmail, subject, finalContent, lastMsg?.providerMessageId)
     } else {
       // SMTP/IMAP — use the RFC Message-ID for In-Reply-To so the recipient
       // mail client threads the reply correctly. Fall back to providerMessageId
       // (IMAP UID) if we never captured the RFC id.
       const inReplyTo = lastMsg?.rfcMessageId || lastMsg?.providerMessageId
-      await sendSmtpReply(account.id, toEmail, subject, body.content, inReplyTo)
+      await sendSmtpReply(account.id, toEmail, subject, finalContent, inReplyTo)
     }
 
     await prisma.actionItem.update({

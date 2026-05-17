@@ -41,6 +41,7 @@ export default function SettingsPage() {
       calendarAutoCreate?: 'off' | 'event' | 'task' | 'both';
       defaultMeetingProvider?: 'none' | 'meet' | 'teams' | 'zoom';
       reminderPushEnabled?: boolean;
+      emailSignatureEnabled?: boolean;
     } | null
     digestSettings: { isEnabled: boolean; digestTime: string; timezone: string; slackWebhookUrl?: string | null; slackEnabled?: boolean } | null
     ignoredSenders: Array<{ id: string; senderEmail?: string; domain?: string; reason?: string }>
@@ -84,6 +85,7 @@ export default function SettingsPage() {
         calendarAutoCreate: settings.appSettings?.calendarAutoCreate ?? 'off',
         defaultMeetingProvider: settings.appSettings?.defaultMeetingProvider ?? 'none',
         reminderPushEnabled: settings.appSettings?.reminderPushEnabled ?? true,
+        emailSignatureEnabled: settings.appSettings?.emailSignatureEnabled ?? true,
       }),
     })
     setSaving(false)
@@ -511,8 +513,27 @@ export default function SettingsPage() {
           <Card>
             <CardHeader><CardTitle>Email signature</CardTitle></CardHeader>
             <CardContent>
+              {/* Pendingly footer toggle */}
+              <div className="flex items-start justify-between gap-3 p-3 bg-[rgb(11_18_32/4%)] rounded-lg mb-4 border border-[rgb(11_18_32/8%)]">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-ink">Append &quot;Sent via Pendingly&quot;</p>
+                  <p className="text-xs text-[rgb(11_18_32/55%)] mt-0.5">
+                    Adds a small footer to all outgoing emails. Disabled on Lite &amp; Pro plans.
+                  </p>
+                </div>
+                <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={settings.appSettings?.emailSignatureEnabled ?? true}
+                    onChange={e => setSettings(s => ({ ...s, appSettings: { ...s.appSettings!, emailSignatureEnabled: e.target.checked } }))}
+                    className="h-4 w-4 accent-action"
+                    title="Toggle Pendingly email footer"
+                  />
+                  <a href="/upgrade" className="text-[10px] text-[rgb(11_18_32/35%)] underline hover:text-ink">Requires Lite/Pro to disable</a>
+                </div>
+              </div>
               <p className="text-xs text-[rgb(11_18_32/55%)] mb-3">
-                Appended via the &quot;Insert signature&quot; button in the reply editor.
+                Custom signature — appended via the &quot;Insert signature&quot; button in the reply editor.
               </p>
               <RichTextEditor
                 value={settings.appSettings?.signatureHtml ?? ''}
