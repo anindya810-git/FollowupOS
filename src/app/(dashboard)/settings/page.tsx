@@ -440,8 +440,8 @@ export default function SettingsPage() {
             {saved ? 'Saved!' : saving ? 'Saving...' : 'Save Settings'}
           </Button>
 
-          {/* Anthropic API key */}
-          <AnthropicKeyCard />
+          {/* AI Provider */}
+          <AiProviderCard />
 
           {/* Product tour */}
           <Card>
@@ -466,91 +466,183 @@ export default function SettingsPage() {
   )
 }
 
-function AnthropicKeyCard() {
-  const [status, setStatus] = useState<{ hasKey: boolean; hasEnvFallback: boolean } | null>(null)
-  const [apiKey, setApiKey] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
+type ProviderStatus = { hasKey: boolean; hasEnvFallback: boolean }
+type AiConfigStatus = {
+  preferredProvider: string | null
+  providers: { anthropic: ProviderStatus; openai: ProviderStatus; gemini: ProviderStatus }
+}
+
+const PROVIDER_META = {
+  gemini:    { label: 'Google Gemini',  placeholder: 'AIza...',     docs: 'https://aistudio.google.com/apikey',         note: 'Free tier available — get a key at Google AI Studio. Model: gemini-2.0-flash.' },
+  anthropic: { label: 'Anthropic',      placeholder: 'sk-ant-...',  docs: 'https://console.anthropic.com/settings/keys', note: 'Claude Sonnet 4.6. ~$0.20–0.50 per inbox scan.' },
+  openai:    { label: 'OpenAI',         placeholder: 'sk-...',      docs: 'https://platform.openai.com/api-keys',        note: 'GPT-4o mini. Very cost-effective per scan.' },
+} as const
+
+type Provider = keyof typeof PROVIDER_META
+
+function AiProviderCard() {
+  const [config, setConfig] = useState<AiConfigStatus | null>(null)
+  const [inputs, setInputs] = useState<Record<Provider, string>>({ gemini: '', anthropic: '', openai: '' })
+  const [saving, setSaving] = useState<Provider | null>(null)
+  const [removing, setRemoving] = useState<Provider | null>(null)
+  const [errors, setErrors] = useState<Record<Provider, string | null>>({ gemini: null, anthropic: null, openai: null })
+  const [saved, setSaved] = useState<Provider | null>(null)
 
   const refresh = () => {
-    fetch('/api/user/anthropic-key')
+    fetch('/api/user/ai-config')
       .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d) setStatus(d) })
+      .then(d => { if (d) setConfig(d) })
       .catch(() => {})
   }
 
   useEffect(() => { refresh() }, [])
 
-  const save = async () => {
-    setSaving(true); setError(null)
+  const saveKey = async (provider: Provider) => {
+    const key = inputs[provider].trim()
+    if (!key) return
+    setSaving(provider)
+    setErrors(e => ({ ...e, [provider]: null }))
     try {
-      const res = await fetch('/api/user/anthropic-key', {
+      const res = await fetch('/api/user/ai-config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey }),
+        body: JSON.stringify({ provider, apiKey: key }),
       })
       if (!res.ok) {
         const d = await res.json().catch(() => ({}))
-        throw new Error(d.error || 'Failed to save')
+        throw new Error(d.error || 'Save failed')
       }
-      setApiKey('')
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
+      setInputs(i => ({ ...i, [provider]: '' }))
+      setSaved(provider)
+      setTimeout(() => setSaved(null), 2000)
       refresh()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to save')
+      setErrors(err => ({ ...err, [provider]: e instanceof Error ? e.message : 'Save failed' }))
     } finally {
-      setSaving(false)
+      setSaving(null)
     }
   }
 
-  const remove = async () => {
-    if (!confirm('Remove your saved Anthropic API key? Scans and AI features will stop working unless a server-side key is set.')) return
-    await fetch('/api/user/anthropic-key', { method: 'DELETE' })
+  const removeKey = async (provider: Provider) => {
+    if (!confirm(`Remove your saved ${PROVIDER_META[provider].label} key?`)) return
+    setRemoving(provider)
+    await fetch('/api/user/ai-config', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider }),
+    })
+    setRemoving(null)
     refresh()
   }
 
+  const setPreferred = async (provider: Provider | '') => {
+    await fetch('/api/user/ai-config', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ preferredProvider: provider || null }),
+    })
+    refresh()
+  }
+
+  const anyConfigured = config && (
+    Object.values(config.providers).some(p => p.hasKey || p.hasEnvFallback)
+  )
+
   return (
     <Card>
-      <CardHeader><CardTitle>Anthropic API key</CardTitle></CardHeader>
-      <CardContent className="space-y-3">
+      <CardHeader>
+        <CardTitle>AI Provider</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-5">
         <p className="text-xs text-[rgb(11_18_32/55%)]">
-          Pendingly uses Claude to classify your threads and draft replies. You bring your own key.
+          Pendingly uses AI to classify your threads, detect what needs a reply, and draft responses.
+          Add a key for any provider. If no key is saved, the server-side Gemini free tier is used if configured.
         </p>
 
-        {status && (
-          <div className="text-xs">
-            {status.hasKey ? (
-              <span className="text-done font-medium">A key is saved on your account.</span>
-            ) : status.hasEnvFallback ? (
-              <span className="text-[rgb(11_18_32/70%)]">No personal key — using the server-side fallback.</span>
-            ) : (
-              <span className="text-action font-medium">No key configured. Scans will fail until you add one.</span>
-            )}
+        {config && anyConfigured && (
+          <div>
+            <label className="block text-xs font-medium text-ink mb-1.5">Preferred provider</label>
+            <select
+              value={config.preferredProvider ?? ''}
+              onChange={e => setPreferred(e.target.value as Provider | '')}
+              className="text-xs rounded border border-[rgb(11_18_32/15%)] bg-white px-2.5 py-1.5 text-ink"
+            >
+              <option value="">Auto (uses first configured)</option>
+              {(Object.keys(PROVIDER_META) as Provider[]).map(p => {
+                const status = config.providers[p]
+                if (!status.hasKey && !status.hasEnvFallback) return null
+                return <option key={p} value={p}>{PROVIDER_META[p].label}</option>
+              })}
+            </select>
           </div>
         )}
 
-        <div className="flex gap-2">
-          <Input
-            type="password"
-            placeholder="sk-ant-..."
-            value={apiKey}
-            onChange={e => setApiKey(e.target.value)}
-            autoComplete="off"
-            spellCheck={false}
-          />
-          <Button onClick={save} disabled={saving || !apiKey.trim()}>
-            {saved ? 'Saved!' : saving ? 'Saving…' : status?.hasKey ? 'Replace' : 'Save'}
-          </Button>
-        </div>
-        {error && <p className="text-xs text-action">{error}</p>}
+        <div className="space-y-4">
+          {(Object.keys(PROVIDER_META) as Provider[]).map(provider => {
+            const meta = PROVIDER_META[provider]
+            const status = config?.providers[provider]
+            const isActive = config?.preferredProvider === provider || (!config?.preferredProvider && provider === 'gemini')
+            return (
+              <div key={provider} className={`rounded-lg border p-4 space-y-2.5 ${isActive && anyConfigured ? 'border-action/40 bg-action/[0.03]' : 'border-[rgb(11_18_32/8%)]'}`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-ink">{meta.label}</p>
+                    {isActive && anyConfigured && (
+                      <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-action/10 text-action">Active</span>
+                    )}
+                  </div>
+                  {status && (
+                    <span className={`text-[11px] font-medium ${status.hasKey ? 'text-done' : status.hasEnvFallback ? 'text-[rgb(11_18_32/50%)]' : 'text-[rgb(11_18_32/30%)]'}`}>
+                      {status.hasKey ? 'Key saved' : status.hasEnvFallback ? 'Server key' : 'Not configured'}
+                    </span>
+                  )}
+                </div>
 
-        {status?.hasKey && (
-          <Button variant="ghost" size="sm" onClick={remove} className="text-action">
-            Remove saved key
-          </Button>
-        )}
+                <p className="text-[11px] text-[rgb(11_18_32/50%)]">{meta.note}</p>
+
+                <div className="flex gap-2">
+                  <Input
+                    type="password"
+                    placeholder={meta.placeholder}
+                    value={inputs[provider]}
+                    onChange={e => setInputs(i => ({ ...i, [provider]: e.target.value }))}
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                  <Button
+                    size="sm"
+                    onClick={() => saveKey(provider)}
+                    disabled={saving === provider || !inputs[provider].trim()}
+                  >
+                    {saved === provider ? 'Saved!' : saving === provider ? 'Saving…' : status?.hasKey ? 'Replace' : 'Save'}
+                  </Button>
+                </div>
+                {errors[provider] && <p className="text-xs text-action">{errors[provider]}</p>}
+
+                <div className="flex items-center gap-3">
+                  <a
+                    href={meta.docs}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[11px] text-[rgb(11_18_32/50%)] hover:text-ink underline transition-colors"
+                  >
+                    Get a key ↗
+                  </a>
+                  {status?.hasKey && (
+                    <button
+                      type="button"
+                      onClick={() => removeKey(provider)}
+                      disabled={removing === provider}
+                      className="text-[11px] text-action hover:underline disabled:opacity-50"
+                    >
+                      {removing === provider ? 'Removing…' : 'Remove key'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
       </CardContent>
     </Card>
   )
