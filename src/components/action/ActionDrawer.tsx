@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { categoryLabel, timeAgo } from '@/lib/utils'
-import { X, ExternalLink, Loader2, Send, Zap, AlertCircle, Archive, Clock, ChevronDown } from 'lucide-react'
+import { X, ExternalLink, Loader2, Send, Zap, AlertCircle, Archive, Clock, ChevronDown, UserX } from 'lucide-react'
 import { playChime } from '@/lib/sounds'
 import { RichTextEditor } from '@/components/editor/RichTextEditor'
 import { CalendarForm } from './CalendarForm'
@@ -70,6 +70,8 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
   const [calendarResult, setCalendarResult] = useState<{ kind: 'event' | 'task'; link?: string; meetingLink?: string } | null>(null)
   const [scheduling, setScheduling] = useState(false)
   const [scheduleOpen, setScheduleOpen] = useState(false)
+  const [ignoring, setIgnoring] = useState(false)
+  const [ignoredMsg, setIgnoredMsg] = useState<string | null>(null)
   const [customWhen, setCustomWhen] = useState(() => {
     const d = new Date()
     d.setHours(d.getHours() + 1, 0, 0, 0)
@@ -125,6 +127,30 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
 
   if (!item) return null
   const active = detail || item
+
+  const ignoreSender = async (scope: 'email' | 'domain') => {
+    const email = active.ownerEmail || active.emailThread?.messages?.[0]?.senderEmail || ''
+    if (!email) return
+    const domain = email.split('@')[1] || ''
+    const label = scope === 'email' ? email : `@${domain}`
+    if (!confirm(`Ignore all future emails from ${label}?`)) return
+    setIgnoring(true)
+    try {
+      const body = scope === 'email' ? { sender_email: email } : { domain }
+      const res = await fetch('/api/settings/ignored-senders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) throw new Error('Failed')
+      setIgnoredMsg(`Ignoring ${label}`)
+      onStatusChange(active.id, 'ignored')
+    } catch {
+      setIgnoredMsg('Failed to add to ignore list')
+    } finally {
+      setIgnoring(false)
+    }
+  }
 
   const generateReply = async () => {
     setGenerating(true)
@@ -230,7 +256,37 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
               {active.title || active.emailThread?.subject}
             </h2>
             {(active.ownerName || active.ownerEmail) && (
-              <p className="text-sm text-[rgb(11_18_32/55%)] mt-1">{active.ownerName} · {active.ownerEmail}</p>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <p className="text-sm text-[rgb(11_18_32/55%)]">{active.ownerName} · {active.ownerEmail}</p>
+                {active.ownerEmail && (
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => ignoreSender('email')}
+                      disabled={ignoring}
+                      className="inline-flex items-center gap-1 text-[10px] text-[rgb(11_18_32/55%)] hover:text-ink border border-[rgb(11_18_32/15%)] hover:border-[rgb(11_18_32/30%)] px-1.5 py-0.5 rounded transition-colors disabled:opacity-50"
+                      title={`Stop showing emails from ${active.ownerEmail}`}
+                    >
+                      <UserX className="h-2.5 w-2.5" />
+                      Ignore sender
+                    </button>
+                    {active.ownerEmail.includes('@') && (
+                      <button
+                        type="button"
+                        onClick={() => ignoreSender('domain')}
+                        disabled={ignoring}
+                        className="inline-flex items-center gap-1 text-[10px] text-[rgb(11_18_32/55%)] hover:text-ink border border-[rgb(11_18_32/15%)] hover:border-[rgb(11_18_32/30%)] px-1.5 py-0.5 rounded transition-colors disabled:opacity-50"
+                        title={`Stop showing emails from @${active.ownerEmail.split('@')[1]}`}
+                      >
+                        Ignore @{active.ownerEmail.split('@')[1]}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+            {ignoredMsg && (
+              <p className="text-xs text-action mt-1">{ignoredMsg}</p>
             )}
             <p className="text-xs text-[rgb(11_18_32/30%)] mt-1">
               Last activity {timeAgo(active.lastActivityAt)}
