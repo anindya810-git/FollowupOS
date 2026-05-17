@@ -144,21 +144,21 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
         })
         if (result === 'created') created++
         if (result === 'ai_failed') aiFailures++
-        processed++
-
-        if (processed % 3 === 0) {
-          await prisma.scanJob.update({
-            where: { id: jobId },
-            data: { threadsProcessed: processed, actionItemsCreated: created },
-          })
-        }
-        // Rate limiting
-        await new Promise(r => setTimeout(r, 100))
       } catch {
-        // Skip failed threads but still count them so the progress denominator
-        // matches threadsFound at the end.
+        // Thread failed — count it so the progress denominator matches threadsFound.
+        aiFailures++
+      } finally {
         processed++
       }
+
+      if (processed % 3 === 0) {
+        await prisma.scanJob.update({
+          where: { id: jobId },
+          data: { threadsProcessed: processed, actionItemsCreated: created },
+        })
+      }
+      // Rate limiting
+      await new Promise(r => setTimeout(r, 100))
     }
 
     await prisma.emailAccount.update({
