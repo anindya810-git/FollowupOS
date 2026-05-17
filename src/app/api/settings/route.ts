@@ -31,7 +31,14 @@ export async function PATCH(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
-  const { defaultFollowupDays, scanWindowDays, conservativeMode, autoFollowupEnabled, autoFollowupDays, autoFollowupTemplate, signatureHtml, isEnabled, digestTime, timezone, slackWebhookUrl, slackEnabled } = body
+  const {
+    defaultFollowupDays, scanWindowDays, conservativeMode,
+    autoFollowupEnabled, autoFollowupDays, autoFollowupTemplate,
+    followupSequenceJson,
+    calendarAutoCreate, defaultMeetingProvider, reminderPushEnabled,
+    signatureHtml,
+    isEnabled, digestTime, timezone, slackWebhookUrl, slackEnabled,
+  } = body
 
   const appData: Record<string, unknown> = {}
   if (defaultFollowupDays !== undefined) appData.defaultFollowupDays = defaultFollowupDays
@@ -40,6 +47,33 @@ export async function PATCH(request: NextRequest) {
   if (autoFollowupEnabled !== undefined) appData.autoFollowupEnabled = autoFollowupEnabled
   if (autoFollowupDays !== undefined) appData.autoFollowupDays = autoFollowupDays
   if (autoFollowupTemplate !== undefined) appData.autoFollowupTemplate = autoFollowupTemplate
+  if (followupSequenceJson !== undefined) {
+    // Validate it parses as array of {dayOffset, tone, template}
+    if (followupSequenceJson === null || followupSequenceJson === '') {
+      appData.followupSequenceJson = null
+    } else if (typeof followupSequenceJson === 'string') {
+      try {
+        const parsed = JSON.parse(followupSequenceJson)
+        if (!Array.isArray(parsed)) throw new Error('not an array')
+        appData.followupSequenceJson = followupSequenceJson
+      } catch {
+        return NextResponse.json({ error: 'followupSequenceJson must be a JSON array' }, { status: 400 })
+      }
+    }
+  }
+  if (calendarAutoCreate !== undefined) {
+    if (!['off', 'event', 'task', 'both'].includes(String(calendarAutoCreate))) {
+      return NextResponse.json({ error: 'Invalid calendarAutoCreate' }, { status: 400 })
+    }
+    appData.calendarAutoCreate = calendarAutoCreate
+  }
+  if (defaultMeetingProvider !== undefined) {
+    if (!['none', 'meet', 'teams', 'zoom'].includes(String(defaultMeetingProvider))) {
+      return NextResponse.json({ error: 'Invalid defaultMeetingProvider' }, { status: 400 })
+    }
+    appData.defaultMeetingProvider = defaultMeetingProvider
+  }
+  if (reminderPushEnabled !== undefined) appData.reminderPushEnabled = !!reminderPushEnabled
   if (signatureHtml !== undefined) {
     // Sanitise on save so we never store anything dangerous that would later
     // be rendered into the editor or emailed out.

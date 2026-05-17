@@ -21,7 +21,19 @@ interface EmailAccount {
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<{
-    appSettings: { defaultFollowupDays: number; scanWindowDays: number; conservativeMode: boolean; autoFollowupEnabled?: boolean; autoFollowupDays?: number; autoFollowupTemplate?: string | null; signatureHtml?: string | null } | null
+    appSettings: {
+      defaultFollowupDays: number;
+      scanWindowDays: number;
+      conservativeMode: boolean;
+      autoFollowupEnabled?: boolean;
+      autoFollowupDays?: number;
+      autoFollowupTemplate?: string | null;
+      followupSequenceJson?: string | null;
+      signatureHtml?: string | null;
+      calendarAutoCreate?: 'off' | 'event' | 'task' | 'both';
+      defaultMeetingProvider?: 'none' | 'meet' | 'teams' | 'zoom';
+      reminderPushEnabled?: boolean;
+    } | null
     digestSettings: { isEnabled: boolean; digestTime: string; timezone: string; slackWebhookUrl?: string | null; slackEnabled?: boolean } | null
     ignoredSenders: Array<{ id: string; senderEmail?: string; domain?: string; reason?: string }>
   }>({ appSettings: null, digestSettings: null, ignoredSenders: [] })
@@ -59,7 +71,11 @@ export default function SettingsPage() {
         autoFollowupEnabled: settings.appSettings?.autoFollowupEnabled ?? false,
         autoFollowupDays: settings.appSettings?.autoFollowupDays ?? 3,
         autoFollowupTemplate: settings.appSettings?.autoFollowupTemplate ?? null,
+        followupSequenceJson: settings.appSettings?.followupSequenceJson ?? null,
         signatureHtml: settings.appSettings?.signatureHtml ?? null,
+        calendarAutoCreate: settings.appSettings?.calendarAutoCreate ?? 'off',
+        defaultMeetingProvider: settings.appSettings?.defaultMeetingProvider ?? 'none',
+        reminderPushEnabled: settings.appSettings?.reminderPushEnabled ?? true,
       }),
     })
     setSaving(false)
@@ -364,6 +380,68 @@ export default function SettingsPage() {
           </Card>
 
           {/* Automation */}
+          {/* Calendar & Reminders */}
+          <Card>
+            <CardHeader><CardTitle>Calendar & reminders</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-xs text-[rgb(11_18_32/55%)]">
+                When you act on a follow-up, Pendingly can create a matching calendar event,
+                a task in Google Tasks / Microsoft To Do, or both.
+              </p>
+              <div>
+                <label className="block text-sm font-medium text-ink mb-1">Auto-create on new action items</label>
+                <select
+                  value={settings.appSettings?.calendarAutoCreate ?? 'off'}
+                  onChange={e => setSettings(s => ({ ...s, appSettings: { ...s.appSettings!, calendarAutoCreate: e.target.value as 'off' | 'event' | 'task' | 'both' } }))}
+                  className="w-full rounded-md border border-rule bg-white px-3 py-2 text-sm"
+                >
+                  <option value="off">Off — I&apos;ll add manually from each item</option>
+                  <option value="event">Calendar event (uses item due date)</option>
+                  <option value="task">Task (Google Tasks / MS To Do)</option>
+                  <option value="both">Both event and task</option>
+                </select>
+                <p className="text-xs text-[rgb(11_18_32/55%)] mt-1">
+                  Auto-create runs at scan time. You can always add or remove manually per item.
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-ink mb-1">Default meeting link</label>
+                <select
+                  value={settings.appSettings?.defaultMeetingProvider ?? 'none'}
+                  onChange={e => setSettings(s => ({ ...s, appSettings: { ...s.appSettings!, defaultMeetingProvider: e.target.value as 'none' | 'meet' | 'teams' | 'zoom' } }))}
+                  className="w-full rounded-md border border-rule bg-white px-3 py-2 text-sm"
+                >
+                  <option value="none">No meeting link</option>
+                  <option value="meet">Google Meet (Gmail accounts)</option>
+                  <option value="teams">Microsoft Teams (Outlook accounts)</option>
+                  <option value="zoom">Zoom (requires Zoom connector)</option>
+                </select>
+                <p className="text-xs text-[rgb(11_18_32/55%)] mt-1">
+                  Pre-selected when creating events. Configure Zoom in{' '}
+                  <a href="/settings/connectors" className="underline">Connectors</a>.
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="reminderPushEnabled"
+                  checked={settings.appSettings?.reminderPushEnabled ?? true}
+                  onChange={e => setSettings(s => ({ ...s, appSettings: { ...s.appSettings!, reminderPushEnabled: e.target.checked } }))}
+                  className="h-4 w-4 accent-action"
+                />
+                <label htmlFor="reminderPushEnabled" className="text-sm font-medium text-ink">
+                  Send a web push when a snoozed item wakes
+                </label>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Follow-up sequences */}
+          <FollowupSequenceCard
+            value={settings.appSettings?.followupSequenceJson ?? null}
+            onChange={(v) => setSettings(s => ({ ...s, appSettings: { ...s.appSettings!, followupSequenceJson: v } }))}
+          />
+
           <Card>
             <CardHeader><CardTitle>Automation</CardTitle></CardHeader>
             <CardContent className="space-y-4">
@@ -759,5 +837,106 @@ function WebmailUrlField({
         )}
       </div>
     </div>
+  )
+}
+
+interface SequenceStep { dayOffset: number; tone: string; template: string }
+
+function FollowupSequenceCard({ value, onChange }: { value: string | null; onChange: (v: string | null) => void }) {
+  const parsed: SequenceStep[] = (() => {
+    if (!value) return []
+    try { const p = JSON.parse(value); return Array.isArray(p) ? p : [] } catch { return [] }
+  })()
+  const [steps, setSteps] = useState<SequenceStep[]>(parsed)
+  const [enabled, setEnabled] = useState(parsed.length > 0)
+
+  const sync = (next: SequenceStep[]) => {
+    setSteps(next)
+    onChange(next.length > 0 ? JSON.stringify(next) : null)
+  }
+
+  const addStep = () => {
+    const lastDay = steps.length > 0 ? steps[steps.length - 1].dayOffset : 0
+    sync([...steps, { dayOffset: lastDay + 3, tone: 'polite', template: 'Hi {{name}},\n\nJust circling back on this — let me know if I can help.\n\nThanks' }])
+  }
+  const removeStep = (idx: number) => sync(steps.filter((_, i) => i !== idx))
+  const updateStep = (idx: number, patch: Partial<SequenceStep>) =>
+    sync(steps.map((s, i) => i === idx ? { ...s, ...patch } : s))
+
+  return (
+    <Card>
+      <CardHeader><CardTitle>Follow-up sequence</CardTitle></CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-xs text-[rgb(11_18_32/55%)]">
+          Send multiple follow-ups with different tones if you still don&apos;t hear back.
+          Overrides the single-step auto-follow-up below when enabled.
+        </p>
+        <div className="flex items-center gap-3">
+          <input
+            type="checkbox"
+            id="sequenceEnabled"
+            checked={enabled}
+            onChange={e => {
+              setEnabled(e.target.checked)
+              if (!e.target.checked) sync([])
+              else if (steps.length === 0) addStep()
+            }}
+            className="h-4 w-4 accent-action"
+          />
+          <label htmlFor="sequenceEnabled" className="text-sm font-medium text-ink">
+            Enable multi-step sequence
+          </label>
+        </div>
+        {enabled && (
+          <div className="space-y-3">
+            {steps.map((step, i) => (
+              <div key={i} className="border border-rule rounded-md p-3 space-y-2 bg-paper-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-ink">Step {i + 1}</p>
+                  <button onClick={() => removeStep(i)} className="text-xs text-action hover:underline">Remove</button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[11px] text-[rgb(11_18_32/55%)] mb-1">Day after last activity</label>
+                    <Input
+                      type="number" min={1} max={90}
+                      value={step.dayOffset}
+                      onChange={e => updateStep(i, { dayOffset: parseInt(e.target.value) || 1 })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-[rgb(11_18_32/55%)] mb-1">Tone</label>
+                    <select
+                      value={step.tone}
+                      onChange={e => updateStep(i, { tone: e.target.value })}
+                      className="w-full rounded-md border border-rule bg-white px-3 py-2 text-sm"
+                    >
+                      <option value="polite">Polite</option>
+                      <option value="firm">Firm</option>
+                      <option value="short">Short</option>
+                      <option value="executive">Executive</option>
+                      <option value="friendly">Friendly</option>
+                      <option value="final">Final reminder</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[11px] text-[rgb(11_18_32/55%)] mb-1">Template</label>
+                  <textarea
+                    value={step.template}
+                    onChange={e => updateStep(i, { template: e.target.value })}
+                    rows={4}
+                    className="w-full rounded-md border border-rule bg-white px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
+            ))}
+            <button onClick={addStep} className="text-xs text-ink border border-rule rounded-md px-3 py-1.5 hover:bg-paper-2">
+              + Add step
+            </button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }

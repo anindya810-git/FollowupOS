@@ -77,6 +77,11 @@ export interface ActionItemWithThread {
   repeatedAskCount: number
   needsClosure: boolean
   autoReplySuggestion: string | null
+  calendarEventId: string | null
+  calendarEventProvider: string | null
+  calendarTaskId: string | null
+  calendarTaskProvider: string | null
+  followupStep: number
   createdAt: Date
   updatedAt: Date
   emailThread?: {
@@ -85,6 +90,7 @@ export interface ActionItemWithThread {
     providerUrl: string | null
     lastMessageAt: Date | null
     participants: string | null
+    emailAccount?: { provider: string } | null
     messages?: Array<{
       senderEmail: string | null
       senderName: string | null

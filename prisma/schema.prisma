@@ -18,6 +18,10 @@ model User {
   openaiApiKeyEncrypted    String?
   geminiApiKeyEncrypted    String?
   preferredAiProvider      String?
+  zoomAccessTokenEncrypted  String?
+  zoomRefreshTokenEncrypted String?
+  zoomTokenExpiresAt        DateTime?
+  zoomAccountEmail          String?
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
@@ -205,6 +209,14 @@ model ActionItem {
   repeatedAskCount    Int       @default(0)
   needsClosure        Boolean   @default(false)
   autoReplySuggestion String?
+  // Provider-side calendar event / task IDs (set when user creates one via
+  // "Add to calendar" or via auto-create). Lets us link, update, delete.
+  calendarEventId      String?
+  calendarEventProvider String?  // google | outlook
+  calendarTaskId       String?
+  calendarTaskProvider String?  // google | outlook
+  // Which step of the followup sequence has been sent (0-indexed). 0 = none.
+  followupStep         Int       @default(0)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -275,7 +287,19 @@ model AppSettings {
   autoFollowupEnabled  Boolean @default(false)
   autoFollowupDays     Int     @default(3)
   autoFollowupTemplate String?
+  // JSON array of {dayOffset, tone, template, sent} — when set and non-empty,
+  // overrides single-step autoFollowupDays/Template.
+  followupSequenceJson String?
   signatureHtml        String?
+  // Calendar integration: off | event | task | both. When not 'off',
+  // creating an action item also creates a calendar event and/or task
+  // on the source provider (Google or Outlook).
+  calendarAutoCreate     String  @default("off")
+  // Default conferencing provider for manual event creation:
+  // none | meet | teams | zoom
+  defaultMeetingProvider String  @default("none")
+  // Web push reminder when a snoozed item wakes
+  reminderPushEnabled    Boolean @default(true)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 

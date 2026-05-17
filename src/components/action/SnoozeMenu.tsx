@@ -24,6 +24,10 @@ const OPTIONS: SnoozeOption[] = [
     const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0)
     return d.toISOString().split('T')[0]
   }},
+  { label: 'In 3 days', getValue: () => {
+    const d = new Date(); d.setDate(d.getDate() + 3); d.setHours(9, 0, 0, 0)
+    return d.toISOString().split('T')[0]
+  }},
   { label: 'This weekend (Sat)', getValue: () => nextWeekday(6, 9) },
   { label: 'Next Monday', getValue: () => nextWeekday(1, 9) },
   { label: 'Next week', getValue: () => {

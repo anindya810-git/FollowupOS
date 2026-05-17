@@ -4,6 +4,19 @@ import { DEFAULT_FOLLOWUP_TEMPLATE, renderTemplate } from '@/lib/templates'
 import { isAuthorizedCron } from '@/lib/cron-auth'
 import { safeLog } from '@/lib/safe-log'
 
+interface SequenceStep { dayOffset: number; tone: string; template: string }
+
+function parseSequence(json: string | null | undefined): SequenceStep[] {
+  if (!json) return []
+  try {
+    const arr = JSON.parse(json)
+    if (!Array.isArray(arr)) return []
+    return arr.filter(s => typeof s?.dayOffset === 'number' && typeof s?.template === 'string')
+  } catch {
+    return []
+  }
+}
+
 async function runAutoFollowup() {
   const enabledUsers = await prisma.appSettings.findMany({
     where: { autoFollowupEnabled: true },
@@ -13,6 +26,9 @@ async function runAutoFollowup() {
   let failed = 0
 
   for (const settings of enabledUsers) {
+    const sequence = parseSequence(settings.followupSequenceJson)
+    // Effective interval: when sequence is configured, the loop below
+    // computes step-by-step cutoffs. Otherwise fall back to single-step.
     const intervalMs = settings.autoFollowupDays * 86400_000
     const cutoff = new Date(Date.now() - intervalMs)
 
@@ -24,6 +40,10 @@ async function runAutoFollowup() {
     const ignoredEmails = new Set(ignored.map(i => (i.senderEmail || '').toLowerCase()).filter(Boolean))
     const ignoredDomains = new Set(ignored.map(i => (i.domain || '').toLowerCase()).filter(Boolean))
 
+    // When a sequence is configured, eligibility = lastActivityAt older than
+    // the *next* step's dayOffset and lastAutoFollowupAt older than that too.
+    // Computed per-item below; the DB filter just narrows to items in
+    // "waiting" state where some auto-followup *might* be due.
     const items = await prisma.actionItem.findMany({
       where: {
         userId: settings.userId,
@@ -48,7 +68,7 @@ async function runAutoFollowup() {
       take: 10,
     })
 
-    const template = settings.autoFollowupTemplate || DEFAULT_FOLLOWUP_TEMPLATE
+    const fallbackTemplate = settings.autoFollowupTemplate || DEFAULT_FOLLOWUP_TEMPLATE
     const signature = settings.signatureHtml ?? ''
 
     for (const item of items) {
@@ -56,6 +76,22 @@ async function runAutoFollowup() {
       const targetEmail = item.ownerEmail.toLowerCase()
       const targetDomain = targetEmail.split('@')[1] || ''
       if (ignoredEmails.has(targetEmail) || ignoredDomains.has(targetDomain)) continue
+
+      // Pick template based on sequence step. followupStep is 0-indexed count of
+      // sequence steps already sent. If sequence empty, fall back to single-step.
+      let template = fallbackTemplate
+      let advanceStep = false
+      if (sequence.length > 0) {
+        const nextStepIdx = item.followupStep ?? 0
+        if (nextStepIdx >= sequence.length) continue  // sequence exhausted
+        const step = sequence[nextStepIdx]
+        // Honour the step's own dayOffset for spacing
+        const stepCutoff = new Date(Date.now() - step.dayOffset * 86400_000)
+        if (item.lastActivityAt && item.lastActivityAt > stepCutoff) continue
+        if (item.lastAutoFollowupAt && item.lastAutoFollowupAt > stepCutoff) continue
+        template = step.template || fallbackTemplate
+        advanceStep = true
+      }
 
       const account = item.emailThread.emailAccount
       const rendered = renderTemplate(template, { name: item.ownerName ?? undefined })
@@ -120,7 +156,10 @@ async function runAutoFollowup() {
           data: {
             lastActivityAt: now,
             lastAutoFollowupAt: now,
-            reason: `Auto-follow-up sent on ${now.toISOString().split('T')[0]}`,
+            ...(advanceStep ? { followupStep: { increment: 1 } } : {}),
+            reason: advanceStep
+              ? `Sequence step ${(item.followupStep ?? 0) + 1} sent on ${now.toISOString().split('T')[0]}`
+              : `Auto-follow-up sent on ${now.toISOString().split('T')[0]}`,
           },
         })
         sent++

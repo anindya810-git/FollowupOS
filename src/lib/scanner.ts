@@ -5,6 +5,7 @@ import { getImapThreads, isNoisyImapSender } from './imap'
 import { classifyThread, generateQuickSuggestion, resolveAiConfig, MissingAiConfigError } from './ai'
 import type { AiConfig } from './ai'
 import { upsertContact } from './contacts'
+import { maybeAutoCreateCalendar } from './auto-calendar'
 import type { ClassificationInput } from '@/types'
 import crypto from 'crypto'
 
@@ -411,10 +412,11 @@ async function scanOutlookAccount(params: {
         ...(outlookAutoReplySuggestion ? { autoReplySuggestion: outlookAutoReplySuggestion } : {}),
       }
 
+      let createdActionId: string | null = null
       if (existingAction) {
         await prisma.actionItem.update({ where: { id: existingAction.id }, data: actionData })
       } else {
-        await prisma.actionItem.create({
+        const created = await prisma.actionItem.create({
           data: {
             userId,
             emailThreadId: upsertedThread.id,
@@ -423,7 +425,9 @@ async function scanOutlookAccount(params: {
             ...actionData,
           },
         })
+        createdActionId = created.id
       }
+      if (createdActionId) await maybeAutoCreateCalendar(userId, createdActionId)
 
       if (result.owner_email && result.owner_name) {
         await upsertContact(userId, result.owner_email, result.owner_name)
@@ -683,10 +687,11 @@ async function scanImapAccount(params: {
         ...(imapAutoReplySuggestion ? { autoReplySuggestion: imapAutoReplySuggestion } : {}),
       }
 
+      let createdActionId: string | null = null
       if (existingAction) {
         await prisma.actionItem.update({ where: { id: existingAction.id }, data: actionData })
       } else {
-        await prisma.actionItem.create({
+        const created = await prisma.actionItem.create({
           data: {
             userId,
             emailThreadId: upsertedThread.id,
@@ -695,7 +700,9 @@ async function scanImapAccount(params: {
             ...actionData,
           },
         })
+        createdActionId = created.id
       }
+      if (createdActionId) await maybeAutoCreateCalendar(userId, createdActionId)
 
       if (result.owner_email && result.owner_name) {
         await upsertContact(userId, result.owner_email, result.owner_name)
@@ -1002,10 +1009,11 @@ async function processThread(params: {
     ...(autoReplySuggestion ? { autoReplySuggestion } : {}),
   }
 
+  let createdActionId: string | null = null
   if (existingAction) {
     await prisma.actionItem.update({ where: { id: existingAction.id }, data: actionData })
   } else {
-    await prisma.actionItem.create({
+    const created = await prisma.actionItem.create({
       data: {
         userId,
         emailThreadId: upsertedThread.id,
@@ -1014,7 +1022,9 @@ async function processThread(params: {
         ...actionData,
       },
     })
+    createdActionId = created.id
   }
+  if (createdActionId) await maybeAutoCreateCalendar(userId, createdActionId)
 
   // Upsert sender contacts from messages
   for (const sc of senderContactsToUpsert) {

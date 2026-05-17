@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma'
 const TENANT = 'common'
 const AUTH_URL = `https://login.microsoftonline.com/${TENANT}/oauth2/v2.0/authorize`
 const TOKEN_URL = `https://login.microsoftonline.com/${TENANT}/oauth2/v2.0/token`
-const SCOPES = 'https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Calendars.Read offline_access openid email profile'
+const SCOPES = 'https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/Tasks.ReadWrite offline_access openid email profile'
 
 export interface OutlookMessage {
   id: string
@@ -312,4 +312,116 @@ export async function getUpcomingOutlookEvents(emailAccountId: string, hoursAhea
   if (!res.ok) return []
   const data = await res.json()
   return (data.value ?? []) as Array<{ id: string; subject?: string; start: { dateTime: string }; attendees?: Array<{ emailAddress: { address: string; name?: string } }> }>
+}
+
+// ─── Outlook Calendar: create event ───────────────────────────────────────────
+
+export interface CreateOutlookEventInput {
+  subject: string
+  bodyHtml?: string
+  startIso: string
+  endIso: string
+  timezone: string   // e.g. 'Asia/Kolkata'
+  attendees?: string[]
+  reminderMinutes?: number
+  withTeamsLink?: boolean
+}
+
+export async function createOutlookCalendarEvent(
+  emailAccountId: string,
+  input: CreateOutlookEventInput,
+): Promise<{ eventId: string; webLink?: string; teamsLink?: string }> {
+  const token = await getOutlookAccessToken(emailAccountId)
+  const body: Record<string, unknown> = {
+    subject: input.subject,
+    body: { contentType: 'HTML', content: input.bodyHtml || '' },
+    start: { dateTime: input.startIso, timeZone: input.timezone },
+    end: { dateTime: input.endIso, timeZone: input.timezone },
+  }
+  if (input.attendees?.length) {
+    body.attendees = input.attendees.map(addr => ({
+      emailAddress: { address: addr },
+      type: 'required',
+    }))
+  }
+  if (typeof input.reminderMinutes === 'number') {
+    body.reminderMinutesBeforeStart = input.reminderMinutes
+    body.isReminderOn = true
+  }
+  if (input.withTeamsLink) {
+    body.isOnlineMeeting = true
+    body.onlineMeetingProvider = 'teamsForBusiness'
+  }
+  const res = await fetch('https://graph.microsoft.com/v1.0/me/events', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(`Outlook event create failed: ${await res.text()}`)
+  const data = await res.json()
+  return {
+    eventId: data.id,
+    webLink: data.webLink,
+    teamsLink: data.onlineMeeting?.joinUrl,
+  }
+}
+
+export async function deleteOutlookCalendarEvent(emailAccountId: string, eventId: string): Promise<void> {
+  const token = await getOutlookAccessToken(emailAccountId)
+  await fetch(`https://graph.microsoft.com/v1.0/me/events/${encodeURIComponent(eventId)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+}
+
+// ─── Microsoft To Do: create task ─────────────────────────────────────────────
+
+export interface CreateOutlookTaskInput {
+  title: string
+  bodyText?: string
+  dueIso?: string
+  timezone: string
+}
+
+async function getDefaultTodoListId(token: string): Promise<string> {
+  // The first list returned by the API is always the default "Tasks" list.
+  const res = await fetch('https://graph.microsoft.com/v1.0/me/todo/lists?$top=1', {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Outlook To Do lists fetch failed: ${await res.text()}`)
+  const data = await res.json()
+  const list = (data.value || [])[0]
+  if (!list?.id) throw new Error('No To Do lists found')
+  return list.id as string
+}
+
+export async function createOutlookTask(
+  emailAccountId: string,
+  input: CreateOutlookTaskInput,
+): Promise<{ taskId: string; listId: string }> {
+  const token = await getOutlookAccessToken(emailAccountId)
+  const listId = await getDefaultTodoListId(token)
+  const body: Record<string, unknown> = {
+    title: input.title,
+    body: { content: input.bodyText || '', contentType: 'text' },
+  }
+  if (input.dueIso) {
+    body.dueDateTime = { dateTime: input.dueIso, timeZone: input.timezone }
+  }
+  const res = await fetch(`https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(`Outlook To Do create failed: ${await res.text()}`)
+  const data = await res.json()
+  return { taskId: data.id, listId }
+}
+
+export async function deleteOutlookTask(emailAccountId: string, listId: string, taskId: string): Promise<void> {
+  const token = await getOutlookAccessToken(emailAccountId)
+  await fetch(`https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks/${encodeURIComponent(taskId)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
 }

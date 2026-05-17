@@ -16,7 +16,9 @@ export function getGmailAuthUrl(state?: string): string {
     access_type: 'offline',
     scope: [
       'https://www.googleapis.com/auth/gmail.readonly',
-      'https://www.googleapis.com/auth/calendar.readonly',
+      'https://www.googleapis.com/auth/gmail.send',
+      'https://www.googleapis.com/auth/calendar.events',
+      'https://www.googleapis.com/auth/tasks',
     ],
     prompt: 'consent',
     ...(state ? { state } : {}),
@@ -203,6 +205,103 @@ export async function getUpcomingGoogleEvents(emailAccountId: string, hoursAhead
 
 export function getGmailThreadUrl(threadId: string): string {
   return `https://mail.google.com/mail/u/0/#all/${threadId}`
+}
+
+// ─── Google Calendar: create event ───────────────────────────────────────────
+
+export interface CreateGoogleEventInput {
+  summary: string
+  description?: string
+  startIso: string   // ISO 8601 with timezone, e.g. 2026-05-20T14:00:00+05:30
+  endIso: string
+  attendees?: string[]
+  reminderMinutes?: number
+  withMeetLink?: boolean
+}
+
+export async function createGoogleCalendarEvent(
+  emailAccountId: string,
+  input: CreateGoogleEventInput,
+): Promise<{ eventId: string; htmlLink?: string; meetLink?: string }> {
+  const token = await getGmailAccessToken(emailAccountId)
+  const body: Record<string, unknown> = {
+    summary: input.summary,
+    description: input.description,
+    start: { dateTime: input.startIso },
+    end: { dateTime: input.endIso },
+  }
+  if (input.attendees && input.attendees.length) {
+    body.attendees = input.attendees.map(email => ({ email }))
+  }
+  if (typeof input.reminderMinutes === 'number') {
+    body.reminders = {
+      useDefault: false,
+      overrides: [{ method: 'popup', minutes: input.reminderMinutes }],
+    }
+  }
+  if (input.withMeetLink) {
+    body.conferenceData = {
+      createRequest: {
+        requestId: `pendingly-${Date.now()}`,
+        conferenceSolutionKey: { type: 'hangoutsMeet' },
+      },
+    }
+  }
+  const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=${input.withMeetLink ? 1 : 0}&sendUpdates=all`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(`Google Calendar event create failed: ${await res.text()}`)
+  const data = await res.json()
+  const meetLink: string | undefined = data.conferenceData?.entryPoints?.find(
+    (e: { entryPointType?: string; uri?: string }) => e.entryPointType === 'video',
+  )?.uri
+  return { eventId: data.id, htmlLink: data.htmlLink, meetLink }
+}
+
+export async function deleteGoogleCalendarEvent(emailAccountId: string, eventId: string): Promise<void> {
+  const token = await getGmailAccessToken(emailAccountId)
+  await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(eventId)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+}
+
+// ─── Google Tasks: create task ───────────────────────────────────────────────
+
+export interface CreateGoogleTaskInput {
+  title: string
+  notes?: string
+  dueIso?: string  // RFC 3339 timestamp; Tasks API only honors the date portion
+}
+
+export async function createGoogleTask(
+  emailAccountId: string,
+  input: CreateGoogleTaskInput,
+): Promise<{ taskId: string }> {
+  const token = await getGmailAccessToken(emailAccountId)
+  const body: Record<string, unknown> = { title: input.title }
+  if (input.notes) body.notes = input.notes
+  if (input.dueIso) body.due = input.dueIso
+  // Use the default ("@default") task list; this exists for every account.
+  const res = await fetch('https://tasks.googleapis.com/tasks/v1/lists/@default/tasks', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(`Google Tasks create failed: ${await res.text()}`)
+  const data = await res.json()
+  return { taskId: data.id }
+}
+
+export async function deleteGoogleTask(emailAccountId: string, taskId: string): Promise<void> {
+  const token = await getGmailAccessToken(emailAccountId)
+  await fetch(`https://tasks.googleapis.com/tasks/v1/lists/@default/tasks/${encodeURIComponent(taskId)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
 }
 
 const NOISE_LABELS = ['SPAM', 'TRASH', 'CATEGORY_PROMOTIONS', 'CATEGORY_SOCIAL', 'CATEGORY_FORUMS', 'CATEGORY_UPDATES']

@@ -6,6 +6,8 @@ import { categoryLabel, timeAgo } from '@/lib/utils'
 import { X, ExternalLink, Loader2, Send, Zap, AlertCircle, Archive, Clock, ChevronDown } from 'lucide-react'
 import { playChime } from '@/lib/sounds'
 import { RichTextEditor } from '@/components/editor/RichTextEditor'
+import { CalendarForm } from './CalendarForm'
+import { CalendarPlus, Trash2 } from 'lucide-react'
 import type { ActionItemWithThread } from '@/types'
 
 function textToHtml(text: string): string {
@@ -62,6 +64,10 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
   const [suggestion, setSuggestion] = useState<string | null>(null)
   const [suggesting, setSuggesting] = useState(false)
   const [signatureHtml, setSignatureHtml] = useState<string | null>(null)
+  const [defaultMeetingProvider, setDefaultMeetingProvider] = useState<'none' | 'meet' | 'teams' | 'zoom'>('none')
+  const [zoomConnected, setZoomConnected] = useState(false)
+  const [calendarOpen, setCalendarOpen] = useState(false)
+  const [calendarResult, setCalendarResult] = useState<{ kind: 'event' | 'task'; link?: string; meetingLink?: string } | null>(null)
   const [scheduling, setScheduling] = useState(false)
   const [scheduleOpen, setScheduleOpen] = useState(false)
   const [customWhen, setCustomWhen] = useState(() => {
@@ -88,9 +94,22 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
   useEffect(() => {
     fetch('/api/settings')
       .then(r => r.ok ? r.json() : null)
-      .then(d => { setSignatureHtml(d?.appSettings?.signatureHtml ?? null) })
+      .then(d => {
+        setSignatureHtml(d?.appSettings?.signatureHtml ?? null)
+        setDefaultMeetingProvider(d?.appSettings?.defaultMeetingProvider ?? 'none')
+      })
+      .catch(() => {})
+    fetch('/api/integrations/zoom/status')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { setZoomConnected(!!d?.connected) })
       .catch(() => {})
   }, [])
+
+  useEffect(() => {
+    // Reset calendar UI when switching items
+    setCalendarOpen(false)
+    setCalendarResult(null)
+  }, [item?.id])
 
   const generateSuggestion = async () => {
     if (!item) return
@@ -297,6 +316,65 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
               <p className="text-xs font-semibold uppercase tracking-wider text-[rgb(11_18_32/30%)] mb-1.5">Suggested action</p>
               <p className="text-sm text-ink">{active.suggestedAction}</p>
             </div>
+          )}
+
+          {/* Calendar / Task */}
+          {!calendarOpen && !calendarResult && (active.calendarEventId || active.calendarTaskId) ? (
+            <div className="bg-paper-2 rounded-lg p-4 border border-rule flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-sm text-ink">
+                <CalendarPlus className="h-3.5 w-3.5 text-done" />
+                {active.calendarEventId ? 'Event added to calendar' : 'Task created'}
+              </div>
+              <button
+                onClick={async () => {
+                  if (!confirm('Remove from calendar?')) return
+                  await fetch(`/api/action-items/${item.id}/calendar`, { method: 'DELETE' })
+                  setCalendarResult(null)
+                  // Refresh detail to pick up cleared IDs
+                  fetch(`/api/action-items/${item.id}`)
+                    .then(r => r.ok ? r.json() : null)
+                    .then(d => { if (d?.item) setDetail(d.item) })
+                    .catch(() => {})
+                }}
+                className="text-xs text-[rgb(11_18_32/55%)] hover:text-action flex items-center gap-1"
+              >
+                <Trash2 className="h-3 w-3" /> Remove
+              </button>
+            </div>
+          ) : calendarResult ? (
+            <div className="bg-[rgb(26_143_94/8%)] border border-[rgb(26_143_94/25%)] rounded-lg p-4 space-y-2">
+              <p className="text-sm font-medium text-done">{calendarResult.kind === 'event' ? 'Event created' : 'Task created'}</p>
+              {calendarResult.link && (
+                <a href={calendarResult.link} target="_blank" rel="noreferrer"
+                  className="text-xs text-ink underline hover:no-underline inline-flex items-center gap-1">
+                  Open in calendar <ExternalLink className="h-3 w-3" />
+                </a>
+              )}
+              {calendarResult.meetingLink && (
+                <a href={calendarResult.meetingLink} target="_blank" rel="noreferrer"
+                  className="text-xs text-ink underline hover:no-underline inline-flex items-center gap-1 ml-3">
+                  Join meeting <ExternalLink className="h-3 w-3" />
+                </a>
+              )}
+            </div>
+          ) : calendarOpen ? (
+            <CalendarForm
+              actionItemId={item.id}
+              defaultTitle={active.title || active.emailThread?.subject || 'Follow-up'}
+              defaultDescription={active.suggestedAction || active.reason || ''}
+              inboxProvider={active.emailThread?.emailAccount?.provider || ''}
+              defaultMeetingProvider={defaultMeetingProvider}
+              zoomConnected={zoomConnected}
+              onCreated={(r) => { setCalendarResult(r); setCalendarOpen(false) }}
+              onClose={() => setCalendarOpen(false)}
+            />
+          ) : (
+            <button
+              onClick={() => setCalendarOpen(true)}
+              className="w-full text-xs text-ink border border-rule rounded-lg px-4 py-2.5 hover:bg-paper-2 transition-colors flex items-center justify-center gap-2"
+            >
+              <CalendarPlus className="h-3.5 w-3.5" /> Add to calendar or create task
+            </button>
           )}
 
           {/* Recent messages */}
