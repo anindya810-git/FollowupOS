@@ -30,6 +30,29 @@ model User {
   appSettings    AppSettings?
   contacts       Contact[]
   pushSubscriptions PushSubscription[]
+  scheduledMessages ScheduledMessage[]
+}
+
+model ScheduledMessage {
+  id            String   @id @default(cuid())
+  userId        String
+  actionItemId  String?
+  emailAccountId String
+  toEmail       String
+  subject       String
+  contentHtml   String
+  scheduledFor  DateTime
+  status        String   @default("pending") // pending | sent | failed | cancelled
+  sentAt        DateTime?
+  errorMessage  String?
+  threadId      String?  // providerThreadId for in-reply-to
+  lastMessageId String?  // providerMessageId of message being replied to
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, scheduledFor])
 }
 
 model PushSubscription {
@@ -244,6 +267,7 @@ model AppSettings {
   autoFollowupEnabled  Boolean @default(false)
   autoFollowupDays     Int     @default(3)
   autoFollowupTemplate String?
+  signatureHtml        String?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 

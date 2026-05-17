@@ -132,19 +132,39 @@ export async function sendGmailReply(
     }
   }
 
+  // body may be HTML — detect by tag presence
+  const isHtml = /<[a-z][\s\S]*>/i.test(body)
+  const textFallback = isHtml ? body.replace(/<[^>]+>/g, '') : body
+  const htmlBody = isHtml ? body : body.replace(/\n/g, '<br>')
+
+  const boundary = `==pendingly_${Date.now()}_${Math.random().toString(36).slice(2)}`
   const headerLines = [
     `From: ${account.emailAddress}`,
     `To: ${toEmail}`,
     `Subject: ${subject}`,
     'MIME-Version: 1.0',
-    'Content-Type: text/plain; charset="UTF-8"',
-    'Content-Transfer-Encoding: 7bit',
+    `Content-Type: multipart/alternative; boundary="${boundary}"`,
   ]
   if (rfcMessageId) {
     headerLines.push(`In-Reply-To: ${rfcMessageId}`)
     headerLines.push(`References: ${rfcMessageId}`)
   }
-  const rfc2822 = headerLines.join('\r\n') + '\r\n\r\n' + body
+  const mimeBody = [
+    `--${boundary}`,
+    'Content-Type: text/plain; charset="UTF-8"',
+    'Content-Transfer-Encoding: 7bit',
+    '',
+    textFallback,
+    '',
+    `--${boundary}`,
+    'Content-Type: text/html; charset="UTF-8"',
+    'Content-Transfer-Encoding: 7bit',
+    '',
+    htmlBody,
+    '',
+    `--${boundary}--`,
+  ].join('\r\n')
+  const rfc2822 = headerLines.join('\r\n') + '\r\n\r\n' + mimeBody
   const raw = base64UrlEncode(rfc2822)
 
   const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {

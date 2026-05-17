@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Trash2, Plus, AlertTriangle } from 'lucide-react'
 import { PushNotificationToggle } from '@/components/PushNotificationToggle'
 import { DEFAULT_FOLLOWUP_TEMPLATE } from '@/lib/templates'
+import { RichTextEditor } from '@/components/editor/RichTextEditor'
 
 interface EmailAccount {
   id: string
@@ -18,7 +19,7 @@ interface EmailAccount {
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<{
-    appSettings: { defaultFollowupDays: number; scanWindowDays: number; conservativeMode: boolean; autoFollowupEnabled?: boolean; autoFollowupDays?: number; autoFollowupTemplate?: string | null } | null
+    appSettings: { defaultFollowupDays: number; scanWindowDays: number; conservativeMode: boolean; autoFollowupEnabled?: boolean; autoFollowupDays?: number; autoFollowupTemplate?: string | null; signatureHtml?: string | null } | null
     digestSettings: { isEnabled: boolean; digestTime: string; timezone: string; slackWebhookUrl?: string | null; slackEnabled?: boolean } | null
     ignoredSenders: Array<{ id: string; senderEmail?: string; domain?: string; reason?: string }>
   }>({ appSettings: null, digestSettings: null, ignoredSenders: [] })
@@ -56,6 +57,7 @@ export default function SettingsPage() {
         autoFollowupEnabled: settings.appSettings?.autoFollowupEnabled ?? false,
         autoFollowupDays: settings.appSettings?.autoFollowupDays ?? 3,
         autoFollowupTemplate: settings.appSettings?.autoFollowupTemplate ?? null,
+        signatureHtml: settings.appSettings?.signatureHtml ?? null,
       }),
     })
     setSaving(false)
@@ -397,6 +399,27 @@ export default function SettingsPage() {
                   Available variables: {`{{name}}`}, {`{{firstName}}`}
                 </p>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Email signature */}
+          <Card>
+            <CardHeader><CardTitle>Email signature</CardTitle></CardHeader>
+            <CardContent>
+              <p className="text-xs text-[rgb(11_18_32/55%)] mb-3">
+                Appended via the &quot;Insert signature&quot; button in the reply editor.
+              </p>
+              <RichTextEditor
+                value={settings.appSettings?.signatureHtml ?? ''}
+                onChange={(html) => setSettings(s => ({
+                  ...s,
+                  appSettings: s.appSettings
+                    ? { ...s.appSettings, signatureHtml: html }
+                    : { defaultFollowupDays: 3, scanWindowDays: 30, conservativeMode: true, signatureHtml: html },
+                }))}
+                placeholder="e.g. Best, Aritra — Founder @ Acme"
+                minHeight={120}
+              />
             </CardContent>
           </Card>
 

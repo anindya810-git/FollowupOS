@@ -30,7 +30,7 @@ export async function PATCH(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
-  const { defaultFollowupDays, scanWindowDays, conservativeMode, autoFollowupEnabled, autoFollowupDays, autoFollowupTemplate, isEnabled, digestTime, timezone, slackWebhookUrl, slackEnabled } = body
+  const { defaultFollowupDays, scanWindowDays, conservativeMode, autoFollowupEnabled, autoFollowupDays, autoFollowupTemplate, signatureHtml, isEnabled, digestTime, timezone, slackWebhookUrl, slackEnabled } = body
 
   const appData: Record<string, unknown> = {}
   if (defaultFollowupDays !== undefined) appData.defaultFollowupDays = defaultFollowupDays
@@ -39,6 +39,7 @@ export async function PATCH(request: NextRequest) {
   if (autoFollowupEnabled !== undefined) appData.autoFollowupEnabled = autoFollowupEnabled
   if (autoFollowupDays !== undefined) appData.autoFollowupDays = autoFollowupDays
   if (autoFollowupTemplate !== undefined) appData.autoFollowupTemplate = autoFollowupTemplate
+  if (signatureHtml !== undefined) appData.signatureHtml = signatureHtml
 
   const digestData: Record<string, unknown> = {}
   if (isEnabled !== undefined) digestData.isEnabled = isEnabled

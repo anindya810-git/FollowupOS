@@ -3,9 +3,47 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { categoryLabel, timeAgo } from '@/lib/utils'
-import { X, ExternalLink, Copy, Loader2, Check, Send, Zap, AlertCircle, Archive } from 'lucide-react'
+import { X, ExternalLink, Loader2, Send, Zap, AlertCircle, Archive, Clock, ChevronDown } from 'lucide-react'
 import { playChime } from '@/lib/sounds'
+import { RichTextEditor } from '@/components/editor/RichTextEditor'
 import type { ActionItemWithThread } from '@/types'
+
+function textToHtml(text: string): string {
+  return text
+    .split(/\n\n+/)
+    .map(p => `<p>${p.replace(/\n/g, '<br>').replace(/</g, '&lt;')}</p>`)
+    .join('')
+}
+
+function pad(n: number): string { return n.toString().padStart(2, '0') }
+
+function buildSchedulePresets(): Array<{ label: string; iso: string }> {
+  const now = new Date()
+  const presets: Array<{ label: string; iso: string }> = []
+
+  const in1h = new Date(now.getTime() + 60 * 60 * 1000)
+  presets.push({ label: `In 1 hour (${pad(in1h.getHours())}:${pad(in1h.getMinutes())})`, iso: in1h.toISOString() })
+
+  const in3h = new Date(now.getTime() + 3 * 60 * 60 * 1000)
+  presets.push({ label: `In 3 hours (${pad(in3h.getHours())}:${pad(in3h.getMinutes())})`, iso: in3h.toISOString() })
+
+  const tomorrow9 = new Date(now)
+  tomorrow9.setDate(tomorrow9.getDate() + 1)
+  tomorrow9.setHours(9, 0, 0, 0)
+  presets.push({ label: `Tomorrow 9 AM`, iso: tomorrow9.toISOString() })
+
+  const monday = new Date(now)
+  const daysUntilMonday = (8 - monday.getDay()) % 7 || 7
+  monday.setDate(monday.getDate() + daysUntilMonday)
+  monday.setHours(9, 0, 0, 0)
+  presets.push({ label: `Monday 9 AM`, iso: monday.toISOString() })
+
+  return presets
+}
+
+function toLocalInputValue(d: Date): string {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
 
 interface ActionDrawerProps {
   item: ActionItemWithThread | null
@@ -17,13 +55,20 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
   const [tone, setTone] = useState('polite')
   const [draft, setDraft] = useState('')
   const [generating, setGenerating] = useState(false)
-  const [copied, setCopied] = useState(false)
   const [detail, setDetail] = useState<ActionItemWithThread | null>(null)
   const [sending, setSending] = useState(false)
   const [confirmingSend, setConfirmingSend] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
   const [suggestion, setSuggestion] = useState<string | null>(null)
   const [suggesting, setSuggesting] = useState(false)
+  const [signatureHtml, setSignatureHtml] = useState<string | null>(null)
+  const [scheduling, setScheduling] = useState(false)
+  const [scheduleOpen, setScheduleOpen] = useState(false)
+  const [customWhen, setCustomWhen] = useState(() => {
+    const d = new Date()
+    d.setHours(d.getHours() + 1, 0, 0, 0)
+    return toLocalInputValue(d)
+  })
 
   useEffect(() => {
     if (item) {
@@ -31,6 +76,7 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
       setDetail(null)
       setDraft('')
       setSuggestion(item.autoReplySuggestion ?? null)
+      setScheduleOpen(false)
       fetch(`/api/action-items/${item.id}`)
         .then(r => r.ok ? r.json() : null)
         .then(d => { if (d?.item) { setDetail(d.item); setSuggestion(d.item.autoReplySuggestion ?? null) } })
@@ -38,6 +84,13 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item?.id])
+
+  useEffect(() => {
+    fetch('/api/settings')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { setSignatureHtml(d?.appSettings?.signatureHtml ?? null) })
+      .catch(() => {})
+  }, [])
 
   const generateSuggestion = async () => {
     if (!item) return
@@ -63,16 +116,15 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
         body: JSON.stringify({ tone, output_type: 'email_reply' }),
       })
       const data = await res.json()
-      setDraft(data.draft || 'Failed to generate draft.')
+      setDraft(textToHtml(data.draft || 'Failed to generate draft.'))
     } finally {
       setGenerating(false)
     }
   }
 
-  const copy = () => {
-    navigator.clipboard.writeText(draft)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+  const useSuggestion = () => {
+    if (!suggestion) return
+    setDraft(textToHtml(suggestion))
   }
 
   const sendReply = async () => {
@@ -97,6 +149,31 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
     } finally {
       setSending(false)
       setConfirmingSend(false)
+    }
+  }
+
+  const scheduleReply = async (scheduledForIso: string) => {
+    if (!item) return
+    setScheduling(true)
+    setSendError(null)
+    try {
+      const res = await fetch(`/api/action-items/${item.id}/schedule`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: draft, scheduledFor: scheduledForIso }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Schedule failed')
+      }
+      playChime('info')
+      onStatusChange(item.id, 'snoozed', { snoozed_until: scheduledForIso.split('T')[0] })
+      onClose()
+    } catch (e) {
+      setSendError(e instanceof Error ? e.message : 'Schedule failed')
+    } finally {
+      setScheduling(false)
+      setScheduleOpen(false)
     }
   }
 
@@ -191,7 +268,7 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
                     variant="outline"
                     size="sm"
                     className="mt-3"
-                    onClick={() => setDraft(suggestion)}
+                    onClick={useSuggestion}
                   >
                     Use this draft
                   </Button>
@@ -242,14 +319,12 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
             </div>
           )}
 
-          {/* Draft generator */}
+          {/* Compose reply */}
           <div className="border border-rule rounded-lg overflow-hidden">
-            <div className="px-4 py-3 bg-paper-2 border-b border-rule flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-wider text-[rgb(11_18_32/30%)]">Generate Reply</p>
-            </div>
-            <div className="p-4 space-y-3">
-              <div className="flex gap-2">
-                <Select value={tone} onChange={e => setTone(e.target.value)} className="flex-1 text-sm">
+            <div className="px-4 py-3 bg-paper-2 border-b border-rule flex items-center justify-between gap-2 flex-wrap">
+              <p className="text-xs font-semibold uppercase tracking-wider text-[rgb(11_18_32/30%)]">Compose reply</p>
+              <div className="flex items-center gap-2">
+                <Select value={tone} onChange={e => setTone(e.target.value)} className="text-xs h-8">
                   <option value="polite">Polite</option>
                   <option value="firm">Firm</option>
                   <option value="short">Short</option>
@@ -257,56 +332,107 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
                   <option value="friendly">Friendly</option>
                   <option value="escalation">Escalation</option>
                 </Select>
-                <Button onClick={generateReply} disabled={generating} size="sm">
-                  {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Generate'}
+                <Button onClick={generateReply} disabled={generating} size="sm" variant="outline">
+                  {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <>Generate draft</>}
                 </Button>
               </div>
-              {draft && (
-                <div className="space-y-2">
-                  <div className="relative">
-                    <pre className="whitespace-pre-wrap text-sm text-ink bg-paper-2 border border-rule rounded-md p-3 font-sans text-xs leading-relaxed">
-                      {draft}
-                    </pre>
-                    <button
-                      onClick={copy}
-                      className="absolute top-2 right-2 flex items-center gap-1 text-[11px] text-[rgb(11_18_32/55%)] hover:text-ink bg-white border border-[rgb(11_18_32/10%)] rounded px-2 py-1 transition-colors"
-                    >
-                      {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                      {copied ? 'Copied' : 'Copy'}
-                    </button>
-                  </div>
-                  {!confirmingSend ? (
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => { setSendError(null); setConfirmingSend(true) }}
-                        disabled={sending || !active.ownerEmail}
-                      >
-                        <Send className="h-3.5 w-3.5 mr-1.5" />
-                        Send Reply
-                      </Button>
-                      {sendError && (
-                        <span className="text-[11px] text-action">{sendError}</span>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 bg-paper-2 border border-rule rounded-md px-3 py-2">
-                      <span className="text-xs text-ink">
-                        Send this reply to {active.ownerEmail || active.emailThread?.messages?.[0]?.senderEmail}?
-                      </span>
-                      <Button size="sm" onClick={sendReply} disabled={sending}>
-                        {sending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Confirm'}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setConfirmingSend(false)}
-                        disabled={sending}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
+            </div>
+            <div className="p-4 space-y-3">
+              <RichTextEditor
+                value={draft}
+                onChange={setDraft}
+                placeholder="Write your reply, or click 'Generate draft' / 'Use this draft' above..."
+                minHeight={180}
+                signatureHtml={signatureHtml}
+              />
+
+              {/* Send / Schedule controls */}
+              {!confirmingSend && !scheduleOpen ? (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button
+                    size="sm"
+                    onClick={() => { setSendError(null); setConfirmingSend(true) }}
+                    disabled={sending || scheduling || !active.ownerEmail || !draft.trim()}
+                  >
+                    <Send className="h-3.5 w-3.5 mr-1.5" />
+                    Send now
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => { setSendError(null); setScheduleOpen(true) }}
+                    disabled={sending || scheduling || !active.ownerEmail || !draft.trim()}
+                  >
+                    <Clock className="h-3.5 w-3.5 mr-1.5" />
+                    Schedule
+                    <ChevronDown className="h-3 w-3 ml-1" />
+                  </Button>
+                  {!active.ownerEmail && (
+                    <span className="text-[11px] text-[rgb(11_18_32/50%)]">No recipient on this thread</span>
                   )}
+                  {sendError && (
+                    <span className="text-[11px] text-action">{sendError}</span>
+                  )}
+                </div>
+              ) : confirmingSend ? (
+                <div className="flex items-center gap-2 bg-paper-2 border border-rule rounded-md px-3 py-2 flex-wrap">
+                  <span className="text-xs text-ink">
+                    Send to {active.ownerEmail || active.emailThread?.messages?.[0]?.senderEmail}?
+                  </span>
+                  <Button size="sm" onClick={sendReply} disabled={sending}>
+                    {sending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Confirm send'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setConfirmingSend(false)}
+                    disabled={sending}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <div className="border border-rule rounded-md bg-paper-2 p-3 space-y-2">
+                  <p className="text-xs font-semibold text-ink">Schedule send</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {buildSchedulePresets().map(p => (
+                      <button
+                        key={p.iso}
+                        onClick={() => scheduleReply(p.iso)}
+                        disabled={scheduling}
+                        className="text-[11px] px-2.5 py-1 rounded border border-rule bg-white text-ink hover:border-[rgb(11_18_32/30%)] disabled:opacity-50 transition-colors"
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2 pt-1">
+                    <input
+                      type="datetime-local"
+                      value={customWhen}
+                      onChange={e => setCustomWhen(e.target.value)}
+                      className="text-xs rounded border border-rule bg-white px-2 py-1.5 text-ink"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        const d = new Date(customWhen)
+                        if (isNaN(d.getTime())) return
+                        scheduleReply(d.toISOString())
+                      }}
+                      disabled={scheduling}
+                    >
+                      {scheduling ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Schedule'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setScheduleOpen(false)}
+                      disabled={scheduling}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>

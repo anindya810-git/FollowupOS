@@ -51,11 +51,12 @@ export async function sendSmtpReply(
     },
   })
 
+  const isHtml = /<[a-z][\s\S]*>/i.test(body)
   const info = await transporter.sendMail({
     from: account.emailAddress,
     to: toEmail,
     subject,
-    text: body,
+    ...(isHtml ? { html: body, text: body.replace(/<[^>]+>/g, '') } : { text: body }),
     inReplyTo,
     references: inReplyTo,
   })

@@ -242,7 +242,7 @@ export async function sendOutlookReply(
   const payload = {
     message: {
       subject,
-      body: { contentType: 'Text', content: body },
+      body: { contentType: /<[a-z][\s\S]*>/i.test(body) ? 'HTML' : 'Text', content: body },
       toRecipients: [{ emailAddress: { address: toEmail } }],
     },
     saveToSentItems: true,
