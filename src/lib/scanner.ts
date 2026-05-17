@@ -86,8 +86,10 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
     // Pre-flight: verify the access token still works. If it doesn't, mark
     // the account expired and fail the scan with a clear reconnect message
     // instead of silently completing with zero items.
+    let profileHistoryId: string | undefined
     try {
-      await gmail.users.getProfile({ userId: 'me' })
+      const profile = await gmail.users.getProfile({ userId: 'me' })
+      profileHistoryId = profile.data.historyId ?? undefined
     } catch (e) {
       const code = (e as { code?: number }).code
       if (code === 401 || code === 403) {
@@ -100,25 +102,59 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
       throw e
     }
 
-    const afterDate = new Date()
-    afterDate.setDate(afterDate.getDate() - scanWindowDays)
-    const afterTimestamp = Math.floor(afterDate.getTime() / 1000)
-
-    // Fetch threads
-    let nextPageToken: string | undefined
+    // Incremental sync: if we have a stored historyId, use Gmail's History API
+    // to fetch only threads with new messages since the last scan.
+    // Fall back to a full date-range scan if historyId is missing or expired (>~30 days old).
     let allThreadIds: string[] = []
+    let usedIncremental = false
 
-    do {
-      const res = await gmail.users.threads.list({
-        userId: 'me',
-        q: `after:${afterTimestamp} -in:spam -in:trash`,
-        maxResults: 100,
-        pageToken: nextPageToken,
-      })
-      const threads = res.data.threads || []
-      allThreadIds = allThreadIds.concat(threads.map(t => t.id!).filter(Boolean))
-      nextPageToken = res.data.nextPageToken || undefined
-    } while (nextPageToken && allThreadIds.length < 500)
+    if (account.gmailHistoryId) {
+      try {
+        let pageToken: string | undefined
+        const changedThreadIds = new Set<string>()
+        do {
+          const histRes = await gmail.users.history.list({
+            userId: 'me',
+            startHistoryId: account.gmailHistoryId,
+            historyTypes: ['messageAdded'],
+            maxResults: 500,
+            pageToken,
+          })
+          for (const record of histRes.data.history || []) {
+            for (const msg of record.messagesAdded || []) {
+              if (msg.message?.threadId) changedThreadIds.add(msg.message.threadId)
+            }
+          }
+          pageToken = histRes.data.nextPageToken ?? undefined
+        } while (pageToken)
+
+        allThreadIds = Array.from(changedThreadIds)
+        usedIncremental = true
+      } catch (e) {
+        // historyId expired (HTTP 404) or invalid — fall through to full scan
+        const code = (e as { code?: number; status?: number }).code ?? (e as { status?: number }).status
+        if (code !== 404) throw e
+      }
+    }
+
+    if (!usedIncremental) {
+      const afterDate = new Date()
+      afterDate.setDate(afterDate.getDate() - scanWindowDays)
+      const afterTimestamp = Math.floor(afterDate.getTime() / 1000)
+
+      let nextPageToken: string | undefined
+      do {
+        const res = await gmail.users.threads.list({
+          userId: 'me',
+          q: `after:${afterTimestamp} -in:spam -in:trash`,
+          maxResults: 100,
+          pageToken: nextPageToken,
+        })
+        const threads = res.data.threads || []
+        allThreadIds = allThreadIds.concat(threads.map(t => t.id!).filter(Boolean))
+        nextPageToken = res.data.nextPageToken || undefined
+      } while (nextPageToken && allThreadIds.length < 500)
+    }
 
     await prisma.scanJob.update({
       where: { id: jobId },
@@ -163,7 +199,12 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
 
     await prisma.emailAccount.update({
       where: { id: emailAccountId },
-      data: { initialScanCompleted: true, lastSyncedAt: new Date() },
+      data: {
+        initialScanCompleted: true,
+        lastSyncedAt: new Date(),
+        // Store historyId captured at scan-start so the next sync only sees new changes
+        ...(profileHistoryId ? { gmailHistoryId: profileHistoryId } : {}),
+      },
     })
 
     const scanDiagnostic = aiFailures > 0

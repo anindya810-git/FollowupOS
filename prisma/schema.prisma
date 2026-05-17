@@ -136,6 +136,7 @@ model EmailAccount {
   webmailSearchUrlTemplate String?
   lastSyncedAt          DateTime?
   initialScanCompleted  Boolean   @default(false)
+  gmailHistoryId        String?
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
