@@ -46,7 +46,7 @@ export async function POST(
   const suggestion = await generateQuickSuggestion({
     threadSubject: item.title || item.emailThread?.subject || 'Email Thread',
     reason: item.reason || '',
-    messages: (item.emailThread?.messages || []).map(m => ({
+    messages: (item.emailThread?.messages || []).map((m: any) => ({
       from: m.senderEmail || '',
       body: m.bodyExcerpt || m.snippet || '',
       isFromUser: m.isFromUser,
