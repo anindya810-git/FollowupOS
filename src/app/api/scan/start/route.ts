@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { safeLog } from '@/lib/safe-log'
+import { getUserPlan, PLAN_LIMITS } from '@/lib/plan'
 
 export async function POST(request: NextRequest) {
   const session = await auth()
@@ -16,7 +17,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
   const account_id = typeof body.account_id === 'string' ? body.account_id : undefined
-  const scan_window_days = typeof body.scan_window_days === 'number' ? body.scan_window_days : 30
+  const requested_days = typeof body.scan_window_days === 'number' ? body.scan_window_days : 30
+
+  // Cap by plan: free=3d, lite=7d, pro=unlimited (use whatever the user asked for)
+  const plan = await getUserPlan(session.user.id)
+  const planCap = PLAN_LIMITS[plan.type].scanWindowDays
+  const scan_window_days = planCap === -1 ? requested_days : Math.min(requested_days, planCap)
 
   const account = await prisma.emailAccount.findFirst({
     where: { id: account_id, userId: session.user.id, connectedStatus: 'connected' },

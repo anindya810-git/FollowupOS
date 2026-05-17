@@ -12,7 +12,8 @@ interface PlanInfo {
 
 const FREE_FEATURES = [
   '1 email account',
-  'Up to 100 AI classifications / month',
+  '1,000 AI classifications / month',
+  'Last 3 days of email analysed',
   'Reply, snooze, done, ignore actions',
   'Basic follow-up tracking',
   'Referral & share bonuses',
@@ -21,7 +22,8 @@ const FREE_FEATURES = [
 const LITE_FEATURES = [
   'Everything in Free',
   'Up to 3 email accounts',
-  '500 AI classifications / month',
+  '5,000 AI classifications / month',
+  'Last 7 days of email analysed',
   'Follow-up sequences (3 steps)',
   'Calendar & task auto-create',
   'Zoom meeting integration',
@@ -32,6 +34,7 @@ const PRO_FEATURES = [
   'Everything in Lite',
   'Unlimited email accounts',
   'Unlimited AI classifications',
+  'Full 30-day email history analysed',
   'Unlimited sequence steps',
   'Priority support',
   'Early access to new features',

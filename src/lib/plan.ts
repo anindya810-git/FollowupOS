@@ -10,8 +10,9 @@ export interface PlanInfo {
 }
 
 export interface PlanLimits {
-  emailAccounts: number   // -1 = unlimited
-  aiCallsPerMonth: number // -1 = unlimited
+  emailAccounts: number     // -1 = unlimited
+  aiCallsPerMonth: number   // -1 = unlimited; only enforced when using Pendingly's default API key
+  scanWindowDays: number    // max look-back for email scanning; -1 = unlimited (user setting wins)
   followupSequenceSteps: number // 0 = disabled, -1 = unlimited
   canDisableSignature: boolean
   calendarAutoCreate: boolean
@@ -22,7 +23,8 @@ export interface PlanLimits {
 export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
   free: {
     emailAccounts: 1,
-    aiCallsPerMonth: 100,
+    aiCallsPerMonth: 1000,
+    scanWindowDays: 3,
     followupSequenceSteps: 0,
     canDisableSignature: false,
     calendarAutoCreate: false,
@@ -31,7 +33,8 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
   },
   lite: {
     emailAccounts: 3,
-    aiCallsPerMonth: 500,
+    aiCallsPerMonth: 5000,
+    scanWindowDays: 7,
     followupSequenceSteps: 3,
     canDisableSignature: true,
     calendarAutoCreate: true,
@@ -41,6 +44,7 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
   pro: {
     emailAccounts: -1,
     aiCallsPerMonth: -1,
+    scanWindowDays: -1,
     followupSequenceSteps: -1,
     canDisableSignature: true,
     calendarAutoCreate: true,
