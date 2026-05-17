@@ -32,8 +32,8 @@ export async function POST(request: NextRequest) {
   }
 
   // Idempotency: if a scan is already queued or running for this account,
-  // return that job instead of spinning another one. Prevents the /scan
-  // page from creating duplicate jobs on refresh.
+  // return that job — UNLESS it's been stuck for >15 minutes (Vercel killed it),
+  // in which case mark it failed and let a new one start.
   const existing = await prisma.scanJob.findFirst({
     where: {
       userId: session.user.id,
@@ -43,7 +43,16 @@ export async function POST(request: NextRequest) {
     orderBy: { createdAt: 'desc' },
   })
   if (existing) {
-    return NextResponse.json({ job_id: existing.id, status: existing.status, reused: true })
+    const ageMs = Date.now() - existing.createdAt.getTime()
+    const stale = ageMs > 15 * 60 * 1000
+    if (!stale) {
+      return NextResponse.json({ job_id: existing.id, status: existing.status, reused: true })
+    }
+    // Mark stale job failed so we can start a fresh scan
+    await prisma.scanJob.update({
+      where: { id: existing.id },
+      data: { status: 'failed', errorMessage: 'Scan timed out — restarting.' },
+    })
   }
 
   const scanJob = await prisma.scanJob.create({
