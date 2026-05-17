@@ -1,8 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { safeLog } from '@/lib/safe-log'
 import { getUserPlan, PLAN_LIMITS } from '@/lib/plan'
+
+// Tell Vercel to allow up to 300 s for this function (Pro plan).
+// Hobby is capped at 60 s by Vercel regardless of this setting.
+export const maxDuration = 300
 
 export async function POST(request: NextRequest) {
   const session = await auth()
@@ -63,8 +67,10 @@ export async function POST(request: NextRequest) {
     },
   })
 
-  // Trigger scan asynchronously
-  triggerScan(scanJob.id, session.user.id, account.id, scan_window_days)
+  // Schedule scan to run after the response is sent.
+  // `after()` tells Vercel to keep the function alive until the promise resolves
+  // (up to maxDuration above), so the scan isn't killed when the HTTP response returns.
+  after(triggerScan(scanJob.id, session.user.id, account.id, scan_window_days))
 
   return NextResponse.json({ job_id: scanJob.id, status: 'queued' })
 }
