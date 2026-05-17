@@ -7,7 +7,7 @@ import { X, ExternalLink, Loader2, Send, Zap, AlertCircle, Archive, Clock, Chevr
 import { playChime } from '@/lib/sounds'
 import { RichTextEditor } from '@/components/editor/RichTextEditor'
 import { CalendarForm } from './CalendarForm'
-import { CalendarPlus, Trash2 } from 'lucide-react'
+import { CalendarPlus, Trash2, Paperclip, Link2 } from 'lucide-react'
 import type { ActionItemWithThread } from '@/types'
 
 function textToHtml(text: string): string {
@@ -377,6 +377,12 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
             </button>
           )}
 
+          {/* Links & attachments aggregated across thread */}
+          <ThreadResources
+            messages={active.emailThread?.messages}
+            inboxUrl={active.emailThread?.providerUrl ?? null}
+          />
+
           {/* Recent messages */}
           {active.emailThread?.messages && active.emailThread.messages.length > 0 && (
             <div>
@@ -533,6 +539,115 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
           </Button>
         </div>
       </div>
+    </div>
+  )
+}
+
+interface ThreadResourcesProps {
+  messages?: Array<{ linksJson: string | null; attachmentsJson: string | null }>
+  inboxUrl: string | null
+}
+
+interface LinkRow { url: string; text: string }
+interface AttachmentRow { filename: string; mimeType?: string; sizeBytes?: number }
+
+function formatBytes(b?: number): string {
+  if (!b || b <= 0) return ''
+  if (b < 1024) return `${b} B`
+  if (b < 1024 * 1024) return `${Math.round(b / 1024)} KB`
+  return `${(b / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function ThreadResources({ messages, inboxUrl }: ThreadResourcesProps) {
+  if (!messages || messages.length === 0) return null
+  // Aggregate and dedupe links across the thread; show up to 8 most recent.
+  const allLinks: LinkRow[] = []
+  const seenLink = new Set<string>()
+  const allAttachments: AttachmentRow[] = []
+  for (const m of messages) {
+    if (m.linksJson) {
+      try {
+        const arr = JSON.parse(m.linksJson) as LinkRow[]
+        for (const l of arr) {
+          if (!l?.url || seenLink.has(l.url)) continue
+          seenLink.add(l.url)
+          allLinks.push(l)
+        }
+      } catch { /* ignore */ }
+    }
+    if (m.attachmentsJson) {
+      try {
+        const arr = JSON.parse(m.attachmentsJson) as AttachmentRow[]
+        for (const a of arr) if (a?.filename) allAttachments.push(a)
+      } catch { /* ignore */ }
+    }
+  }
+  if (allLinks.length === 0 && allAttachments.length === 0) return null
+
+  return (
+    <div className="space-y-3">
+      {allAttachments.length > 0 && (
+        <div className="border border-rule rounded-lg bg-paper-2 p-3">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[rgb(11_18_32/55%)]">
+              Attachments ({allAttachments.length})
+            </p>
+            {inboxUrl && (
+              <a
+                href={inboxUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-[11px] text-ink hover:underline inline-flex items-center gap-1"
+              >
+                Open in inbox <ExternalLink className="h-3 w-3" />
+              </a>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            {allAttachments.slice(0, 6).map((a, i) => (
+              <div
+                key={i}
+                className="flex items-center justify-between gap-2 text-xs text-ink"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <Paperclip className="h-3 w-3 flex-shrink-0 text-[rgb(11_18_32/50%)]" />
+                  <span className="truncate">{a.filename}</span>
+                </div>
+                {a.sizeBytes ? (
+                  <span className="text-[11px] text-[rgb(11_18_32/40%)] flex-shrink-0">{formatBytes(a.sizeBytes)}</span>
+                ) : null}
+              </div>
+            ))}
+            {allAttachments.length > 6 && (
+              <p className="text-[11px] text-[rgb(11_18_32/40%)]">+{allAttachments.length - 6} more — open in inbox</p>
+            )}
+          </div>
+        </div>
+      )}
+      {allLinks.length > 0 && (
+        <div className="border border-rule rounded-lg bg-paper-2 p-3">
+          <p className="text-xs font-semibold uppercase tracking-wider text-[rgb(11_18_32/55%)] mb-2">
+            Links ({allLinks.length})
+          </p>
+          <div className="space-y-1.5">
+            {allLinks.slice(0, 8).map((l, i) => (
+              <a
+                key={i}
+                href={l.url}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="flex items-center gap-2 text-xs text-ink hover:underline min-w-0"
+              >
+                <Link2 className="h-3 w-3 flex-shrink-0 text-[rgb(11_18_32/50%)]" />
+                <span className="truncate">{l.text || l.url}</span>
+              </a>
+            ))}
+            {allLinks.length > 8 && (
+              <p className="text-[11px] text-[rgb(11_18_32/40%)]">+{allLinks.length - 8} more</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -24,6 +24,8 @@ export interface ImapMessage {
   messageId?: string
   inReplyTo?: string
   references?: string[]
+  // imapflow's MessageStructureObject — passed through to email-extract
+  bodyStructure?: unknown
 }
 
 export async function getImapAccessDetails(emailAccountId: string): Promise<{
@@ -87,7 +89,7 @@ export async function getImapThreads(emailAccountId: string, daysBack: number = 
   try {
     for await (const msg of client.fetch(
       { since },
-      { envelope: true, bodyParts: ['text'], headers: ['references'] }
+      { envelope: true, bodyStructure: true, bodyParts: ['text'], headers: ['references'] }
     )) {
       const from = msg.envelope?.from?.[0]
       const fromEmail = from?.address || ''
@@ -129,6 +131,7 @@ export async function getImapThreads(emailAccountId: string, daysBack: number = 
         messageId,
         inReplyTo,
         references,
+        bodyStructure: msg.bodyStructure,
       })
     }
   } finally {

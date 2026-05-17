@@ -50,6 +50,14 @@ export async function GET(request: NextRequest) {
             providerUrl: true,
             lastMessageAt: true,
             participants: true,
+            // Latest non-user message so the card can render link/attachment
+            // chip counts without pulling the full thread.
+            messages: {
+              where: { isFromUser: false },
+              orderBy: { sentAt: 'desc' },
+              take: 1,
+              select: { linksJson: true, attachmentsJson: true },
+            },
           },
         },
       },

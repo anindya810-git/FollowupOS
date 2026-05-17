@@ -98,6 +98,16 @@ export interface ActionItemWithThread {
       bodyExcerpt: string | null
       sentAt: Date | null
       isFromUser: boolean
+      linksJson: string | null
+      attachmentsJson: string | null
     }>
   } | null
+}
+
+export interface ExtractedLink { url: string; text: string }
+export interface ExtractedAttachment {
+  filename: string
+  mimeType?: string
+  sizeBytes?: number
+  attachmentId?: string
 }

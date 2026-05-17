@@ -177,6 +177,13 @@ model EmailMessage {
   bodyHash          String?
   isFromUser        Boolean   @default(false)
   labels            String?
+  // JSON array of {url, text} extracted from the message HTML at scan time.
+  // Capped at ~20 entries to keep row size sane.
+  linksJson         String?
+  // JSON array of {filename, mimeType, sizeBytes, attachmentId} for attachments.
+  // attachmentId is the provider-specific ID (Gmail attachment ID, Outlook
+  // attachment id). null for IMAP where we only learn name + size.
+  attachmentsJson   String?
   createdAt         DateTime  @default(now())
 
   user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)

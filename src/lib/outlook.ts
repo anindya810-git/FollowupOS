@@ -19,6 +19,7 @@ export interface OutlookMessage {
   body: { content: string; contentType: string }
   webLink: string
   isDraft: boolean
+  hasAttachments?: boolean
 }
 
 export interface OutlookThread {
@@ -155,7 +156,7 @@ export async function getOutlookThreads(
   since.setDate(since.getDate() - daysBack)
   const sinceIso = since.toISOString()
 
-  const select = 'id,conversationId,internetMessageId,subject,from,toRecipients,ccRecipients,receivedDateTime,bodyPreview,body,webLink,isDraft'
+  const select = 'id,conversationId,internetMessageId,subject,from,toRecipients,ccRecipients,receivedDateTime,bodyPreview,body,webLink,isDraft,hasAttachments'
   const filter = `receivedDateTime ge ${sinceIso}`
   const baseUrl = `https://graph.microsoft.com/v1.0/me/messages?$filter=${encodeURIComponent(filter)}&$select=${select}&$top=100`
 

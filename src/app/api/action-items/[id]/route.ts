@@ -29,6 +29,8 @@ export async function GET(
               bodyExcerpt: true,
               sentAt: true,
               isFromUser: true,
+              linksJson: true,
+              attachmentsJson: true,
             },
           },
         },

@@ -6,6 +6,7 @@ import { classifyThread, generateQuickSuggestion, resolveAiConfig, MissingAiConf
 import type { AiConfig } from './ai'
 import { upsertContact } from './contacts'
 import { maybeAutoCreateCalendar } from './auto-calendar'
+import { extractLinksFromText, extractGmailAttachments, extractImapAttachments } from './email-extract'
 import type { ClassificationInput } from '@/types'
 import crypto from 'crypto'
 
@@ -306,6 +307,13 @@ async function scanOutlookAccount(params: {
         const isFromUser = fromEmail.toLowerCase() === userEmail.toLowerCase()
         const bodyText = (msg.body?.content || msg.bodyPreview || '').substring(0, 4000)
         const recipients = (msg.toRecipients || []).map(r => r.emailAddress?.address ?? '').join(', ')
+        const links = extractLinksFromText(bodyText)
+        // Outlook only exposes hasAttachments at scan time; the file list
+        // lives on a separate /attachments endpoint. Stub it so the UI can
+        // surface a "has attachments — open in Outlook" chip.
+        const attachments = msg.hasAttachments
+          ? [{ filename: '(see in Outlook)' }]
+          : []
         await prisma.emailMessage.upsert({
           where: {
             emailThreadId_providerMessageId: {
@@ -325,6 +333,8 @@ async function scanOutlookAccount(params: {
             snippet: msg.bodyPreview || '',
             bodyExcerpt: bodyText,
             isFromUser,
+            linksJson: links.length ? JSON.stringify(links) : null,
+            attachmentsJson: attachments.length ? JSON.stringify(attachments) : null,
           },
           update: {
             rfcMessageId: msg.internetMessageId || null,
@@ -335,6 +345,8 @@ async function scanOutlookAccount(params: {
             snippet: msg.bodyPreview || '',
             bodyExcerpt: bodyText,
             isFromUser,
+            linksJson: links.length ? JSON.stringify(links) : null,
+            attachmentsJson: attachments.length ? JSON.stringify(attachments) : null,
           },
         })
       }
@@ -583,6 +595,8 @@ async function scanImapAccount(params: {
       // Persist messages
       for (const msg of thread.messages) {
         const providerMessageId = String(msg.uid)
+        const imapLinks = extractLinksFromText(msg.textBody || '')
+        const imapAttachments = extractImapAttachments(msg.bodyStructure as Parameters<typeof extractImapAttachments>[0])
         await prisma.emailMessage.upsert({
           where: {
             emailThreadId_providerMessageId: {
@@ -602,6 +616,8 @@ async function scanImapAccount(params: {
             snippet: (msg.textBody || '').substring(0, 200),
             bodyExcerpt: (msg.textBody || '').substring(0, 4000),
             isFromUser: msg.isFromUser,
+            linksJson: imapLinks.length ? JSON.stringify(imapLinks) : null,
+            attachmentsJson: imapAttachments.length ? JSON.stringify(imapAttachments) : null,
           },
           update: {
             rfcMessageId: msg.messageId || null,
@@ -612,6 +628,8 @@ async function scanImapAccount(params: {
             snippet: (msg.textBody || '').substring(0, 200),
             bodyExcerpt: (msg.textBody || '').substring(0, 4000),
             isFromUser: msg.isFromUser,
+            linksJson: imapLinks.length ? JSON.stringify(imapLinks) : null,
+            attachmentsJson: imapAttachments.length ? JSON.stringify(imapAttachments) : null,
           },
         })
       }
@@ -821,6 +839,8 @@ async function processThread(params: {
     snippet: string
     bodyExcerpt: string
     isFromUser: boolean
+    linksJson: string | null
+    attachmentsJson: string | null
   }> = []
 
   const messageInputs = fullMessages.map(msg => {
@@ -851,6 +871,8 @@ async function processThread(params: {
     }
 
     if (msg.id) {
+      const gmailLinks = extractLinksFromText(body)
+      const gmailAttachments = extractGmailAttachments(msg.payload as Parameters<typeof extractGmailAttachments>[0])
       messagePersistData.push({
         providerMessageId: msg.id,
         rfcMessageId: rfcMessageIdHeader,
@@ -861,6 +883,8 @@ async function processThread(params: {
         snippet: msg.snippet || '',
         bodyExcerpt: body.substring(0, 4000),
         isFromUser,
+        linksJson: gmailLinks.length ? JSON.stringify(gmailLinks) : null,
+        attachmentsJson: gmailAttachments.length ? JSON.stringify(gmailAttachments) : null,
       })
     }
 
@@ -923,6 +947,8 @@ async function processThread(params: {
         snippet: m.snippet,
         bodyExcerpt: m.bodyExcerpt,
         isFromUser: m.isFromUser,
+        linksJson: m.linksJson,
+        attachmentsJson: m.attachmentsJson,
       },
       update: {
         rfcMessageId: m.rfcMessageId,
@@ -933,6 +959,8 @@ async function processThread(params: {
         snippet: m.snippet,
         bodyExcerpt: m.bodyExcerpt,
         isFromUser: m.isFromUser,
+        linksJson: m.linksJson,
+        attachmentsJson: m.attachmentsJson,
       },
     })
   }

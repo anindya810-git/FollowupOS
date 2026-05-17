@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { categoryLabel, timeAgo } from '@/lib/utils'
-import { ExternalLink, Clock, Check, EyeOff, Calendar as CalendarIcon, AlertCircle, Archive } from 'lucide-react'
+import { ExternalLink, Clock, Check, EyeOff, Calendar as CalendarIcon, AlertCircle, Archive, Link2, Paperclip } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { playChime } from '@/lib/sounds'
 import { SnoozeMenu } from './SnoozeMenu'
@@ -41,6 +41,18 @@ export function ActionCard({ item, onStatusChange, onSelect, selected, onSelectC
   }
 
   const selectable = typeof onSelectChange === 'function'
+
+  // Pull link/attachment counts from the latest non-user message returned
+  // by the list endpoint. Falls back to 0 when no message data attached.
+  const latestMessage = item.emailThread?.messages?.[0]
+  const linkCount = (() => {
+    if (!latestMessage?.linksJson) return 0
+    try { const arr = JSON.parse(latestMessage.linksJson); return Array.isArray(arr) ? arr.length : 0 } catch { return 0 }
+  })()
+  const attachmentCount = (() => {
+    if (!latestMessage?.attachmentsJson) return 0
+    try { const arr = JSON.parse(latestMessage.attachmentsJson); return Array.isArray(arr) ? arr.length : 0 } catch { return 0 }
+  })()
 
   return (
     <div
@@ -101,6 +113,28 @@ export function ActionCard({ item, onStatusChange, onSelect, selected, onSelectC
                 <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-[rgb(11_18_32/5%)] text-[rgb(11_18_32/50%)] border border-[rgb(11_18_32/10%)] px-1.5 py-0.5 rounded" style={{ fontFamily: 'var(--font-mono)' }}>
                   <Archive className="h-2.5 w-2.5" />
                   Ready to close
+                </span>
+              )}
+              {attachmentCount > 0 && (
+                <span
+                  className="inline-flex items-center gap-1 text-[10px] font-medium bg-[rgb(11_18_32/5%)] text-ink border border-[rgb(11_18_32/10%)] px-1.5 py-0.5 rounded hover:bg-[rgb(11_18_32/8%)] cursor-pointer"
+                  style={{ fontFamily: 'var(--font-mono)' }}
+                  onClick={(e) => { e.stopPropagation(); onSelect(item) }}
+                  title="View attachments"
+                >
+                  <Paperclip className="h-2.5 w-2.5" />
+                  {attachmentCount}
+                </span>
+              )}
+              {linkCount > 0 && (
+                <span
+                  className="inline-flex items-center gap-1 text-[10px] font-medium bg-[rgb(11_18_32/5%)] text-ink border border-[rgb(11_18_32/10%)] px-1.5 py-0.5 rounded hover:bg-[rgb(11_18_32/8%)] cursor-pointer"
+                  style={{ fontFamily: 'var(--font-mono)' }}
+                  onClick={(e) => { e.stopPropagation(); onSelect(item) }}
+                  title="View links"
+                >
+                  <Link2 className="h-2.5 w-2.5" />
+                  {linkCount}
                 </span>
               )}
             </div>
