@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { encrypt, decrypt } from '@/lib/crypto'
 import type { AiProvider } from '@/lib/ai'
+import { getUserPlan, isByokAllowed } from '@/lib/plan'
 
 const PROVIDERS: AiProvider[] = ['anthropic', 'openai', 'gemini']
 
@@ -71,6 +72,14 @@ export async function POST(request: NextRequest) {
   const provider = body.provider as AiProvider
   if (!PROVIDERS.includes(provider)) {
     return NextResponse.json({ error: 'Invalid provider' }, { status: 400 })
+  }
+
+  // BYOK is a paid-tier feature. Free users cannot save their own keys.
+  const plan = await getUserPlan(session.user.id)
+  if (!isByokAllowed(plan.type)) {
+    return NextResponse.json({
+      error: 'Bring-your-own API key is available on Lite and Pro plans. Upgrade to add your own key.',
+    }, { status: 403 })
   }
 
   const apiKey = (body.apiKey || '').trim()

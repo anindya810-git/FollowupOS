@@ -553,6 +553,9 @@ export default function SettingsPage() {
             {saved ? 'Saved!' : saving ? 'Saving...' : 'Save Settings'}
           </Button>
 
+          {/* AI usage */}
+          <UsageCard />
+
           {/* AI Provider */}
           <AiProviderCard />
 
@@ -593,8 +596,107 @@ const PROVIDER_META = {
 
 type Provider = keyof typeof PROVIDER_META
 
+interface UsageInfo {
+  used: number
+  limit: number
+  percent: number
+  exceeded: boolean
+  resetAt: string
+  planType: 'free' | 'lite' | 'pro'
+  byType: Record<string, { default: number; byok: number }>
+}
+
+function UsageCard() {
+  const [usage, setUsage] = useState<UsageInfo | null>(null)
+
+  useEffect(() => {
+    fetch('/api/usage').then(r => r.ok ? r.json() : null).then(d => { if (d) setUsage(d) }).catch(() => {})
+  }, [])
+
+  if (!usage) return null
+
+  const unlimited = usage.limit === -1
+  const resetLabel = usage.resetAt
+    ? new Date(usage.resetAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    : ''
+
+  const totalByok = (usage.byType.classify?.byok ?? 0) + (usage.byType.suggest?.byok ?? 0) + (usage.byType.draft?.byok ?? 0)
+
+  return (
+    <Card>
+      <CardHeader><CardTitle>AI usage this month</CardTitle></CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-baseline justify-between">
+          <div>
+            <p className="text-2xl font-bold text-ink">
+              {usage.used.toLocaleString()}<span className="text-sm font-normal text-[rgb(11_18_32/55%)]"> / {unlimited ? '∞' : usage.limit.toLocaleString()}</span>
+            </p>
+            <p className="text-[11px] text-[rgb(11_18_32/55%)] mt-0.5">
+              Pendingly-key AI calls this month {unlimited ? '(unlimited on Pro)' : ''}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-[11px] text-[rgb(11_18_32/45%)]">Plan</p>
+            <p className="text-sm font-medium text-ink capitalize">{usage.planType}</p>
+          </div>
+        </div>
+
+        {!unlimited && (
+          <div>
+            <div className="h-1.5 bg-[rgb(11_18_32/8%)] rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full ${usage.exceeded ? 'bg-red-500' : usage.percent > 80 ? 'bg-amber-500' : 'bg-[#0b1220]'}`}
+                style={{ width: `${Math.min(usage.percent, 100)}%` }}
+              />
+            </div>
+            <p className="text-[10px] text-[rgb(11_18_32/45%)] mt-1.5 flex items-center justify-between">
+              <span>{usage.percent}% used</span>
+              <span>Resets {resetLabel}</span>
+            </p>
+          </div>
+        )}
+
+        {usage.exceeded && (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+            <p className="text-xs font-medium text-red-900">Monthly quota reached</p>
+            <p className="text-xs text-red-800 mt-0.5">
+              New scans and AI suggestions are paused until {resetLabel}. <a href="/upgrade" className="underline font-medium">Upgrade</a> or add your own API key to continue.
+            </p>
+          </div>
+        )}
+
+        {/* Breakdown */}
+        <div className="rounded-lg border border-[rgb(11_18_32/8%)] p-3 space-y-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/45%)]">Breakdown</p>
+          {(['classify', 'suggest', 'draft'] as const).map(t => {
+            const row = usage.byType[t] || { default: 0, byok: 0 }
+            return (
+              <div key={t} className="flex items-center justify-between text-xs">
+                <span className="text-[rgb(11_18_32/65%)] capitalize">
+                  {t === 'classify' ? 'Email classification' : t === 'suggest' ? 'Quick suggestions' : 'Full drafts'}
+                </span>
+                <span className="font-mono text-ink">
+                  {row.default}
+                  {row.byok > 0 && <span className="text-[rgb(11_18_32/40%)]"> +{row.byok} BYOK</span>}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+
+        {totalByok > 0 && (
+          <p className="text-[11px] text-[rgb(11_18_32/45%)]">
+            BYOK calls aren&apos;t metered — they bill to your own provider account.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 function AiProviderCard() {
   const [config, setConfig] = useState<AiConfigStatus | null>(null)
+  const [planType, setPlanType] = useState<'free' | 'lite' | 'pro' | null>(null)
   const [inputs, setInputs] = useState<Record<Provider, string>>({ gemini: '', anthropic: '', openai: '' })
   const [saving, setSaving] = useState<Provider | null>(null)
   const [removing, setRemoving] = useState<Provider | null>(null)
@@ -606,9 +708,15 @@ function AiProviderCard() {
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d) setConfig(d) })
       .catch(() => {})
+    fetch('/api/plan')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.type) setPlanType(d.type) })
+      .catch(() => {})
   }
 
   useEffect(() => { refresh() }, [])
+
+  const byokAllowed = planType !== 'free'
 
   const saveKey = async (provider: Provider) => {
     const key = inputs[provider].trim()
@@ -669,8 +777,20 @@ function AiProviderCard() {
       <CardContent className="space-y-5">
         <p className="text-xs text-[rgb(11_18_32/55%)]">
           Pendingly uses AI to classify your threads, detect what needs a reply, and draft responses.
-          Add a key for any provider. If no key is saved, the server-side Gemini free tier is used if configured.
+          {byokAllowed
+            ? ' Add a key for any provider to use your own quota. Otherwise Pendingly’s server key is used (subject to your plan limit).'
+            : ' Bring-your-own API key is available on Lite and Pro plans.'}
         </p>
+
+        {!byokAllowed && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <p className="text-xs font-medium text-amber-900">BYOK is a paid feature</p>
+            <p className="text-xs text-amber-800 mt-0.5">
+              Upgrade to Lite ($9) or Pro ($15) to save your own Anthropic, OpenAI, or Gemini key. {' '}
+              <a href="/upgrade" className="underline font-medium">See plans</a>
+            </p>
+          </div>
+        )}
 
         {config && anyConfigured && (
           <div>
@@ -716,16 +836,17 @@ function AiProviderCard() {
                 <div className="flex gap-2">
                   <Input
                     type="password"
-                    placeholder={meta.placeholder}
+                    placeholder={byokAllowed ? meta.placeholder : 'Upgrade to add your own key'}
                     value={inputs[provider]}
                     onChange={e => setInputs(i => ({ ...i, [provider]: e.target.value }))}
                     autoComplete="off"
                     spellCheck={false}
+                    disabled={!byokAllowed}
                   />
                   <Button
                     size="sm"
                     onClick={() => saveKey(provider)}
-                    disabled={saving === provider || !inputs[provider].trim()}
+                    disabled={!byokAllowed || saving === provider || !inputs[provider].trim()}
                   >
                     {saved === provider ? 'Saved!' : saving === provider ? 'Saving…' : status?.hasKey ? 'Replace' : 'Save'}
                   </Button>

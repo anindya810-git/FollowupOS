@@ -3,6 +3,7 @@ import { getGmailClient, getGmailThreadUrl, isNoisyThread, getMessageBody } from
 import { getOutlookAccessToken, getOutlookThreads, isNoisyOutlookMessage } from './outlook'
 import { getImapThreads, isNoisyImapSender } from './imap'
 import { classifyThread, generateQuickSuggestion, resolveAiConfig, MissingAiConfigError } from './ai'
+import { canMakeAiCall } from './plan'
 import type { AiConfig } from './ai'
 import { upsertContact } from './contacts'
 import { maybeAutoCreateCalendar } from './auto-calendar'
@@ -32,6 +33,16 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
     const aiConfig = await resolveAiConfig(userId)
     if (!aiConfig) {
       throw new MissingAiConfigError()
+    }
+
+    // Quota gate — only applies when using Pendingly's default key.
+    const quota = await canMakeAiCall(userId, aiConfig.isDefaultKey)
+    if (!quota.ok) {
+      await prisma.scanJob.update({
+        where: { id: jobId },
+        data: { status: 'failed', errorMessage: quota.reason || 'AI quota exceeded' },
+      })
+      return
     }
 
     const appSettings = await prisma.appSettings.findUnique({ where: { userId } })
@@ -375,6 +386,8 @@ async function scanOutlookAccount(params: {
           outputJson: result ? JSON.stringify(result) : null,
           confidenceScore: result?.confidence ?? null,
           errorMessage: result ? null : 'Classification failed',
+          usedDefaultKey: aiConfig.isDefaultKey,
+          callType: 'classify',
         },
       })
 
@@ -656,6 +669,8 @@ async function scanImapAccount(params: {
           outputJson: result ? JSON.stringify(result) : null,
           confidenceScore: result?.confidence ?? null,
           errorMessage: result ? null : 'Classification failed',
+          usedDefaultKey: aiConfig.isDefaultKey,
+          callType: 'classify',
         },
       })
 
@@ -989,6 +1004,8 @@ async function processThread(params: {
       outputJson: result ? JSON.stringify(result) : null,
       confidenceScore: result?.confidence ?? null,
       errorMessage: result ? null : 'Classification failed',
+      usedDefaultKey: aiConfig.isDefaultKey,
+      callType: 'classify',
     },
   })
 

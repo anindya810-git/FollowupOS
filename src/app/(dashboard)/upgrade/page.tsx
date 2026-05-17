@@ -23,6 +23,7 @@ const LITE_FEATURES = [
   'Everything in Free',
   'Up to 3 email accounts',
   '5,000 AI classifications / month',
+  'Bring your own AI API key (Anthropic, OpenAI, Gemini)',
   'Last 7 days of email analysed',
   'Follow-up sequences (3 steps)',
   'Calendar & task auto-create',

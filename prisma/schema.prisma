@@ -250,10 +250,18 @@ model AiClassificationLog {
   outputJson      String?
   confidenceScore Float?
   errorMessage    String?
+  // True when the request used Pendingly's default API key (so it counts
+  // against the user's plan quota).  False for BYOK calls — those are
+  // billed to the user's own provider account and aren't metered.
+  usedDefaultKey  Boolean  @default(false)
+  // Kind of call (classify | draft | suggest) so usage UI can break down by type
+  callType        String   @default("classify")
   createdAt       DateTime @default(now())
 
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   emailThread EmailThread? @relation(fields: [emailThreadId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }
 
 model UserFeedback {

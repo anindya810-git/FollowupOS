@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { generateQuickSuggestion, resolveAiConfig } from '@/lib/ai'
+import { canMakeAiCall } from '@/lib/plan'
 
 export async function POST(
   _request: NextRequest,
@@ -37,6 +38,11 @@ export async function POST(
     return NextResponse.json({ error: 'No AI provider configured. Add an API key in Settings → AI Provider.' }, { status: 400 })
   }
 
+  const quota = await canMakeAiCall(session.user.id, aiConfig.isDefaultKey)
+  if (!quota.ok) {
+    return NextResponse.json({ error: quota.reason, quota_exceeded: true }, { status: 429 })
+  }
+
   const suggestion = await generateQuickSuggestion({
     threadSubject: item.title || item.emailThread?.subject || 'Email Thread',
     reason: item.reason || '',
@@ -58,6 +64,18 @@ export async function POST(
   await prisma.actionItem.update({
     where: { id },
     data: { autoReplySuggestion: suggestion },
+  })
+
+  // Meter the call
+  await prisma.aiClassificationLog.create({
+    data: {
+      userId: session.user.id,
+      emailThreadId: item.emailThreadId,
+      modelProvider: aiConfig.provider,
+      modelName: aiConfig.model,
+      usedDefaultKey: aiConfig.isDefaultKey,
+      callType: 'suggest',
+    },
   })
 
   return NextResponse.json({ suggestion })

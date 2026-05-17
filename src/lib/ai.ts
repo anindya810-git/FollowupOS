@@ -13,6 +13,10 @@ export interface AiConfig {
   provider: AiProvider
   apiKey: string
   model: string
+  // True when the key came from process.env (Pendingly-funded). False when it
+  // came from the user's saved BYOK key. Used by metering to decide whether
+  // the call counts against the plan quota.
+  isDefaultKey: boolean
 }
 
 const DEFAULT_MODELS: Record<AiProvider, string> = {
@@ -64,7 +68,7 @@ export async function resolveAiConfig(userId?: string | null): Promise<AiConfig 
           const encrypted = keyFor(preferred)
           if (encrypted) {
             try {
-              return { provider: preferred, apiKey: decrypt(encrypted), model: DEFAULT_MODELS[preferred] }
+              return { provider: preferred, apiKey: decrypt(encrypted), model: DEFAULT_MODELS[preferred], isDefaultKey: false }
             } catch { /* corrupted key — fall through to env */ }
           }
           // Preferred is set but no usable key — fall through to env fallback
@@ -75,7 +79,7 @@ export async function resolveAiConfig(userId?: string | null): Promise<AiConfig 
             const encrypted = keyFor(provider)
             if (encrypted) {
               try {
-                return { provider, apiKey: decrypt(encrypted), model: DEFAULT_MODELS[provider] }
+                return { provider, apiKey: decrypt(encrypted), model: DEFAULT_MODELS[provider], isDefaultKey: false }
               } catch { /* fall through */ }
             }
           }
@@ -86,13 +90,13 @@ export async function resolveAiConfig(userId?: string | null): Promise<AiConfig 
 
   // 2. Server-side env fallback — prefer Gemini (free tier)
   if (process.env.GEMINI_API_KEY) {
-    return { provider: 'gemini', apiKey: process.env.GEMINI_API_KEY, model: DEFAULT_MODELS.gemini }
+    return { provider: 'gemini', apiKey: process.env.GEMINI_API_KEY, model: DEFAULT_MODELS.gemini, isDefaultKey: true }
   }
   if (process.env.ANTHROPIC_API_KEY) {
-    return { provider: 'anthropic', apiKey: process.env.ANTHROPIC_API_KEY, model: DEFAULT_MODELS.anthropic }
+    return { provider: 'anthropic', apiKey: process.env.ANTHROPIC_API_KEY, model: DEFAULT_MODELS.anthropic, isDefaultKey: true }
   }
   if (process.env.OPENAI_API_KEY) {
-    return { provider: 'openai', apiKey: process.env.OPENAI_API_KEY, model: DEFAULT_MODELS.openai }
+    return { provider: 'openai', apiKey: process.env.OPENAI_API_KEY, model: DEFAULT_MODELS.openai, isDefaultKey: true }
   }
 
   return null
