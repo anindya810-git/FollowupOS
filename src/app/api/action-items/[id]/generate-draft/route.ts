@@ -57,7 +57,7 @@ export async function POST(
     threadSubject: item.title || item.emailThread?.subject || 'Email Thread',
     reason: item.reason || '',
     suggestedAction: item.suggestedAction || '',
-    messages: (item.emailThread?.messages || []).map(m => ({
+    messages: (item.emailThread?.messages || []).map((m: any) => ({
       from: m.senderEmail || '',
       body: m.bodyExcerpt || m.snippet || '',
       isFromUser: m.isFromUser,
