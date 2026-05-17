@@ -238,7 +238,7 @@ async function scanOutlookAccount(params: {
       }
 
       // Noise filter using categories from the raw message (categories not in OutlookThread, so pass empty)
-      if (isNoisyOutlookMessage(senderEmail, [])) {
+      if (isNoisyOutlookMessage(senderEmail, [], thread.subject || '')) {
         processed++
         continue
       }
@@ -802,7 +802,7 @@ async function processThread(params: {
   })
   if (ignoredSender) return false
 
-  if (isNoisyThread(labels, senderEmail)) return false
+  if (isNoisyThread(labels, senderEmail, subject)) return false
 
   // Compute thread hash
   const lastMessage = messages[messages.length - 1]

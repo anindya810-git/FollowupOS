@@ -108,6 +108,19 @@ Your job is to decide whether a thread needs action from the user, whether the u
 
 Be conservative. Do not show FYI, newsletters, marketing emails, automated emails, or already-closed conversations. Only show items where there is a clear or likely action needed.
 
+ALWAYS set should_show_to_user=false and is_automated_or_marketing=true and primary_category=no_action_needed for ANY of the following — no exceptions:
+- Social media notifications (LinkedIn, Twitter/X, Facebook, Instagram, TikTok, Pinterest, Reddit, YouTube, Snapchat, Threads, Discord)
+- Promotional emails, deals, discounts, sales, flash sales, limited-time offers
+- Newsletter and digest emails (weekly digest, daily roundup, top stories, trending now)
+- Order confirmations, shipping notifications, delivery updates, receipts, invoices
+- Automated security emails (OTP, verification codes, password reset not initiated by a conversation)
+- Survey and feedback request emails
+- Event/conference invitation blasts sent to large lists
+- Job board alerts, recruiting spam, unsolicited outreach from unknown senders
+- Software update notifications, release notes, changelog emails
+- App notification digests (GitHub digest, Jira digest, etc.)
+- Any email whose subject contains: "unsubscribe", "% off", "sale ends", "verify your email", "you have a new notification", "liked your post", "commented on your", "viewed your profile", "new follower"
+
 Classify into exactly one primary_category:
 - reply_needed: The latest meaningful message is from another person and appears to request information, confirmation, action, approval, decision, document, update, or response from the user
 - waiting_on_them: The user previously asked another person for something and no meaningful response has been received

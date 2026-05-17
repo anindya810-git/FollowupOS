@@ -1,6 +1,7 @@
 import { google } from 'googleapis'
 import { decrypt, encrypt } from './utils'
 import { prisma } from './prisma'
+import { isNoisyEmail } from './noise-filter'
 
 export function createOAuth2Client() {
   return new google.auth.OAuth2(
@@ -305,12 +306,10 @@ export async function deleteGoogleTask(emailAccountId: string, taskId: string): 
 }
 
 const NOISE_LABELS = ['SPAM', 'TRASH', 'CATEGORY_PROMOTIONS', 'CATEGORY_SOCIAL', 'CATEGORY_FORUMS', 'CATEGORY_UPDATES']
-const NOISE_SENDERS = ['no-reply', 'noreply', 'donotreply', 'notifications', 'alerts', 'marketing', 'newsletter']
 
-export function isNoisyThread(labels: string[], senderEmail: string): boolean {
+export function isNoisyThread(labels: string[], senderEmail: string, subject = ''): boolean {
   if (labels.some(l => NOISE_LABELS.includes(l))) return true
-  const localPart = senderEmail.split('@')[0]?.toLowerCase() || ''
-  return NOISE_SENDERS.some(n => localPart.includes(n))
+  return isNoisyEmail(senderEmail, subject)
 }
 
 export function extractTextFromHtml(html: string): string {

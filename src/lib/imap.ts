@@ -2,6 +2,7 @@ import { ImapFlow } from 'imapflow'
 import { decrypt, encrypt } from './utils'
 import { prisma } from './prisma'
 import { isSafePublicHostname } from './net-safety'
+import { isNoisyEmail } from './noise-filter'
 
 export interface ImapThread {
   threadId: string        // generated: hash of subject+participants
@@ -213,13 +214,7 @@ export async function getImapThreads(emailAccountId: string, daysBack: number = 
 }
 
 export function isNoisyImapSender(fromEmail: string, subject: string): boolean {
-  // Removed support@ and info@ — legitimate B2B threads (SaaS support, vendor
-  // contact) often come from these addresses and shouldn't be silently dropped.
-  const noisePatterns = ['noreply', 'no-reply', 'donotreply', 'notifications@', 'newsletter@', 'marketing@', 'alerts@']
-  const noiseSubjects = ['unsubscribe', 'newsletter', 'invoice #', 'receipt', 'order confirmation', 'shipping', 'tracking']
-  const emailLower = fromEmail.toLowerCase()
-  const subjectLower = subject.toLowerCase()
-  return noisePatterns.some(p => emailLower.includes(p)) || noiseSubjects.some(p => subjectLower.includes(p))
+  return isNoisyEmail(fromEmail, subject)
 }
 
 // Re-export encrypt so imap connect route can use it

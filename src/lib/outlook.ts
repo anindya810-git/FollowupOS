@@ -1,5 +1,6 @@
 import { encrypt, decrypt } from '@/lib/utils'
 import { prisma } from '@/lib/prisma'
+import { isNoisyEmail } from '@/lib/noise-filter'
 
 const TENANT = 'common'
 const AUTH_URL = `https://login.microsoftonline.com/${TENANT}/oauth2/v2.0/authorize`
@@ -295,13 +296,11 @@ export async function sendOutlookReply(
   return { accepted: true, threaded: false }
 }
 
-const NOISE_CATEGORIES = ['Junk Email', 'Newsletters']
-const NOISE_SENDER_PATTERNS = ['noreply', 'no-reply', 'donotreply', 'newsletter', 'marketing']
+const NOISE_CATEGORIES = ['Junk Email', 'Newsletters', 'Promotional', 'Social Updates']
 
-export function isNoisyOutlookMessage(senderEmail: string, categories: string[] = []): boolean {
+export function isNoisyOutlookMessage(senderEmail: string, categories: string[] = [], subject = ''): boolean {
   if (categories.some(c => NOISE_CATEGORIES.includes(c))) return true
-  const lowerSender = senderEmail.toLowerCase()
-  return NOISE_SENDER_PATTERNS.some(p => lowerSender.includes(p))
+  return isNoisyEmail(senderEmail, subject)
 }
 
 export async function getUpcomingOutlookEvents(emailAccountId: string, hoursAhead = 48) {
