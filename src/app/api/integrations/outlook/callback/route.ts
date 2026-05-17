@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth'
 import { exchangeOutlookCode, getOutlookUserEmail } from '@/lib/outlook'
 import { prisma } from '@/lib/prisma'
 import { encrypt } from '@/lib/utils'
+import { verifyOAuthState } from '@/lib/oauth-state'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -13,6 +14,12 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const code = searchParams.get('code')
   const error = searchParams.get('error')
+  const state = searchParams.get('state')
+
+  // CSRF protection: reject if state cookie missing or mismatched.
+  if (!(await verifyOAuthState('outlook', session.user.id, state))) {
+    return NextResponse.redirect(new URL('/dashboard?error=outlook_state', request.url))
+  }
 
   if (error || !code) {
     return NextResponse.redirect(new URL('/dashboard?error=outlook_denied', request.url))
@@ -56,7 +63,7 @@ export async function GET(request: NextRequest) {
       update: {},
     })
 
-    // Create scan job
+    // Create scan job and kick it off.
     const scanJob = await prisma.scanJob.create({
       data: {
         userId: session.user.id,
@@ -64,6 +71,7 @@ export async function GET(request: NextRequest) {
         status: 'queued',
       },
     })
+    triggerScan(scanJob.id, session.user.id, account.id)
 
     // Mark onboarding started
     await prisma.user.update({
@@ -75,5 +83,14 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Outlook callback error:', error)
     return NextResponse.redirect(new URL('/dashboard?error=outlook_failed', request.url))
+  }
+}
+
+async function triggerScan(jobId: string, userId: string, accountId: string) {
+  try {
+    const { runInitialScan } = await import('@/lib/scanner')
+    await runInitialScan(jobId, userId, accountId)
+  } catch (error) {
+    console.error('Outlook scan error:', error)
   }
 }

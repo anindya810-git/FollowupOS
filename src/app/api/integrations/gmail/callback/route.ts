@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth'
 import { createOAuth2Client } from '@/lib/gmail'
 import { prisma } from '@/lib/prisma'
 import { encrypt } from '@/lib/utils'
+import { verifyOAuthState } from '@/lib/oauth-state'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -13,6 +14,12 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const code = searchParams.get('code')
   const error = searchParams.get('error')
+  const state = searchParams.get('state')
+
+  // CSRF protection: reject if state cookie missing or mismatched.
+  if (!(await verifyOAuthState('gmail', session.user.id, state))) {
+    return NextResponse.redirect(new URL('/dashboard?error=gmail_state', request.url))
+  }
 
   if (error || !code) {
     return NextResponse.redirect(new URL('/dashboard?error=gmail_denied', request.url))
@@ -56,7 +63,8 @@ export async function GET(request: NextRequest) {
       update: {},
     })
 
-    // Create scan job
+    // Create scan job and kick it off (was previously queued forever; the
+    // /scan page only re-picked it up because /api/scan/start is idempotent).
     const scanJob = await prisma.scanJob.create({
       data: {
         userId: session.user.id,
@@ -64,6 +72,7 @@ export async function GET(request: NextRequest) {
         status: 'queued',
       },
     })
+    triggerScan(scanJob.id, session.user.id, account.id)
 
     // Mark onboarding started
     await prisma.user.update({
@@ -75,5 +84,14 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Gmail callback error:', error)
     return NextResponse.redirect(new URL('/dashboard?error=gmail_failed', request.url))
+  }
+}
+
+async function triggerScan(jobId: string, userId: string, accountId: string) {
+  try {
+    const { runInitialScan } = await import('@/lib/scanner')
+    await runInitialScan(jobId, userId, accountId)
+  } catch (error) {
+    console.error('Gmail scan error:', error)
   }
 }
