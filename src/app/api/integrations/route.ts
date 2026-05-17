@@ -18,6 +18,7 @@ export async function GET() {
       lastSyncedAt: true,
       initialScanCompleted: true,
       webmailBaseUrl: true,
+      webmailSearchUrlTemplate: true,
     },
     orderBy: { createdAt: 'asc' },
   })

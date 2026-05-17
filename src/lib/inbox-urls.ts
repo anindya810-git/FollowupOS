@@ -2,6 +2,7 @@ type ProviderInput = {
   provider: string
   emailAddress?: string | null
   webmailBaseUrl?: string | null
+  webmailSearchUrlTemplate?: string | null
 }
 
 function normaliseBase(url: string): string {
@@ -31,9 +32,28 @@ export function getInboxUrl(account: ProviderInput): string | null {
   }
 }
 
-export function getThreadUrl(account: ProviderInput, providerThreadId?: string | null): string | null {
+function applySearchTemplate(template: string, query: string): string {
+  const encoded = encodeURIComponent(query)
+  if (template.includes('{q}')) return template.replace(/\{q\}/g, encoded)
+  if (template.includes('{query}')) return template.replace(/\{query\}/g, encoded)
+  return template + encoded
+}
+
+export function getThreadUrl(
+  account: ProviderInput,
+  providerThreadId?: string | null,
+  subject?: string | null
+): string | null {
   if (account.provider === 'gmail' && providerThreadId) {
     return `https://mail.google.com/mail/u/0/#all/${providerThreadId}`
   }
+  if (account.webmailSearchUrlTemplate && subject) {
+    return applySearchTemplate(account.webmailSearchUrlTemplate, subject)
+  }
   return getInboxUrl(account)
+}
+
+export function defaultSearchTemplateFor(provider: string): string | null {
+  if (provider === 'zoho') return 'https://mail.zoho.com/zm/#search/nq={q}'
+  return null
 }

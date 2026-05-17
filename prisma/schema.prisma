@@ -116,6 +116,7 @@ model EmailAccount {
   imapPort              Int?
   passwordEncrypted     String?
   webmailBaseUrl        String?
+  webmailSearchUrlTemplate String?
   lastSyncedAt          DateTime?
   initialScanCompleted  Boolean   @default(false)
   createdAt             DateTime  @default(now())

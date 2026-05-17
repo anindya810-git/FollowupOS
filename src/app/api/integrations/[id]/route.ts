@@ -12,7 +12,7 @@ export async function PATCH(
   }
   const { id } = await params
 
-  let body: { webmailBaseUrl?: string | null }
+  let body: { webmailBaseUrl?: string | null; webmailSearchUrlTemplate?: string | null }
   try {
     body = await request.json()
   } catch {
@@ -27,26 +27,57 @@ export async function PATCH(
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  let normalisedUrl: string | null = null
-  if (typeof body.webmailBaseUrl === 'string') {
-    const trimmed = body.webmailBaseUrl.trim()
-    if (trimmed) {
-      try {
-        const u = new URL(trimmed)
-        if (u.protocol !== 'http:' && u.protocol !== 'https:') {
-          return NextResponse.json({ error: 'URL must start with http:// or https://' }, { status: 400 })
+  const data: { webmailBaseUrl?: string | null; webmailSearchUrlTemplate?: string | null } = {}
+
+  if (body.webmailBaseUrl !== undefined) {
+    let normalisedUrl: string | null = null
+    if (typeof body.webmailBaseUrl === 'string') {
+      const trimmed = body.webmailBaseUrl.trim()
+      if (trimmed) {
+        try {
+          const u = new URL(trimmed)
+          if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+            return NextResponse.json({ error: 'URL must start with http:// or https://' }, { status: 400 })
+          }
+          normalisedUrl = u.toString().replace(/\/+$/, '')
+        } catch {
+          return NextResponse.json({ error: 'Not a valid URL' }, { status: 400 })
         }
-        normalisedUrl = u.toString().replace(/\/+$/, '')
-      } catch {
-        return NextResponse.json({ error: 'Not a valid URL' }, { status: 400 })
       }
     }
+    data.webmailBaseUrl = normalisedUrl
   }
 
-  await prisma.emailAccount.update({
+  if (body.webmailSearchUrlTemplate !== undefined) {
+    let template: string | null = null
+    if (typeof body.webmailSearchUrlTemplate === 'string') {
+      const trimmed = body.webmailSearchUrlTemplate.trim()
+      if (trimmed) {
+        // Validate it parses as a URL after stripping the {q} placeholder
+        const probe = trimmed.replace(/\{q\}/g, 'test').replace(/\{query\}/g, 'test')
+        try {
+          const u = new URL(probe)
+          if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+            return NextResponse.json({ error: 'Template must start with http:// or https://' }, { status: 400 })
+          }
+          template = trimmed
+        } catch {
+          return NextResponse.json({ error: 'Search template is not a valid URL' }, { status: 400 })
+        }
+      }
+    }
+    data.webmailSearchUrlTemplate = template
+  }
+
+  if (Object.keys(data).length === 0) {
+    return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })
+  }
+
+  const updated = await prisma.emailAccount.update({
     where: { id },
-    data: { webmailBaseUrl: normalisedUrl },
+    data,
+    select: { webmailBaseUrl: true, webmailSearchUrlTemplate: true },
   })
 
-  return NextResponse.json({ ok: true, webmailBaseUrl: normalisedUrl })
+  return NextResponse.json({ ok: true, ...updated })
 }

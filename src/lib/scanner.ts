@@ -481,9 +481,16 @@ async function scanImapAccount(params: {
       }
 
       const lastMessageAt = new Date(thread.lastMessageAt)
-      const imapProviderUrl = account.webmailBaseUrl
-        ? account.webmailBaseUrl.replace(/\/+$/, '')
-        : null
+      const imapProviderUrl = (() => {
+        const tmpl = account.webmailSearchUrlTemplate
+        if (tmpl && thread.subject) {
+          const encoded = encodeURIComponent(thread.subject)
+          if (tmpl.includes('{q}')) return tmpl.replace(/\{q\}/g, encoded)
+          if (tmpl.includes('{query}')) return tmpl.replace(/\{query\}/g, encoded)
+          return tmpl + encoded
+        }
+        return account.webmailBaseUrl ? account.webmailBaseUrl.replace(/\/+$/, '') : null
+      })()
 
       // Upsert thread
       const upsertedThread = await prisma.emailThread.upsert({

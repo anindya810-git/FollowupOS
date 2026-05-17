@@ -16,6 +16,7 @@ interface EmailAccount {
   provider: string
   connectedStatus: string
   webmailBaseUrl?: string | null
+  webmailSearchUrlTemplate?: string | null
 }
 
 export default function SettingsPage() {
@@ -169,7 +170,7 @@ export default function SettingsPage() {
                       {isImapStyle && (
                         <WebmailUrlField
                           account={account}
-                          onSaved={url => setIntegrations(prev => prev.map(a => a.id === account.id ? { ...a, webmailBaseUrl: url } : a))}
+                          onSaved={(url, template) => setIntegrations(prev => prev.map(a => a.id === account.id ? { ...a, webmailBaseUrl: url, webmailSearchUrlTemplate: template ?? a.webmailSearchUrlTemplate } : a))}
                         />
                       )}
                     </div>
@@ -555,13 +556,24 @@ function AnthropicKeyCard() {
   )
 }
 
-function WebmailUrlField({ account, onSaved }: { account: EmailAccount; onSaved: (url: string | null) => void }) {
-  const [value, setValue] = useState(account.webmailBaseUrl || '')
+function WebmailUrlField({
+  account,
+  onSaved,
+}: {
+  account: EmailAccount
+  onSaved: (url: string | null, template: string | null) => void
+}) {
+  const defaultTemplate = account.provider === 'zoho'
+    ? 'https://mail.zoho.com/zm/#search/nq={q}'
+    : ''
+
+  const [baseUrl, setBaseUrl] = useState(account.webmailBaseUrl || '')
+  const [template, setTemplate] = useState(account.webmailSearchUrlTemplate || '')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const placeholderFor = (provider: string) => {
+  const placeholderForBase = (provider: string) => {
     if (provider === 'zoho') return 'https://mail.zoho.com'
     if (provider === 'apple') return 'https://www.icloud.com/mail'
     return 'https://mail.your-domain.com'
@@ -574,11 +586,14 @@ function WebmailUrlField({ account, onSaved }: { account: EmailAccount; onSaved:
       const res = await fetch(`/api/integrations/${account.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ webmailBaseUrl: value.trim() || null }),
+        body: JSON.stringify({
+          webmailBaseUrl: baseUrl.trim() || null,
+          webmailSearchUrlTemplate: template.trim() || null,
+        }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || 'Save failed')
-      onSaved(data.webmailBaseUrl ?? null)
+      onSaved(data.webmailBaseUrl ?? null, data.webmailSearchUrlTemplate ?? null)
       setSaved(true)
       setTimeout(() => setSaved(false), 1800)
     } catch (e) {
@@ -588,24 +603,69 @@ function WebmailUrlField({ account, onSaved }: { account: EmailAccount; onSaved:
     }
   }
 
+  const testSearch = () => {
+    if (!template.trim()) return
+    const encoded = encodeURIComponent('Pendingly test')
+    const url = template.includes('{q}')
+      ? template.replace(/\{q\}/g, encoded)
+      : template.includes('{query}')
+        ? template.replace(/\{query\}/g, encoded)
+        : template + encoded
+    window.open(url, '_blank')
+  }
+
   return (
-    <div className="mt-3 pt-3 border-t border-[rgb(11_18_32/8%)]">
-      <label className="block text-xs font-medium text-ink mb-1">Webmail URL (for the "Open in inbox" button)</label>
-      <div className="flex gap-2">
-        <Input
-          type="url"
-          placeholder={placeholderFor(account.provider)}
-          value={value}
-          onChange={e => setValue(e.target.value)}
-        />
+    <div className="mt-3 pt-3 border-t border-[rgb(11_18_32/8%)] space-y-3">
+      <div>
+        <label className="block text-xs font-medium text-ink mb-1">Webmail URL</label>
+        <div className="flex gap-2">
+          <Input
+            type="url"
+            placeholder={placeholderForBase(account.provider)}
+            value={baseUrl}
+            onChange={e => setBaseUrl(e.target.value)}
+          />
+        </div>
+        <p className="text-[11px] text-[rgb(11_18_32/50%)] mt-1">
+          Where you check this account in a browser. Used by the global "Open Inbox" button.
+        </p>
+      </div>
+
+      <div>
+        <label className="block text-xs font-medium text-ink mb-1">
+          Search URL template <span className="font-normal text-[rgb(11_18_32/50%)]">(optional, for per-thread "Open")</span>
+        </label>
+        <div className="flex gap-2">
+          <Input
+            type="url"
+            placeholder={defaultTemplate || 'https://your-webmail.com/search?q={q}'}
+            value={template}
+            onChange={e => setTemplate(e.target.value)}
+          />
+          <Button size="sm" variant="outline" onClick={testSearch} disabled={!template.trim()}>
+            Test
+          </Button>
+        </div>
+        <p className="text-[11px] text-[rgb(11_18_32/50%)] mt-1">
+          Use <code className="px-1 py-0.5 bg-paper-2 rounded text-[10px]">{'{q}'}</code> where the
+          thread subject goes. Click Test to verify the URL opens a search in your webmail.
+          {account.provider === 'zoho' && !template && (
+            <> Suggested default: <button type="button" onClick={() => setTemplate(defaultTemplate)} className="underline text-action">use Zoho default</button>.</>
+          )}
+        </p>
+      </div>
+
+      <div className="flex items-center gap-2">
         <Button size="sm" onClick={save} disabled={saving}>
           {saved ? 'Saved!' : saving ? 'Saving…' : 'Save'}
         </Button>
+        {error && <span className="text-xs text-action">{error}</span>}
+        {saved && (
+          <span className="text-[11px] text-[rgb(11_18_32/50%)]">
+            Re-run a scan to update existing thread links.
+          </span>
+        )}
       </div>
-      {error && <p className="text-xs text-action mt-1">{error}</p>}
-      <p className="text-[11px] text-[rgb(11_18_32/50%)] mt-1">
-        Where you check this account in a browser. Pendingly will deep-link there for the inbox button.
-      </p>
     </div>
   )
 }
