@@ -59,7 +59,7 @@ export async function POST(
     getUserPlan(session.user.id),
     prisma.appSettings.findUnique({ where: { userId: session.user.id }, select: { emailSignatureEnabled: true } }),
   ])
-  const canDisable = PLAN_LIMITS[userPlan.type].canDisableSignature
+  const canDisable = PLAN_LIMITS[userPlan.type as keyof typeof PLAN_LIMITS].canDisableSignature
   const sigEnabled = !canDisable || (appSettings?.emailSignatureEnabled ?? true)
   const finalContent = sigEnabled ? `${body.content}${SIGNATURE_HTML}` : body.content
 
