@@ -16,7 +16,7 @@ export default async function ConnectPage() {
 
       <main className="flex-1 flex items-center justify-center px-6">
         <div className="max-w-md w-full py-16">
-          <p className="text-xs font-semibold uppercase tracking-widest text-[rgb(11_18_32/30%)] mb-4">Step 1 of 2</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-[rgb(11_18_32/30%)] mb-4">Step 1 of 3</p>
           <h1 className="text-3xl font-bold text-ink mb-2">Connect your inbox</h1>
           <p className="text-[rgb(11_18_32/55%)] mb-8">
             Choose a provider below. You can add more inboxes later from Settings.

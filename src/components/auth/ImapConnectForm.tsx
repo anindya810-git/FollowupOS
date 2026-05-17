@@ -53,7 +53,7 @@ export function ImapConnectForm({ initialProvider = 'zoho' }: Props) {
         return
       }
 
-      router.push(`/scan?jobId=${data.jobId}`)
+      router.push(`/connect/anthropic?jobId=${data.jobId}`)
     } catch {
       setError('An unexpected error occurred. Please try again.')
     } finally {

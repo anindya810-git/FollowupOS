@@ -1,9 +1,39 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { AiClassificationOutput, ClassificationInput } from '@/types'
+import { prisma } from './prisma'
+import { decrypt } from './crypto'
 
-const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-})
+export class MissingAnthropicKeyError extends Error {
+  constructor() {
+    super('No Anthropic API key configured. Set ANTHROPIC_API_KEY or save a key in onboarding.')
+    this.name = 'MissingAnthropicKeyError'
+  }
+}
+
+export async function resolveAnthropicKey(userId?: string | null): Promise<string | null> {
+  if (userId) {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { anthropicApiKeyEncrypted: true },
+      })
+      if (user?.anthropicApiKeyEncrypted) {
+        try {
+          return decrypt(user.anthropicApiKeyEncrypted)
+        } catch {
+          // fall through to env
+        }
+      }
+    } catch {
+      // fall through to env
+    }
+  }
+  return process.env.ANTHROPIC_API_KEY || null
+}
+
+function clientFor(apiKey: string): Anthropic {
+  return new Anthropic({ apiKey })
+}
 
 const CLASSIFICATION_SYSTEM_PROMPT = `You are Pendingly, an AI assistant that classifies email threads for follow-up management.
 
@@ -41,9 +71,13 @@ Return ONLY valid JSON matching this exact schema. Do not include markdown or ex
   "needs_closure": false
 }`
 
-export async function classifyThread(input: ClassificationInput): Promise<AiClassificationOutput | null> {
+export async function classifyThread(
+  input: ClassificationInput,
+  apiKey?: string | null,
+): Promise<AiClassificationOutput | null> {
+  if (!apiKey) return null
   try {
-    const response = await client.messages.create({
+    const response = await clientFor(apiKey).messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 1024,
       system: CLASSIFICATION_SYSTEM_PROMPT,
@@ -80,7 +114,9 @@ export async function generateQuickSuggestion(params: {
   messages: Array<{ from: string; body: string; isFromUser: boolean; sentAt?: string }>
   repeatedAskCount: number
   userName: string
+  apiKey?: string | null
 }): Promise<string | null> {
+  if (!params.apiKey) return null
   const systemPrompt = `You are Pendingly, an AI assistant that writes intelligent, context-aware email replies.
 
 Read the ENTIRE thread carefully — every message, in order. Understand:
@@ -127,7 +163,7 @@ ${threadText}
 Now write the reply body.`
 
   try {
-    const response = await client.messages.create({
+    const response = await clientFor(params.apiKey).messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 600,
       system: systemPrompt,
@@ -148,7 +184,9 @@ export async function generateDraft(params: {
   tone: string
   outputType: string
   userName: string
+  apiKey?: string | null
 }): Promise<{ draft: string; subject_suggestion: string } | null> {
+  if (!params.apiKey) return null
   const systemPrompt = `You are Pendingly, an AI assistant that writes intelligent, context-aware professional email replies.
 
 Read the ENTIRE thread carefully — every message, in order. Before writing, understand:
@@ -191,7 +229,7 @@ FULL THREAD (chronological, oldest first):
 ${threadText}`
 
   try {
-    const response = await client.messages.create({
+    const response = await clientFor(params.apiKey).messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 1024,
       system: systemPrompt,

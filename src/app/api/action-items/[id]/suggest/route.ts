@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { generateQuickSuggestion } from '@/lib/ai'
+import { generateQuickSuggestion, resolveAnthropicKey } from '@/lib/ai'
 
 export async function POST(
   _request: NextRequest,
@@ -30,6 +30,10 @@ export async function POST(
   }
 
   const user = await prisma.user.findUnique({ where: { id: session.user.id } })
+  const apiKey = await resolveAnthropicKey(session.user.id)
+  if (!apiKey) {
+    return NextResponse.json({ error: 'No Anthropic API key configured. Add one in Settings.' }, { status: 400 })
+  }
 
   const suggestion = await generateQuickSuggestion({
     threadSubject: item.title || item.emailThread?.subject || 'Email Thread',
@@ -42,6 +46,7 @@ export async function POST(
     })),
     repeatedAskCount: item.repeatedAskCount,
     userName: user?.name || session.user.email || 'User',
+    apiKey,
   })
 
   if (!suggestion) {

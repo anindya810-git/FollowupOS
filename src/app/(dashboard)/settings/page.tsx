@@ -427,6 +427,9 @@ export default function SettingsPage() {
             {saved ? 'Saved!' : saving ? 'Saving...' : 'Save Settings'}
           </Button>
 
+          {/* Anthropic API key */}
+          <AnthropicKeyCard />
+
           {/* Product tour */}
           <Card>
             <CardHeader><CardTitle>Product Tour</CardTitle></CardHeader>
@@ -447,5 +450,95 @@ export default function SettingsPage() {
         </div>
       </main>
     </>
+  )
+}
+
+function AnthropicKeyCard() {
+  const [status, setStatus] = useState<{ hasKey: boolean; hasEnvFallback: boolean } | null>(null)
+  const [apiKey, setApiKey] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
+
+  const refresh = () => {
+    fetch('/api/user/anthropic-key')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setStatus(d) })
+      .catch(() => {})
+  }
+
+  useEffect(() => { refresh() }, [])
+
+  const save = async () => {
+    setSaving(true); setError(null)
+    try {
+      const res = await fetch('/api/user/anthropic-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey }),
+      })
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}))
+        throw new Error(d.error || 'Failed to save')
+      }
+      setApiKey('')
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+      refresh()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to save')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const remove = async () => {
+    if (!confirm('Remove your saved Anthropic API key? Scans and AI features will stop working unless a server-side key is set.')) return
+    await fetch('/api/user/anthropic-key', { method: 'DELETE' })
+    refresh()
+  }
+
+  return (
+    <Card>
+      <CardHeader><CardTitle>Anthropic API key</CardTitle></CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-xs text-[rgb(11_18_32/55%)]">
+          Pendingly uses Claude to classify your threads and draft replies. You bring your own key.
+        </p>
+
+        {status && (
+          <div className="text-xs">
+            {status.hasKey ? (
+              <span className="text-done font-medium">A key is saved on your account.</span>
+            ) : status.hasEnvFallback ? (
+              <span className="text-[rgb(11_18_32/70%)]">No personal key — using the server-side fallback.</span>
+            ) : (
+              <span className="text-action font-medium">No key configured. Scans will fail until you add one.</span>
+            )}
+          </div>
+        )}
+
+        <div className="flex gap-2">
+          <Input
+            type="password"
+            placeholder="sk-ant-..."
+            value={apiKey}
+            onChange={e => setApiKey(e.target.value)}
+            autoComplete="off"
+            spellCheck={false}
+          />
+          <Button onClick={save} disabled={saving || !apiKey.trim()}>
+            {saved ? 'Saved!' : saving ? 'Saving…' : status?.hasKey ? 'Replace' : 'Save'}
+          </Button>
+        </div>
+        {error && <p className="text-xs text-action">{error}</p>}
+
+        {status?.hasKey && (
+          <Button variant="ghost" size="sm" onClick={remove} className="text-action">
+            Remove saved key
+          </Button>
+        )}
+      </CardContent>
+    </Card>
   )
 }

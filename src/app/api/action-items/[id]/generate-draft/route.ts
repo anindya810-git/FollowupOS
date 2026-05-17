@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { generateDraft } from '@/lib/ai'
+import { generateDraft, resolveAnthropicKey } from '@/lib/ai'
 
 export async function POST(
   request: NextRequest,
@@ -40,6 +40,10 @@ export async function POST(
   }
 
   const user = await prisma.user.findUnique({ where: { id: session.user.id } })
+  const apiKey = await resolveAnthropicKey(session.user.id)
+  if (!apiKey) {
+    return NextResponse.json({ error: 'No Anthropic API key configured. Add one in Settings.' }, { status: 400 })
+  }
 
   const draft = await generateDraft({
     threadSubject: item.title || item.emailThread?.subject || 'Email Thread',
@@ -54,6 +58,7 @@ export async function POST(
     tone,
     outputType: output_type,
     userName: user?.name || session.user.email || 'User',
+    apiKey,
   })
 
   if (!draft) {

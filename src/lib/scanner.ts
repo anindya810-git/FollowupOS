@@ -2,7 +2,7 @@ import { prisma } from './prisma'
 import { getGmailClient, getGmailThreadUrl, isNoisyThread, getMessageBody } from './gmail'
 import { getOutlookAccessToken, getOutlookThreads, isNoisyOutlookMessage } from './outlook'
 import { getImapThreads, isNoisyImapSender } from './imap'
-import { classifyThread, generateQuickSuggestion } from './ai'
+import { classifyThread, generateQuickSuggestion, resolveAnthropicKey, MissingAnthropicKeyError } from './ai'
 import { upsertContact } from './contacts'
 import type { ClassificationInput } from '@/types'
 import crypto from 'crypto'
@@ -26,6 +26,11 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
     const user = await prisma.user.findUnique({ where: { id: userId } })
     if (!user) throw new Error('User not found')
 
+    const anthropicKey = await resolveAnthropicKey(userId)
+    if (!anthropicKey) {
+      throw new MissingAnthropicKeyError()
+    }
+
     const appSettings = await prisma.appSettings.findUnique({ where: { userId } })
 
     const userPreferences = {
@@ -42,6 +47,7 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
         userTimezone: user.timezone,
         userPreferences,
         scanWindowDays,
+        anthropicKey,
       })
       return
     }
@@ -55,6 +61,7 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
         userTimezone: user.timezone,
         userPreferences,
         scanWindowDays,
+        anthropicKey,
       })
       return
     }
@@ -100,6 +107,7 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
           userTimezone: user.timezone,
           userPreferences,
           provider: account.provider,
+          anthropicKey,
         })
         if (result) created++
         processed++
@@ -131,11 +139,14 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
       },
     })
   } catch (error) {
+    const friendly = error instanceof MissingAnthropicKeyError
+      ? 'AI is not configured. Please add your Anthropic API key in Settings → Account, or set ANTHROPIC_API_KEY in the server environment, then re-run the scan.'
+      : error instanceof Error ? error.message : 'Unknown error'
     await prisma.scanJob.update({
       where: { id: jobId },
       data: {
         status: 'failed',
-        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        errorMessage: friendly,
       },
     })
   }
@@ -149,8 +160,9 @@ async function scanOutlookAccount(params: {
   userTimezone: string
   userPreferences: { default_followup_days: number; conservative_mode: boolean }
   scanWindowDays: number
+  anthropicKey: string
 }) {
-  const { jobId, userId, emailAccountId, userEmail, userTimezone, userPreferences, scanWindowDays } = params
+  const { jobId, userId, emailAccountId, userEmail, userTimezone, userPreferences, scanWindowDays, anthropicKey } = params
 
   const accessToken = await getOutlookAccessToken(emailAccountId)
   const threads = await getOutlookThreads(accessToken, userEmail, scanWindowDays)
@@ -294,7 +306,7 @@ async function scanOutlookAccount(params: {
       }
 
       const inputHash = crypto.createHash('md5').update(JSON.stringify(classificationInput)).digest('hex')
-      const result = await classifyThread(classificationInput)
+      const result = await classifyThread(classificationInput, anthropicKey)
 
       await prisma.aiClassificationLog.create({
         data: {
@@ -333,6 +345,7 @@ async function scanOutlookAccount(params: {
           messages: messageInputs.map(m => ({ from: m.from, body: m.body_excerpt, isFromUser: m.is_from_user, sentAt: m.sent_at })),
           repeatedAskCount: outlookRepeatedAskCount,
           userName: userEmail,
+          apiKey: anthropicKey,
         })
       }
 
@@ -409,8 +422,9 @@ async function scanImapAccount(params: {
   userTimezone: string
   userPreferences: { default_followup_days: number; conservative_mode: boolean }
   scanWindowDays: number
+  anthropicKey: string
 }) {
-  const { jobId, userId, emailAccountId, userEmail, userTimezone, userPreferences, scanWindowDays } = params
+  const { jobId, userId, emailAccountId, userEmail, userTimezone, userPreferences, scanWindowDays, anthropicKey } = params
 
   const account = await prisma.emailAccount.findUnique({ where: { id: emailAccountId } })
   if (!account) throw new Error('Email account not found')
@@ -545,7 +559,7 @@ async function scanImapAccount(params: {
       }
 
       const inputHash = crypto.createHash('md5').update(JSON.stringify(classificationInput)).digest('hex')
-      const result = await classifyThread(classificationInput)
+      const result = await classifyThread(classificationInput, anthropicKey)
 
       await prisma.aiClassificationLog.create({
         data: {
@@ -584,6 +598,7 @@ async function scanImapAccount(params: {
           messages: messageInputs.map(m => ({ from: m.from, body: m.body_excerpt, isFromUser: m.is_from_user, sentAt: m.sent_at })),
           repeatedAskCount: imapRepeatedAskCount,
           userName: userEmail,
+          apiKey: anthropicKey,
         })
       }
 
@@ -661,8 +676,9 @@ async function processThread(params: {
   userTimezone: string
   userPreferences: { default_followup_days: number; conservative_mode: boolean }
   provider?: string
+  anthropicKey: string
 }): Promise<boolean> {
-  const { gmail, threadId, userId, emailAccountId, userEmail, userTimezone, userPreferences, provider = 'gmail' } = params
+  const { gmail, threadId, userId, emailAccountId, userEmail, userTimezone, userPreferences, provider = 'gmail', anthropicKey } = params
 
   const threadRes = await gmail.users.threads.get({
     userId: 'me',
@@ -845,7 +861,7 @@ async function processThread(params: {
 
   const inputHash = crypto.createHash('md5').update(JSON.stringify(classificationInput)).digest('hex')
 
-  const result = await classifyThread(classificationInput)
+  const result = await classifyThread(classificationInput, anthropicKey)
 
   await prisma.aiClassificationLog.create({
     data: {
@@ -884,6 +900,7 @@ async function processThread(params: {
       messages: messageInputs.map(m => ({ from: m.from, body: m.body_excerpt, isFromUser: m.is_from_user, sentAt: m.sent_at })),
       repeatedAskCount,
       userName: userEmail,
+      apiKey: anthropicKey,
     })
   }
 

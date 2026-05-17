@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
       data: { onboardingCompleted: false },
     })
 
-    return NextResponse.redirect(new URL(`/scan?jobId=${scanJob.id}`, request.url))
+    return NextResponse.redirect(new URL(`/connect/anthropic?jobId=${scanJob.id}`, request.url))
   } catch (error) {
     console.error('Gmail callback error:', error)
     return NextResponse.redirect(new URL('/dashboard?error=gmail_failed', request.url))
