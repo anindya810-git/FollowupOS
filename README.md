@@ -44,11 +44,18 @@ when you wire those features up.
 2. Set all env vars in Vercel project settings (see `.env.example`).
 3. Swap SQLite for a hosted Postgres — change `provider = "postgresql"` in
    `prisma/schema.prisma` and point `DATABASE_URL` at Neon / Supabase / RDS.
-4. Run `npx prisma migrate deploy` on first deploy (Vercel build script).
-5. Crons run automatically — `vercel.json` registers three jobs:
+4. On first deploy, set the Vercel **Build Command** to:
+   `npx prisma db push --accept-data-loss && next build`
+   This creates the schema on the empty Supabase / Neon database. After
+   the schema is stable in production with real data, switch the command
+   to `npx prisma migrate deploy && next build` and baseline the first
+   migration locally with `prisma migrate dev --name init`.
+5. Crons run automatically — `vercel.json` registers five jobs:
    - `0 9 * * *` daily Slack digest
    - `0 9 * * *` daily push notifications
    - `0 10 * * *` daily auto-follow-up sends
+   - `*/5 * * * *` send scheduled replies
+   - `0 * * * *` wake snoozed action items whose date has passed
 6. Generate VAPID keys for push: `npx web-push generate-vapid-keys` →
    put the public key in `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, private in
    `VAPID_PRIVATE_KEY`.

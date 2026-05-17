@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendPushToUser } from '@/lib/push'
 import { isAuthorizedCron } from '@/lib/cron-auth'
+import { safeLog } from '@/lib/safe-log'
 
 async function runPushDigest() {
   const today = new Date().toISOString().split('T')[0]
@@ -27,7 +28,7 @@ async function runPushDigest() {
       await sendPushToUser(userId, { title: 'Pendingly', body, url: '/dashboard' })
       sent++
     } catch (e) {
-      console.error('Push send failed for', userId, e)
+      safeLog('error', 'push-digest', e, { userId })
     }
   }
   return { sent }

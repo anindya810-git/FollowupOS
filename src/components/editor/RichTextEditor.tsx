@@ -2,6 +2,9 @@
 import { useEditor, EditorContent, type Editor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Link from '@tiptap/extension-link'
+
+const SAFE_LINK_PROTOCOLS = ['http', 'https', 'mailto'] as const
+const isSafeLinkUrl = (url: string) => /^(https?:|mailto:)/i.test(url.trim())
 import Underline from '@tiptap/extension-underline'
 import Placeholder from '@tiptap/extension-placeholder'
 import { useEffect, useState } from 'react'
@@ -86,7 +89,12 @@ function Toolbar({ editor, signatureHtml }: { editor: Editor; signatureHtml?: st
             editor.chain().focus().extendMarkRange('link').unsetLink().run()
             return
           }
-          editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
+          // Block javascript:, data:, vbscript: and other unsafe schemes.
+          if (!isSafeLinkUrl(url)) {
+            window.alert('Only http://, https://, and mailto: links are allowed.')
+            return
+          }
+          editor.chain().focus().extendMarkRange('link').setLink({ href: url.trim() }).run()
         }}
       >
         <LinkIcon className="h-3.5 w-3.5" />
@@ -131,7 +139,12 @@ export function RichTextEditor({
     extensions: [
       StarterKit,
       Underline,
-      Link.configure({ openOnClick: false, HTMLAttributes: { class: 'text-action underline' } }),
+      Link.configure({
+        openOnClick: false,
+        HTMLAttributes: { class: 'text-action underline' },
+        protocols: SAFE_LINK_PROTOCOLS as unknown as string[],
+        validate: isSafeLinkUrl,
+      }),
       Placeholder.configure({ placeholder }),
     ],
     content: value || '',

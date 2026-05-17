@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendSlackDigest } from '@/lib/slack'
 import { isAuthorizedCron } from '@/lib/cron-auth'
+import { safeLog } from '@/lib/safe-log'
 
 async function runDigest() {
   const settings = await prisma.digestSettings.findMany({
@@ -36,7 +37,7 @@ async function runDigest() {
       })
       sent++
     } catch (e) {
-      console.error('Slack digest failed for user', s.userId, e)
+      safeLog('error', 'digest', e, { userId: s.userId })
     }
   }
 

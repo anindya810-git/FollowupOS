@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { isSlackWebhookUrl } from '@/lib/net-safety'
+import { sanitizeEmailHtml } from '@/lib/email-safety'
 
 export async function GET() {
   const session = await auth()
@@ -39,7 +40,13 @@ export async function PATCH(request: NextRequest) {
   if (autoFollowupEnabled !== undefined) appData.autoFollowupEnabled = autoFollowupEnabled
   if (autoFollowupDays !== undefined) appData.autoFollowupDays = autoFollowupDays
   if (autoFollowupTemplate !== undefined) appData.autoFollowupTemplate = autoFollowupTemplate
-  if (signatureHtml !== undefined) appData.signatureHtml = signatureHtml
+  if (signatureHtml !== undefined) {
+    // Sanitise on save so we never store anything dangerous that would later
+    // be rendered into the editor or emailed out.
+    appData.signatureHtml = typeof signatureHtml === 'string' && signatureHtml.trim()
+      ? sanitizeEmailHtml(signatureHtml)
+      : null
+  }
 
   const digestData: Record<string, unknown> = {}
   if (isEnabled !== undefined) digestData.isEnabled = isEnabled

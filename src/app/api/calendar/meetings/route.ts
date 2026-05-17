@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getUpcomingGoogleEvents } from '@/lib/gmail'
 import { getUpcomingOutlookEvents } from '@/lib/outlook'
+import { safeLog } from '@/lib/safe-log'
 
 export async function GET() {
   const session = await auth()
@@ -37,7 +38,7 @@ export async function GET() {
         }
       }
     } catch (e) {
-      console.error('Calendar fetch failed for', acc.id, e)
+      safeLog('error', 'calendar', e, { accountId: acc.id })
     }
   }
 

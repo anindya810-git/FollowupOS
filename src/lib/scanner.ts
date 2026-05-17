@@ -69,6 +69,24 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
 
     // Gmail path
     const gmail = await getGmailClient(emailAccountId)
+
+    // Pre-flight: verify the access token still works. If it doesn't, mark
+    // the account expired and fail the scan with a clear reconnect message
+    // instead of silently completing with zero items.
+    try {
+      await gmail.users.getProfile({ userId: 'me' })
+    } catch (e) {
+      const code = (e as { code?: number }).code
+      if (code === 401 || code === 403) {
+        await prisma.emailAccount.update({
+          where: { id: emailAccountId },
+          data: { connectedStatus: 'expired' },
+        })
+        throw new Error('Your Gmail connection has expired. Reconnect it from Settings → Connected Inboxes, then re-run the scan.')
+      }
+      throw e
+    }
+
     const afterDate = new Date()
     afterDate.setDate(afterDate.getDate() - scanWindowDays)
     const afterTimestamp = Math.floor(afterDate.getTime() / 1000)
@@ -114,7 +132,7 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
         if (result) created++
         processed++
 
-        if (processed % 10 === 0) {
+        if (processed % 3 === 0) {
           await prisma.scanJob.update({
             where: { id: jobId },
             data: { threadsProcessed: processed, actionItemsCreated: created },
@@ -171,8 +189,22 @@ async function scanOutlookAccount(params: {
 }) {
   const { jobId, userId, emailAccountId, userEmail, userTimezone, userPreferences, scanWindowDays, aiConfig } = params
 
-  const accessToken = await getOutlookAccessToken(emailAccountId)
-  const threads = await getOutlookThreads(accessToken, userEmail, scanWindowDays)
+  let accessToken: string
+  let threads
+  try {
+    accessToken = await getOutlookAccessToken(emailAccountId)
+    threads = await getOutlookThreads(accessToken, userEmail, scanWindowDays)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : ''
+    if (msg.includes('401') || msg.includes('invalid_grant') || msg.includes('refresh token')) {
+      await prisma.emailAccount.update({
+        where: { id: emailAccountId },
+        data: { connectedStatus: 'expired' },
+      })
+      throw new Error('Your Outlook connection has expired. Reconnect it from Settings → Connected Inboxes, then re-run the scan.')
+    }
+    throw e
+  }
 
   await prisma.scanJob.update({
     where: { id: jobId },
@@ -284,6 +316,7 @@ async function scanOutlookAccount(params: {
             userId,
             emailThreadId: upsertedThread.id,
             providerMessageId: msg.id,
+            rfcMessageId: msg.internetMessageId || null,
             senderEmail: fromEmail,
             senderName: fromName,
             recipients,
@@ -293,6 +326,7 @@ async function scanOutlookAccount(params: {
             isFromUser,
           },
           update: {
+            rfcMessageId: msg.internetMessageId || null,
             senderEmail: fromEmail,
             senderName: fromName,
             recipients,
@@ -396,7 +430,7 @@ async function scanOutlookAccount(params: {
       created++
       processed++
 
-      if (processed % 10 === 0) {
+      if (processed % 3 === 0) {
         await prisma.scanJob.update({
           where: { id: jobId },
           data: { threadsProcessed: processed, actionItemsCreated: created },
@@ -554,6 +588,7 @@ async function scanImapAccount(params: {
             userId,
             emailThreadId: upsertedThread.id,
             providerMessageId,
+            rfcMessageId: msg.messageId || null,
             senderEmail: msg.from,
             senderName: msg.fromName || null,
             recipients: (msg.to || []).join(', '),
@@ -563,6 +598,7 @@ async function scanImapAccount(params: {
             isFromUser: msg.isFromUser,
           },
           update: {
+            rfcMessageId: msg.messageId || null,
             senderEmail: msg.from,
             senderName: msg.fromName || null,
             recipients: (msg.to || []).join(', '),
@@ -666,7 +702,7 @@ async function scanImapAccount(params: {
       created++
       processed++
 
-      if (processed % 10 === 0) {
+      if (processed % 3 === 0) {
         await prisma.scanJob.update({
           where: { id: jobId },
           data: { threadsProcessed: processed, actionItemsCreated: created },
@@ -768,6 +804,7 @@ async function processThread(params: {
   const senderContactsToUpsert: Array<{ email: string; name: string | null }> = []
   const messagePersistData: Array<{
     providerMessageId: string
+    rfcMessageId: string | null
     senderEmail: string
     senderName: string | null
     recipients: string
@@ -782,11 +819,20 @@ async function processThread(params: {
     const from = msgHeaders.find(h => h.name === 'From')?.value || ''
     const toRaw = msgHeaders.find(h => h.name === 'To')?.value || ''
     const to = toRaw.split(',')
-    const sentAtStr = msgHeaders.find(h => h.name === 'Date')?.value || ''
+    const dateHeader = msgHeaders.find(h => h.name === 'Date')?.value || ''
+    const rfcMessageIdHeader = msgHeaders.find(h => (h.name || '').toLowerCase() === 'message-id')?.value || null
     const fromEmail = from.replace(/.*<(.+)>/, '$1').trim()
     const fromName = from.includes('<') ? from.replace(/<.*>/, '').trim().replace(/^["']|["']$/g, '') : null
     const isFromUser = fromEmail.toLowerCase() === userEmail.toLowerCase()
     const body = getMessageBody(msg.payload as Parameters<typeof getMessageBody>[0])
+
+    // Prefer Gmail's authoritative internalDate (ms since epoch) over the
+    // Date header which can be missing, malformed, or far in the past.
+    const internalDateNum = msg.internalDate ? parseInt(msg.internalDate as unknown as string, 10) : NaN
+    const sentAt = Number.isFinite(internalDateNum) && internalDateNum > 0
+      ? new Date(internalDateNum)
+      : (dateHeader ? new Date(dateHeader) : null)
+    const sentAtStr = sentAt ? sentAt.toISOString() : ''
 
     participants.add(from)
     lastMessageFromUser = isFromUser
@@ -798,10 +844,11 @@ async function processThread(params: {
     if (msg.id) {
       messagePersistData.push({
         providerMessageId: msg.id,
+        rfcMessageId: rfcMessageIdHeader,
         senderEmail: fromEmail,
         senderName: fromName,
         recipients: toRaw,
-        sentAt: sentAtStr ? new Date(sentAtStr) : null,
+        sentAt,
         snippet: msg.snippet || '',
         bodyExcerpt: body.substring(0, 4000),
         isFromUser,
@@ -817,9 +864,10 @@ async function processThread(params: {
     }
   })
 
-  const lastMsgDate = new Date(
-    (fullMessages[fullMessages.length - 1].payload?.headers?.find(h => h.name === 'Date')?.value || Date.now())
-  )
+  // Use the latest message's internalDate (set on each persistData entry) so
+  // threads with missing/garbled Date headers aren't all stamped "now".
+  const lastPersisted = messagePersistData[messagePersistData.length - 1]
+  const lastMsgDate = lastPersisted?.sentAt || new Date()
 
   // Upsert thread
   const upsertedThread = await prisma.emailThread.upsert({
@@ -858,6 +906,7 @@ async function processThread(params: {
         userId,
         emailThreadId: upsertedThread.id,
         providerMessageId: m.providerMessageId,
+        rfcMessageId: m.rfcMessageId,
         senderEmail: m.senderEmail,
         senderName: m.senderName,
         recipients: m.recipients,
@@ -867,6 +916,7 @@ async function processThread(params: {
         isFromUser: m.isFromUser,
       },
       update: {
+        rfcMessageId: m.rfcMessageId,
         senderEmail: m.senderEmail,
         senderName: m.senderName,
         recipients: m.recipients,

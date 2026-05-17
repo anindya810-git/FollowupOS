@@ -49,8 +49,9 @@ model ScheduledMessage {
   status        String   @default("pending") // pending | sent | failed | cancelled
   sentAt        DateTime?
   errorMessage  String?
-  threadId      String?  // providerThreadId for in-reply-to
-  lastMessageId String?  // providerMessageId of message being replied to
+  threadId       String?  // providerThreadId for in-reply-to
+  lastMessageId  String?  // providerMessageId of message being replied to
+  lastRfcMessageId String? // RFC Message-ID header, for SMTP In-Reply-To threading
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -161,6 +162,7 @@ model EmailMessage {
   userId            String
   emailThreadId     String
   providerMessageId String
+  rfcMessageId      String?
   senderEmail       String?
   senderName        String?
   recipients        String?

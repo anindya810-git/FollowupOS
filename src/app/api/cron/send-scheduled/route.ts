@@ -47,7 +47,9 @@ async function runSendScheduled() {
       } else if (account.provider === 'outlook') {
         await sendOutlookReply(account.id, msg.threadId || '', msg.toEmail, msg.subject, msg.contentHtml, msg.lastMessageId ?? undefined)
       } else {
-        await sendSmtpReply(account.id, msg.toEmail, msg.subject, msg.contentHtml, msg.lastMessageId ?? undefined)
+        // SMTP/IMAP wants the RFC Message-ID for In-Reply-To.
+        const inReplyTo = msg.lastRfcMessageId ?? msg.lastMessageId ?? undefined
+        await sendSmtpReply(account.id, msg.toEmail, msg.subject, msg.contentHtml, inReplyTo)
       }
 
       await prisma.scheduledMessage.update({

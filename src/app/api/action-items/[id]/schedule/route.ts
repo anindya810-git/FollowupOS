@@ -28,6 +28,11 @@ export async function POST(
   if (scheduledFor.getTime() < Date.now() - 60_000) {
     return NextResponse.json({ error: 'scheduledFor must be in the future' }, { status: 400 })
   }
+  // Cap at 1 year ahead — anything further is almost certainly a typo and
+  // would clutter the scheduled-message table indefinitely.
+  if (scheduledFor.getTime() > Date.now() + 365 * 86400_000) {
+    return NextResponse.json({ error: 'scheduledFor cannot be more than 1 year in the future' }, { status: 400 })
+  }
 
   const [item, user] = await Promise.all([
     prisma.actionItem.findFirst({
@@ -55,6 +60,8 @@ export async function POST(
       ? item.emailThread.subject
       : `Re: ${item.emailThread.subject ?? ''}`)
 
+  const lastMsg = item.emailThread.messages[0]
+
   const scheduled = await prisma.scheduledMessage.create({
     data: {
       userId: session.user.id,
@@ -65,7 +72,10 @@ export async function POST(
       contentHtml: body.content,
       scheduledFor,
       threadId: item.emailThread.providerThreadId,
-      lastMessageId: item.emailThread.messages[0]?.providerMessageId ?? null,
+      // providerMessageId is what Outlook needs for the /reply endpoint.
+      // rfcMessageId is what SMTP needs for the In-Reply-To header.
+      lastMessageId: lastMsg?.providerMessageId ?? null,
+      lastRfcMessageId: lastMsg?.rfcMessageId ?? null,
     },
   })
 

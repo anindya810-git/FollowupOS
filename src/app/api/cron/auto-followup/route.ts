@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { DEFAULT_FOLLOWUP_TEMPLATE, renderTemplate } from '@/lib/templates'
 import { isAuthorizedCron } from '@/lib/cron-auth'
+import { safeLog } from '@/lib/safe-log'
 
 async function runAutoFollowup() {
   const enabledUsers = await prisma.appSettings.findMany({
@@ -100,12 +101,13 @@ async function runAutoFollowup() {
           const mod = await import('@/lib/smtp').catch(() => null)
           if (mod && 'sendSmtpReply' in mod) {
             const lastMsg = item.emailThread.messages[0]
+            const inReplyTo = lastMsg?.rfcMessageId || lastMsg?.providerMessageId
             await (mod as { sendSmtpReply: (...args: unknown[]) => Promise<unknown> }).sendSmtpReply(
               account.id,
               item.ownerEmail,
               subject,
               body,
-              lastMsg?.providerMessageId,
+              inReplyTo,
             )
           } else {
             throw new Error('sendSmtpReply not available')
@@ -123,7 +125,7 @@ async function runAutoFollowup() {
         })
         sent++
       } catch (e) {
-        console.error('Auto-followup failed for item', item.id, e)
+        safeLog('error', 'auto-followup', e, { itemId: item.id })
         failed++
       }
     }

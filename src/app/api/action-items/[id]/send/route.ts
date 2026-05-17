@@ -58,7 +58,11 @@ export async function POST(
     } else if (account.provider === 'outlook') {
       await sendOutlookReply(account.id, item.emailThread.providerThreadId, toEmail, subject, body.content, lastMsg?.providerMessageId)
     } else {
-      await sendSmtpReply(account.id, toEmail, subject, body.content, lastMsg?.providerMessageId)
+      // SMTP/IMAP — use the RFC Message-ID for In-Reply-To so the recipient
+      // mail client threads the reply correctly. Fall back to providerMessageId
+      // (IMAP UID) if we never captured the RFC id.
+      const inReplyTo = lastMsg?.rfcMessageId || lastMsg?.providerMessageId
+      await sendSmtpReply(account.id, toEmail, subject, body.content, inReplyTo)
     }
 
     await prisma.actionItem.update({

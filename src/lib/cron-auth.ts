@@ -8,7 +8,12 @@ function safeEqual(a: string, b: string): boolean {
 
 export function isAuthorizedCron(request: NextRequest): boolean {
   const secret = process.env.CRON_SECRET
-  if (!secret) return false
+  if (!secret) {
+    // Distinguish "misconfigured" from "wrong secret" in logs so a missing
+    // env var doesn't look like a malicious caller.
+    console.warn('[cron-auth] CRON_SECRET is not set — all cron requests will be rejected')
+    return false
+  }
   const bearer = request.headers.get('authorization')
   if (bearer && bearer.startsWith('Bearer ') && safeEqual(bearer.slice(7), secret)) return true
   const headerSecret = request.headers.get('x-cron-secret')

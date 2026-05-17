@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { safeLog } from '@/lib/safe-log'
 
 export async function POST(request: NextRequest) {
   const session = await auth()
@@ -58,6 +59,6 @@ async function triggerScan(jobId: string, userId: string, accountId: string, day
     const { runInitialScan } = await import('@/lib/scanner')
     await runInitialScan(jobId, userId, accountId, days)
   } catch (error) {
-    console.error('Scan error:', error)
+    safeLog('error', 'scan-start', error)
   }
 }

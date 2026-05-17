@@ -1,6 +1,7 @@
 import { ImapFlow } from 'imapflow'
 import { decrypt, encrypt } from './utils'
 import { prisma } from './prisma'
+import { isSafePublicHostname } from './net-safety'
 
 export interface ImapThread {
   threadId: string        // generated: hash of subject+participants
@@ -34,6 +35,12 @@ export async function getImapAccessDetails(emailAccountId: string): Promise<{
   const account = await prisma.emailAccount.findUnique({ where: { id: emailAccountId } })
   if (!account || !account.imapHost || !account.passwordEncrypted) {
     throw new Error('IMAP account not configured')
+  }
+  // Re-validate the stored host on every use. The connect route already
+  // checks this, but defending in depth here means a bad/legacy/seeded row
+  // can't slip through and SSRF a private host.
+  if (!isSafePublicHostname(account.imapHost)) {
+    throw new Error('IMAP host is not safe to connect to')
   }
   return {
     host: account.imapHost,

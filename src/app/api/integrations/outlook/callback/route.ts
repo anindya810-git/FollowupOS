@@ -4,6 +4,7 @@ import { exchangeOutlookCode, getOutlookUserEmail } from '@/lib/outlook'
 import { prisma } from '@/lib/prisma'
 import { encrypt } from '@/lib/utils'
 import { verifyOAuthState } from '@/lib/oauth-state'
+import { safeLog } from '@/lib/safe-log'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -81,7 +82,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.redirect(new URL(`/connect/anthropic?jobId=${scanJob.id}`, request.url))
   } catch (error) {
-    console.error('Outlook callback error:', error)
+    safeLog('error', 'outlook-callback', error)
     return NextResponse.redirect(new URL('/dashboard?error=outlook_failed', request.url))
   }
 }
@@ -91,6 +92,6 @@ async function triggerScan(jobId: string, userId: string, accountId: string) {
     const { runInitialScan } = await import('@/lib/scanner')
     await runInitialScan(jobId, userId, accountId)
   } catch (error) {
-    console.error('Outlook scan error:', error)
+    safeLog('error', 'outlook-scan', error)
   }
 }

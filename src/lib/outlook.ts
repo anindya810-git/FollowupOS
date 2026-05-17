@@ -9,6 +9,7 @@ const SCOPES = 'https://graph.microsoft.com/Mail.Read https://graph.microsoft.co
 export interface OutlookMessage {
   id: string
   conversationId: string
+  internetMessageId?: string
   subject: string
   from: { emailAddress: { address: string; name: string } }
   toRecipients: Array<{ emailAddress: { address: string; name: string } }>
@@ -154,7 +155,7 @@ export async function getOutlookThreads(
   since.setDate(since.getDate() - daysBack)
   const sinceIso = since.toISOString()
 
-  const select = 'id,conversationId,subject,from,toRecipients,ccRecipients,receivedDateTime,bodyPreview,body,webLink,isDraft'
+  const select = 'id,conversationId,internetMessageId,subject,from,toRecipients,ccRecipients,receivedDateTime,bodyPreview,body,webLink,isDraft'
   const filter = `receivedDateTime ge ${sinceIso}`
   const baseUrl = `https://graph.microsoft.com/v1.0/me/messages?$filter=${encodeURIComponent(filter)}&$select=${select}&$top=100`
 

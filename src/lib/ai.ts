@@ -33,9 +33,6 @@ export class MissingAiConfigError extends Error {
   }
 }
 
-// Backwards-compat alias used in scanner.ts error handling
-export { MissingAiConfigError as MissingAnthropicKeyError }
-
 // ─── Key resolution ───────────────────────────────────────────────────────────
 
 export async function resolveAiConfig(userId?: string | null): Promise<AiConfig | null> {
@@ -99,13 +96,6 @@ export async function resolveAiConfig(userId?: string | null): Promise<AiConfig 
   }
 
   return null
-}
-
-// Legacy shim — routes/scanner previously called this for Anthropic only
-export async function resolveAnthropicKey(userId?: string | null): Promise<string | null> {
-  const config = await resolveAiConfig(userId)
-  if (!config || config.provider !== 'anthropic') return process.env.ANTHROPIC_API_KEY || null
-  return config.apiKey
 }
 
 // ─── Shared prompt strings ────────────────────────────────────────────────────
@@ -257,7 +247,12 @@ async function suggestGemini(userContent: string, config: AiConfig): Promise<str
   const genAI = new GoogleGenerativeAI(config.apiKey)
   const model = genAI.getGenerativeModel({ model: config.model })
   const result = await model.generateContent(`${SUGGESTION_SYSTEM}\n\n${userContent}`)
-  return result.response.text().trim() || null
+  let text = result.response.text().trim()
+  // Gemini sometimes wraps responses in ```text … ``` even when not asked.
+  // Strip leading/trailing fences so the user sees clean prose.
+  const fence = text.match(/^```(?:[a-z]*)?\s*\n?([\s\S]*?)\n?```$/i)
+  if (fence) text = fence[1].trim()
+  return text || null
 }
 
 async function draftAnthropic(userContent: string, config: AiConfig): Promise<{ draft: string; subject_suggestion: string } | null> {
@@ -301,22 +296,14 @@ async function draftGemini(userContent: string, config: AiConfig): Promise<{ dra
 
 export async function classifyThread(
   input: ClassificationInput,
-  config?: AiConfig | string | null,
+  config?: AiConfig | null,
 ): Promise<AiClassificationOutput | null> {
-  // Accept legacy string (apiKey) for backwards compat during transition
-  let cfg: AiConfig | null = null
-  if (typeof config === 'string') {
-    cfg = { provider: 'anthropic', apiKey: config, model: DEFAULT_MODELS.anthropic }
-  } else {
-    cfg = config ?? null
-  }
-  if (!cfg) return null
-
+  if (!config) return null
   try {
-    switch (cfg.provider) {
-      case 'anthropic': return await classifyAnthropic(input, cfg)
-      case 'openai':    return await classifyOpenAI(input, cfg)
-      case 'gemini':    return await classifyGemini(input, cfg)
+    switch (config.provider) {
+      case 'anthropic': return await classifyAnthropic(input, config)
+      case 'openai':    return await classifyOpenAI(input, config)
+      case 'gemini':    return await classifyGemini(input, config)
     }
   } catch {
     return null
@@ -339,15 +326,10 @@ export async function generateQuickSuggestion(params: {
   messages: Array<{ from: string; body: string; isFromUser: boolean; sentAt?: string }>
   repeatedAskCount: number
   userName: string
-  apiKey?: string | null
-  config?: AiConfig | null
+  config: AiConfig | null
 }): Promise<string | null> {
-  const cfg: AiConfig | null = params.config ?? (
-    params.apiKey
-      ? { provider: 'anthropic', apiKey: params.apiKey, model: DEFAULT_MODELS.anthropic }
-      : null
-  )
-  if (!cfg) return null
+  if (!params.config) return null
+  const cfg = params.config
 
   const prefix = params.repeatedAskCount >= 2
     ? `IMPORTANT: This contact has sent ${params.repeatedAskCount} consecutive messages without a reply. Briefly acknowledge the delay without over-apologizing, then give a concrete response.\n\n`
@@ -382,15 +364,10 @@ export async function generateDraft(params: {
   tone: string
   outputType: string
   userName: string
-  apiKey?: string | null
-  config?: AiConfig | null
+  config: AiConfig | null
 }): Promise<{ draft: string; subject_suggestion: string } | null> {
-  const cfg: AiConfig | null = params.config ?? (
-    params.apiKey
-      ? { provider: 'anthropic', apiKey: params.apiKey, model: DEFAULT_MODELS.anthropic }
-      : null
-  )
-  if (!cfg) return null
+  if (!params.config) return null
+  const cfg = params.config
 
   const userContent = `Thread subject: ${params.threadSubject}
 Classifier note: ${params.reason}

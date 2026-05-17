@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { encrypt } from '@/lib/utils'
 import { testImapConnection } from '@/lib/imap'
 import { isSafePublicHostname } from '@/lib/net-safety'
+import { safeLog } from '@/lib/safe-log'
 
 const PROVIDER_PRESETS: Record<string, { host: string; port: number }> = {
   zoho:  { host: 'imap.zoho.com',    port: 993 },
@@ -100,6 +101,6 @@ async function triggerScan(jobId: string, userId: string, accountId: string) {
     const { runInitialScan } = await import('@/lib/scanner')
     await runInitialScan(jobId, userId, accountId)
   } catch (error) {
-    console.error('IMAP scan error:', error)
+    safeLog('error', 'imap-scan', error)
   }
 }
