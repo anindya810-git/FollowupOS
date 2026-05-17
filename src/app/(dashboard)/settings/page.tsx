@@ -1,14 +1,22 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { signOut } from 'next-auth/react'
 import { Header } from '@/components/layout/Header'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Trash2, Plus, AlertTriangle } from 'lucide-react'
+import { Trash2, Plus, AlertTriangle, LogOut, RefreshCw, Loader2, Check } from 'lucide-react'
 import { PushNotificationToggle } from '@/components/PushNotificationToggle'
 import { DEFAULT_FOLLOWUP_TEMPLATE } from '@/lib/templates'
 import { RichTextEditor } from '@/components/editor/RichTextEditor'
+
+const COMMON_TIMEZONES = [
+  'Asia/Kolkata', 'Asia/Singapore', 'Asia/Tokyo', 'Asia/Dubai', 'Asia/Hong_Kong',
+  'Europe/London', 'Europe/Paris', 'Europe/Berlin', 'Europe/Moscow',
+  'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles',
+  'America/Sao_Paulo', 'Australia/Sydney', 'Pacific/Auckland', 'UTC',
+]
 
 interface EmailAccount {
   id: string
@@ -155,6 +163,9 @@ export default function SettingsPage() {
       <Header title="Settings" />
       <main className="p-6 max-w-2xl">
         <div className="space-y-6">
+          {/* Profile */}
+          <ProfileCard />
+
           {/* Connected Inboxes */}
           <Card>
             <CardHeader><CardTitle>Connected Inboxes</CardTitle></CardHeader>
@@ -179,9 +190,12 @@ export default function SettingsPage() {
                             <span className="text-xs text-[rgb(11_18_32/55%)] capitalize">{account.connectedStatus}</span>
                           </div>
                         </div>
-                        <Button variant="outline" size="sm" onClick={() => disconnectAccount(account)}>
-                          Disconnect
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <InboxSyncButton accountId={account.id} />
+                          <Button variant="outline" size="sm" onClick={() => disconnectAccount(account)}>
+                            Disconnect
+                          </Button>
+                        </div>
                       </div>
                       {isImapStyle && (
                         <WebmailUrlField
@@ -938,5 +952,168 @@ function FollowupSequenceCard({ value, onChange }: { value: string | null; onCha
         )}
       </CardContent>
     </Card>
+  )
+}
+
+interface ProfileData {
+  id: string
+  name: string | null
+  email: string
+  image: string | null
+  timezone: string
+  createdAt: string
+}
+
+function ProfileCard() {
+  const [data, setData] = useState<ProfileData | null>(null)
+  const [name, setName] = useState('')
+  const [timezone, setTimezone] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/user/profile')
+      .then(r => r.ok ? r.json() : null)
+      .then((d: ProfileData | null) => {
+        if (!d) return
+        setData(d)
+        setName(d.name ?? '')
+        setTimezone(d.timezone)
+      })
+      .catch(() => {})
+  }, [])
+
+  const save = async () => {
+    setSaving(true)
+    try {
+      await fetch('/api/user/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, timezone }),
+      })
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const dirty = data && (name !== (data.name ?? '') || timezone !== data.timezone)
+
+  return (
+    <Card>
+      <CardHeader><CardTitle>Profile</CardTitle></CardHeader>
+      <CardContent className="space-y-4">
+        {!data ? (
+          <p className="text-sm text-[rgb(11_18_32/55%)]">Loading…</p>
+        ) : (
+          <>
+            <div className="flex items-center gap-4">
+              {data.image ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={data.image} alt="" className="h-12 w-12 rounded-full object-cover" />
+              ) : (
+                <div className="h-12 w-12 rounded-full bg-paper-2 border border-rule flex items-center justify-center text-sm font-semibold text-ink">
+                  {(data.name || data.email).slice(0, 1).toUpperCase()}
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-ink truncate">{data.email}</p>
+                <p className="text-[11px] text-[rgb(11_18_32/50%)]">
+                  Member since {new Date(data.createdAt).toLocaleDateString()}
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => signOut({ callbackUrl: '/' })}
+              >
+                <LogOut className="h-3.5 w-3.5 mr-1.5" />
+                Sign out
+              </Button>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-ink mb-1">Display name</label>
+              <Input
+                type="text"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="Your name"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-ink mb-1">Timezone</label>
+              <select
+                value={timezone}
+                onChange={e => setTimezone(e.target.value)}
+                className="w-full rounded-md border border-rule bg-white px-3 py-2 text-sm text-ink"
+              >
+                {!COMMON_TIMEZONES.includes(timezone) && timezone && (
+                  <option value={timezone}>{timezone}</option>
+                )}
+                {COMMON_TIMEZONES.map(tz => (
+                  <option key={tz} value={tz}>{tz}</option>
+                ))}
+              </select>
+              <p className="text-[11px] text-[rgb(11_18_32/50%)] mt-1">
+                Affects digest delivery, scheduling, and snooze wake times.
+              </p>
+            </div>
+
+            {dirty && (
+              <Button onClick={save} disabled={saving} size="sm">
+                {saved ? 'Saved!' : saving ? 'Saving…' : 'Save profile'}
+              </Button>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function InboxSyncButton({ accountId }: { accountId: string }) {
+  const [busy, setBusy] = useState(false)
+  const [done, setDone] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const sync = async () => {
+    setBusy(true); setError(null); setDone(false)
+    try {
+      const res = await fetch('/api/scan/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ account_id: accountId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Sync failed')
+      setDone(true)
+      setTimeout(() => setDone(false), 4000)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Sync failed')
+      setTimeout(() => setError(null), 4000)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={sync}
+      disabled={busy}
+      title={error || (done ? 'Sync queued' : 'Run a fresh scan now')}
+    >
+      {busy ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      ) : done ? (
+        <><Check className="h-3.5 w-3.5 mr-1 text-done" /> Queued</>
+      ) : (
+        <><RefreshCw className="h-3.5 w-3.5 mr-1" /> Sync now</>
+      )}
+    </Button>
   )
 }
