@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { sendGmailReply } from '@/lib/gmail'
 import { sendOutlookReply } from '@/lib/outlook'
 import { sendSmtpReply } from '@/lib/smtp'
+import { safeLog } from '@/lib/safe-log'
 
 export async function POST(
   request: NextRequest,
@@ -72,7 +73,7 @@ export async function POST(
 
     return NextResponse.json({ ok: true })
   } catch (e) {
-    console.error('Send failed for item', id, ':', e instanceof Error ? e.name : 'unknown')
+    safeLog('error', 'send-reply', e, { itemId: id })
     // Generic message — do not echo raw provider errors which may contain
     // tokens, ciphertext fragments, or other sensitive data.
     return NextResponse.json(

@@ -350,6 +350,8 @@ async function scanOutlookAccount(params: {
       const inputHash = crypto.createHash('md5').update(JSON.stringify(classificationInput)).digest('hex')
       const result = await classifyThread(classificationInput, aiConfig)
 
+      // PII note: outputJson contains AI-extracted names/dates from email content.
+      // Consider a retention policy (e.g. purge rows older than 90 days) for production.
       await prisma.aiClassificationLog.create({
         data: {
           userId,
