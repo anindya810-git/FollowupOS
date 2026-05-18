@@ -4,6 +4,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { CheckCircle, Loader2 } from 'lucide-react'
 import { Suspense } from 'react'
 import { LogoLockup } from '@/components/ui/Logo'
+import { PendinglyLoader, PendinglyLoaderPage } from '@/components/ui/PendinglyLoader'
 
 const STEPS = [
   'Connecting Gmail',
@@ -143,7 +144,7 @@ function ScanProgress() {
 
 export default function ScanPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-paper flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-action" /></div>}>
+    <Suspense fallback={<PendinglyLoaderPage label="Scanning your inbox…" sublabel="Reading the last 30 days. Building your queue." />}>
       <ScanProgress />
     </Suspense>
   )

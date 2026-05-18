@@ -3,6 +3,7 @@ import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { LogoMark } from '@/components/ui/Logo'
 import { Button } from '@/components/ui/button'
+import { PendinglyLoaderPage } from '@/components/ui/PendinglyLoader'
 import { Input } from '@/components/ui/input'
 import { Loader2, ExternalLink, ShieldCheck } from 'lucide-react'
 
@@ -147,7 +148,7 @@ function AiKeyStep() {
 
 export default function AiKeyPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-paper flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-action" /></div>}>
+    <Suspense fallback={<PendinglyLoaderPage />}>
       <AiKeyStep />
     </Suspense>
   )

@@ -3,12 +3,13 @@ import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Header } from '@/components/layout/Header'
 import { ActionCard } from '@/components/action/ActionCard'
+import { PendinglyLoader } from '@/components/ui/PendinglyLoader'
 import { ActionDrawer } from '@/components/action/ActionDrawer'
 import { SnoozeMenu } from '@/components/action/SnoozeMenu'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { categoryLabel } from '@/lib/utils'
-import { Search, Loader2 } from 'lucide-react'
+import { Search } from 'lucide-react'
 import type { ActionItemWithThread } from '@/types'
 
 function tomorrow(): string {
@@ -104,7 +105,7 @@ function QueueContent() {
 
         {loading ? (
           <div className="flex items-center justify-center h-48">
-            <Loader2 className="h-8 w-8 animate-spin text-action" />
+            <PendinglyLoader size={56} />
           </div>
         ) : items.length === 0 ? (
           <div className="rounded-xl bg-white border border-[rgb(11_18_32/8%)] p-12 text-center">
@@ -164,7 +165,7 @@ function QueueContent() {
 
 export default function QueuePage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center h-48"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
+    <Suspense fallback={<div className="flex items-center justify-center h-48"><PendinglyLoader size={56} /></div>}>
       <QueueContent />
     </Suspense>
   )
