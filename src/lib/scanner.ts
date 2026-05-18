@@ -178,6 +178,7 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
     let created = 0
     let aiFailures = 0
     let noiseFiltered = 0
+    const aiErrorSamples: string[] = []
 
     for (const threadId of allThreadIds) {
       try {
@@ -195,8 +196,11 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
         if (result === 'created') created++
         else if (result === 'ai_failed') aiFailures++
         else if (result === 'noise') noiseFiltered++
-      } catch {
+      } catch (e) {
         aiFailures++
+        if (aiErrorSamples.length < 3) {
+          aiErrorSamples.push(e instanceof Error ? e.message : String(e))
+        }
       } finally {
         processed++
       }
@@ -222,11 +226,13 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
     })
 
     const aiClassified = processed - noiseFiltered - aiFailures
-    const scanDiagnostic = aiFailures > 0
-      ? `${noiseFiltered} noise-filtered · ${aiClassified} AI-classified · ${aiFailures} AI failures — check your API key has credit and isn't rate-limited.`
-      : noiseFiltered > 0
-        ? `${noiseFiltered} of ${processed} threads were noise/newsletters · ${aiClassified} classified by AI`
-        : null
+    let scanDiagnostic: string | null = null
+    if (aiFailures > 0) {
+      const sample = aiErrorSamples[0] ?? 'unknown error'
+      scanDiagnostic = `${aiFailures} AI failures — ${sample}`
+    } else if (noiseFiltered > 0) {
+      scanDiagnostic = `${noiseFiltered} noise-filtered · ${aiClassified} AI-classified · ${created} action items`
+    }
     await prisma.scanJob.update({
       where: { id: jobId },
       data: {
