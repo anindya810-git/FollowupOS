@@ -237,22 +237,20 @@ export default function SettingsPage() {
                         const hasError = !!scan.errorMessage && scan.errorMessage.includes('failure')
                         const pct = isRunning && scan.threadsFound > 0
                           ? Math.round((scan.threadsProcessed / scan.threadsFound) * 100)
-                          : 100
+                          : 0
+                        const bgStyle = isRunning
+                          ? { background: `linear-gradient(to right, rgb(99 102 241 / 12%) ${pct}%, rgb(11 18 32 / 4%) ${pct}%)` }
+                          : undefined
                         return (
-                          <div className={`mt-2 rounded px-3 py-2 text-xs ${hasError ? 'bg-[rgb(242_90_60/8%)] border border-[rgb(242_90_60/20%)] text-action' : 'bg-[rgb(11_18_32/4%)] text-[rgb(11_18_32/55%)]'}`}>
+                          <div
+                            className={`mt-2 rounded px-3 py-2 text-xs transition-all duration-500 ${hasError ? 'bg-[rgb(242_90_60/8%)] border border-[rgb(242_90_60/20%)] text-action' : 'text-[rgb(11_18_32/55%)]'}`}
+                            style={!hasError ? (bgStyle ?? { background: 'rgb(11 18 32 / 4%)' }) : undefined}
+                          >
                             {isRunning ? (
-                              <>
-                                <div className="flex justify-between mb-1.5">
-                                  <span className="font-medium text-ink">Scanning…</span>
-                                  <span>{scan.threadsProcessed}/{scan.threadsFound} threads</span>
-                                </div>
-                                <div className="h-1.5 rounded-full bg-[rgb(11_18_32/10%)] overflow-hidden">
-                                  <div
-                                    className="h-full rounded-full bg-action transition-all duration-500"
-                                    style={{ width: `${pct}%` }}
-                                  />
-                                </div>
-                              </>
+                              <div className="flex justify-between">
+                                <span className="font-medium text-ink">Scanning…</span>
+                                <span>{scan.threadsProcessed}/{scan.threadsFound} threads · {pct}%</span>
+                              </div>
                             ) : hasError ? (
                               <span>⚠ {scan.errorMessage}</span>
                             ) : (
