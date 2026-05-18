@@ -24,14 +24,24 @@ const providerLabel: Record<string, string> = {
 }
 
 export function OpenInboxButton({ variant = 'sidebar' }: OpenInboxButtonProps) {
-  const [accounts, setAccounts] = useState<Account[]>([])
+  const [accounts, setAccounts] = useState<Account[]>(() => {
+    try {
+      const cached = localStorage.getItem('pendingly_integrations')
+      return cached ? JSON.parse(cached) : []
+    } catch { return [] }
+  })
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     fetch('/api/integrations')
       .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.accounts) setAccounts(d.accounts) })
+      .then(d => {
+        if (d?.accounts) {
+          setAccounts(d.accounts)
+          try { localStorage.setItem('pendingly_integrations', JSON.stringify(d.accounts)) } catch {}
+        }
+      })
       .catch(() => {})
   }, [])
 
@@ -73,6 +83,42 @@ export function OpenInboxButton({ variant = 'sidebar' }: OpenInboxButtonProps) {
     )
   }
 
+  // Multiple inboxes — sidebar expands inline, mobile uses a popup dropdown
+  if (isSidebar) {
+    return (
+      <div>
+        <button
+          type="button"
+          onClick={() => setOpen(o => !o)}
+          className={triggerClass}
+        >
+          <Mail className="h-3.5 w-3.5 flex-shrink-0" />
+          <span>Open Inbox</span>
+          <ChevronDown className={`h-3 w-3 ml-auto opacity-60 transition-transform duration-150 ${open ? 'rotate-180' : ''}`} />
+        </button>
+        {open && (
+          <div className="mt-0.5 space-y-0.5">
+            {usable.map(account => {
+              const url = getInboxUrl(account)!
+              return (
+                <a
+                  key={account.id}
+                  href={url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-between gap-2 pl-10 pr-4 py-1.5 rounded-md text-xs text-[#8C94A4] hover:text-white hover:bg-[rgb(255_255_255/5%)] transition-colors"
+                >
+                  <span className="truncate">{account.emailAddress}</span>
+                  <ExternalLink className="h-3 w-3 flex-shrink-0 opacity-50" />
+                </a>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="relative" ref={ref}>
       <button
@@ -81,17 +127,11 @@ export function OpenInboxButton({ variant = 'sidebar' }: OpenInboxButtonProps) {
         className={triggerClass}
       >
         <Mail className="h-3.5 w-3.5 flex-shrink-0" />
-        <span className={isSidebar ? '' : 'hidden sm:inline'}>Open Inbox</span>
-        <ChevronDown className={isSidebar ? 'h-3 w-3 ml-auto opacity-60' : 'h-3 w-3 opacity-60'} />
+        <span className="hidden sm:inline">Open Inbox</span>
+        <ChevronDown className="h-3 w-3 opacity-60" />
       </button>
       {open && (
-        <div
-          className={
-            isSidebar
-              ? 'absolute left-full top-0 ml-2 min-w-[220px] bg-white border border-[rgb(11_18_32/10%)] rounded-md shadow-lg py-1 z-50'
-              : 'absolute right-0 top-full mt-1 min-w-[220px] bg-white border border-[rgb(11_18_32/10%)] rounded-md shadow-lg py-1 z-50'
-          }
-        >
+        <div className="absolute right-0 top-full mt-1 min-w-[220px] bg-white border border-[rgb(11_18_32/10%)] rounded-md shadow-lg py-1 z-50">
           {usable.map(account => {
             const url = getInboxUrl(account)!
             return (
