@@ -17,9 +17,9 @@ export default async function HomePage() {
       {/* Sticky nav */}
       <header className="sticky top-0 z-50 bg-paper/80 backdrop-blur-md border-b border-[rgb(11_18_32/6%)]">
         <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-4">
-          <Link href="/" className="flex items-center gap-2">
-            <LogoMark className="h-5 w-6 flex-shrink-0" />
-            <span className="text-sm font-semibold tracking-widest uppercase text-ink">Pendingly</span>
+          <Link href="/" className="flex items-center gap-2.5">
+            <LogoMark className="h-8 w-9 flex-shrink-0" />
+            <span className="text-xl font-semibold tracking-[-0.02em] text-ink">Pendingly</span>
           </Link>
           <nav className="hidden md:flex items-center gap-7 text-sm text-[rgb(11_18_32/65%)]">
             <a href="#features" className="hover:text-ink transition-colors">Features</a>
