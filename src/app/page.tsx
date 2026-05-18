@@ -368,9 +368,9 @@ export default async function HomePage() {
         <div className="max-w-6xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10">
             <div>
-              <div className="flex items-center gap-2 mb-4">
-                <LogoMark className="h-5 w-6 flex-shrink-0" variant="reversed" />
-                <span className="text-sm font-semibold tracking-widest uppercase">Pendingly</span>
+              <div className="flex items-center gap-2.5 mb-4">
+                <LogoMark className="h-8 w-9 flex-shrink-0" variant="reversed" />
+                <span className="text-xl font-semibold tracking-[-0.02em]">Pendingly</span>
               </div>
               <p className="text-sm text-[rgb(255_255_255/45%)] leading-relaxed">
                 Your follow-up radar.
