@@ -13,6 +13,9 @@ model User {
   emailVerified        DateTime?
   image                String?
   timezone             String    @default("Asia/Kolkata")
+  designation          String?
+  company              String?
+  phone                String?
   onboardingCompleted  Boolean   @default(false)
   anthropicApiKeyEncrypted String?
   openaiApiKeyEncrypted    String?

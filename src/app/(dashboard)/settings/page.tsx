@@ -1239,6 +1239,9 @@ interface ProfileData {
   email: string
   image: string | null
   timezone: string
+  designation: string | null
+  company: string | null
+  phone: string | null
   createdAt: string
 }
 
@@ -1263,6 +1266,34 @@ function ProfileCard() {
       return cached ? (JSON.parse(cached) as ProfileData).timezone : ''
     } catch { return '' }
   })
+  const [designation, setDesignation] = useState(() => {
+    try {
+      const cached = localStorage.getItem(PROFILE_CACHE_KEY)
+      return cached ? (JSON.parse(cached) as ProfileData).designation ?? '' : ''
+    } catch { return '' }
+  })
+  const [company, setCompany] = useState(() => {
+    try {
+      const cached = localStorage.getItem(PROFILE_CACHE_KEY)
+      return cached ? (JSON.parse(cached) as ProfileData).company ?? '' : ''
+    } catch { return '' }
+  })
+  const [phone, setPhone] = useState(() => {
+    try {
+      const cached = localStorage.getItem(PROFILE_CACHE_KEY)
+      const p = cached ? (JSON.parse(cached) as ProfileData).phone ?? '' : ''
+      const match = p.match(/^(\+\d+)\s(.*)$/)
+      return match ? match[2] : p
+    } catch { return '' }
+  })
+  const [phoneCC, setPhoneCC] = useState(() => {
+    try {
+      const cached = localStorage.getItem(PROFILE_CACHE_KEY)
+      const p = cached ? (JSON.parse(cached) as ProfileData).phone ?? '' : ''
+      const match = p.match(/^(\+\d+)\s(.*)$/)
+      return match ? match[1] : '+91'
+    } catch { return '+91' }
+  })
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
@@ -1275,6 +1306,11 @@ function ProfileCard() {
         setData(d)
         setName(d.name ?? '')
         setTimezone(d.timezone)
+        setDesignation(d.designation ?? '')
+        setCompany(d.company ?? '')
+        const match = (d.phone ?? '').match(/^(\+\d+)\s(.*)$/)
+        if (match) { setPhoneCC(match[1]); setPhone(match[2]) }
+        else if (d.phone) setPhone(d.phone)
       })
       .catch(() => {})
   }, [])
@@ -1282,14 +1318,14 @@ function ProfileCard() {
   const save = async () => {
     setSaving(true)
     try {
+      const fullPhone = phone.trim() ? `${phoneCC} ${phone.trim()}` : ''
       await fetch('/api/user/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, timezone }),
+        body: JSON.stringify({ name, timezone, designation, company, phone: fullPhone }),
       })
-      // Update cache with new values
       if (data) {
-        const updated = { ...data, name, timezone }
+        const updated = { ...data, name, timezone, designation, company, phone: fullPhone || null }
         try { localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(updated)) } catch {}
         setData(updated)
       }
@@ -1300,7 +1336,14 @@ function ProfileCard() {
     }
   }
 
-  const dirty = data && (name !== (data.name ?? '') || timezone !== data.timezone)
+  const fullPhone = phone.trim() ? `${phoneCC} ${phone.trim()}` : ''
+  const dirty = data && (
+    name !== (data.name ?? '') ||
+    timezone !== data.timezone ||
+    designation !== (data.designation ?? '') ||
+    company !== (data.company ?? '') ||
+    fullPhone !== (data.phone ?? '')
+  )
 
   return (
     <Card>
@@ -1335,14 +1378,58 @@ function ProfileCard() {
               </Button>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-ink mb-1">Display name</label>
-              <Input
-                type="text"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                placeholder="Your name"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-ink mb-1">Display name</label>
+                <Input
+                  type="text"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder="Your name"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-ink mb-1">Designation</label>
+                <Input
+                  type="text"
+                  value={designation}
+                  onChange={e => setDesignation(e.target.value)}
+                  placeholder="e.g. Founder, Sales Lead"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-ink mb-1">Company</label>
+                <Input
+                  type="text"
+                  value={company}
+                  onChange={e => setCompany(e.target.value)}
+                  placeholder="e.g. Acme Inc."
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-ink mb-1">Phone</label>
+                <div className="flex gap-1.5">
+                  <select
+                    value={phoneCC}
+                    onChange={e => setPhoneCC(e.target.value)}
+                    className="rounded-md border border-rule bg-white px-2 py-2 text-sm text-ink w-24 shrink-0"
+                  >
+                    {['+91','+1','+44','+61','+65','+971','+81','+86','+49','+33','+7','+55','+27','+234','+60'].map(cc => (
+                      <option key={cc} value={cc}>{cc}</option>
+                    ))}
+                  </select>
+                  <Input
+                    type="tel"
+                    value={phone}
+                    onChange={e => setPhone(e.target.value)}
+                    placeholder="9876543210"
+                    className="flex-1"
+                  />
+                </div>
+              </div>
             </div>
 
             <div>

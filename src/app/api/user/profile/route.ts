@@ -9,7 +9,7 @@ export async function GET() {
   }
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { id: true, name: true, email: true, image: true, timezone: true, createdAt: true },
+    select: { id: true, name: true, email: true, image: true, timezone: true, createdAt: true, designation: true, company: true, phone: true },
   })
   if (!user) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   return NextResponse.json(user)
@@ -20,7 +20,7 @@ export async function PATCH(request: NextRequest) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-  let body: { name?: unknown; timezone?: unknown }
+  let body: { name?: unknown; timezone?: unknown; designation?: unknown; company?: unknown; phone?: unknown }
   try {
     body = await request.json()
   } catch {
@@ -29,17 +29,24 @@ export async function PATCH(request: NextRequest) {
 
   const data: Record<string, unknown> = {}
   if (typeof body.name === 'string') {
-    const trimmed = body.name.trim().slice(0, 80)
-    if (trimmed.length > 0) data.name = trimmed
+    data.name = body.name.trim().slice(0, 80) || null
   }
   if (typeof body.timezone === 'string') {
-    // Validate against the runtime's known IANA zones.
     try {
       new Intl.DateTimeFormat('en-US', { timeZone: body.timezone })
       data.timezone = body.timezone
     } catch {
       return NextResponse.json({ error: 'Invalid timezone' }, { status: 400 })
     }
+  }
+  if (typeof body.designation === 'string') {
+    data.designation = body.designation.trim().slice(0, 100) || null
+  }
+  if (typeof body.company === 'string') {
+    data.company = body.company.trim().slice(0, 100) || null
+  }
+  if (typeof body.phone === 'string') {
+    data.phone = body.phone.trim().slice(0, 30) || null
   }
 
   if (Object.keys(data).length === 0) {
