@@ -198,7 +198,10 @@ export default function SettingsPage() {
       <Header title="Settings" />
       <main className="p-6 max-w-2xl">
         <div className="space-y-6">
-          {/* Connected Inboxes — first so it's visible immediately (no loading flash) */}
+          {/* Profile */}
+          <ProfileCard />
+
+          {/* Connected Inboxes */}
           <Card>
             <CardHeader><CardTitle>Connected Inboxes</CardTitle></CardHeader>
             <CardContent>
@@ -639,9 +642,6 @@ export default function SettingsPage() {
           <Button onClick={save} disabled={saving} className="w-full">
             {saved ? 'Saved!' : saving ? 'Saving...' : 'Save Settings'}
           </Button>
-
-          {/* Profile — placed after inboxes so the loading flash doesn't dominate the top */}
-          <ProfileCard />
 
           {/* AI usage */}
           <UsageCard />
@@ -1196,10 +1196,27 @@ interface ProfileData {
   createdAt: string
 }
 
+const PROFILE_CACHE_KEY = 'pendingly_profile'
+
 function ProfileCard() {
-  const [data, setData] = useState<ProfileData | null>(null)
-  const [name, setName] = useState('')
-  const [timezone, setTimezone] = useState('')
+  const [data, setData] = useState<ProfileData | null>(() => {
+    try {
+      const cached = localStorage.getItem(PROFILE_CACHE_KEY)
+      return cached ? JSON.parse(cached) : null
+    } catch { return null }
+  })
+  const [name, setName] = useState(() => {
+    try {
+      const cached = localStorage.getItem(PROFILE_CACHE_KEY)
+      return cached ? (JSON.parse(cached) as ProfileData).name ?? '' : ''
+    } catch { return '' }
+  })
+  const [timezone, setTimezone] = useState(() => {
+    try {
+      const cached = localStorage.getItem(PROFILE_CACHE_KEY)
+      return cached ? (JSON.parse(cached) as ProfileData).timezone : ''
+    } catch { return '' }
+  })
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
@@ -1208,6 +1225,7 @@ function ProfileCard() {
       .then(r => r.ok ? r.json() : null)
       .then((d: ProfileData | null) => {
         if (!d) return
+        try { localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(d)) } catch {}
         setData(d)
         setName(d.name ?? '')
         setTimezone(d.timezone)
@@ -1223,6 +1241,12 @@ function ProfileCard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, timezone }),
       })
+      // Update cache with new values
+      if (data) {
+        const updated = { ...data, name, timezone }
+        try { localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(updated)) } catch {}
+        setData(updated)
+      }
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     } finally {
