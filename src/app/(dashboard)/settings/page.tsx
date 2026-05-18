@@ -242,15 +242,13 @@ export default function SettingsPage() {
                         const bgStyle = isRunning
                           ? { background: `linear-gradient(to right, rgb(99 102 241 / 12%) ${pct}%, rgb(11 18 32 / 4%) ${pct}%)` }
                           : undefined
-                        // Short summary: everything before the first URL or raw JSON
+                        // Short summary: just the "N AI failures" part before the em-dash
                         const errorSummary = (() => {
                           if (!scan.errorMessage) return ''
-                          const msg = scan.errorMessage
-                          const cut = Math.min(
-                            ...[msg.indexOf(' http'), msg.indexOf('[{'), msg.indexOf(': [429'), 160]
-                              .filter(i => i > 0)
-                          )
-                          return msg.slice(0, cut).replace(/\s*[—:]\s*$/, '').trim() || msg.slice(0, 80)
+                          const dashIdx = scan.errorMessage.indexOf(' — ')
+                          return dashIdx > 0
+                            ? scan.errorMessage.slice(0, dashIdx).trim()
+                            : scan.errorMessage.slice(0, 60).trim()
                         })()
                         const logOpen = openErrorLogs.has(account.id)
                         const toggleLog = () => setOpenErrorLogs(prev => {
@@ -271,7 +269,7 @@ export default function SettingsPage() {
                             ) : hasError ? (
                               <div>
                                 <div className="flex items-center justify-between gap-2">
-                                  <span className="text-action font-medium">⚠ {errorSummary}</span>
+                                  <span className="text-action font-medium">⚠ {errorSummary} · {scan.actionItemsCreated} action items</span>
                                   <button
                                     onClick={toggleLog}
                                     className="shrink-0 text-[11px] text-[rgb(11_18_32/50%)] hover:text-ink underline"
