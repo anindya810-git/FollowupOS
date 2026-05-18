@@ -232,13 +232,13 @@ export default function SettingsPage() {
                         </div>
                       </div>
                       {account.lastScan && (
-                        <div className={`mt-2 rounded px-3 py-2 text-xs ${account.lastScan.errorMessage ? 'bg-[rgb(242_90_60/8%)] border border-[rgb(242_90_60/20%)] text-action' : 'bg-[rgb(11_18_32/4%)] text-[rgb(11_18_32/55%)]'}`}>
+                        <div className={`mt-2 rounded px-3 py-2 text-xs ${(account.lastScan.errorMessage && account.lastScan.errorMessage.includes('failure')) ? 'bg-[rgb(242_90_60/8%)] border border-[rgb(242_90_60/20%)] text-action' : 'bg-[rgb(11_18_32/4%)] text-[rgb(11_18_32/55%)]'}`}>
                           {account.lastScan.status === 'running' || account.lastScan.status === 'queued' ? (
                             <span>Scan in progress… {account.lastScan.threadsProcessed}/{account.lastScan.threadsFound} threads</span>
-                          ) : account.lastScan.errorMessage ? (
-                            <span>⚠ Last scan: {account.lastScan.errorMessage}</span>
+                          ) : account.lastScan.errorMessage && account.lastScan.errorMessage.includes('failure') ? (
+                            <span>⚠ {account.lastScan.errorMessage}</span>
                           ) : (
-                            <span>Last scan: {account.lastScan.threadsProcessed} threads · {account.lastScan.actionItemsCreated} action items found</span>
+                            <span>Last scan: {account.lastScan.threadsProcessed} threads · {account.lastScan.actionItemsCreated} action items found{account.lastScan.errorMessage ? ` · ${account.lastScan.errorMessage}` : ''}</span>
                           )}
                         </div>
                       )}
