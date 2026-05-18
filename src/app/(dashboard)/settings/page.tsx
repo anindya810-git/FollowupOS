@@ -63,7 +63,7 @@ export default function SettingsPage() {
       reminderPushEnabled?: boolean;
       emailSignatureEnabled?: boolean;
     } | null
-    digestSettings: { isEnabled: boolean; digestTime: string; timezone: string; slackWebhookUrl?: string | null; slackEnabled?: boolean } | null
+    digestSettings: { isEnabled: boolean; digestTime: string; timezone: string; slackWebhookUrl?: string | null; slackEnabled?: boolean; teamsWebhookUrl?: string | null; teamsEnabled?: boolean } | null
     ignoredSenders: Array<{ id: string; senderEmail?: string; domain?: string; reason?: string }>
   }>({ appSettings: null, digestSettings: null, ignoredSenders: [] })
   const [integrations, setIntegrations] = useState<EmailAccount[]>(() => {
@@ -81,6 +81,8 @@ export default function SettingsPage() {
   const [contactsSynced, setContactsSynced] = useState<number | null>(null)
   const [slackTesting, setSlackTesting] = useState(false)
   const [slackTestResult, setSlackTestResult] = useState<string | null>(null)
+  const [teamsTesting, setTeamsTesting] = useState(false)
+  const [teamsTestResult, setTeamsTestResult] = useState<string | null>(null)
 
   const fetchIntegrations = () =>
     fetch('/api/integrations').then(r => r.json()).then(i => {
@@ -121,6 +123,8 @@ export default function SettingsPage() {
         digestTime: settings.digestSettings?.digestTime,
         slackWebhookUrl: settings.digestSettings?.slackWebhookUrl ?? null,
         slackEnabled: settings.digestSettings?.slackEnabled ?? false,
+        teamsWebhookUrl: settings.digestSettings?.teamsWebhookUrl ?? null,
+        teamsEnabled: settings.digestSettings?.teamsEnabled ?? false,
         autoFollowupEnabled: settings.appSettings?.autoFollowupEnabled ?? false,
         autoFollowupDays: settings.appSettings?.autoFollowupDays ?? 3,
         autoFollowupTemplate: settings.appSettings?.autoFollowupTemplate ?? null,
@@ -484,6 +488,65 @@ export default function SettingsPage() {
                     </Button>
                     {slackTestResult && (
                       <span className="text-xs text-[rgb(11_18_32/55%)]">{slackTestResult}</span>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader><CardTitle>Microsoft Teams Integration</CardTitle></CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="teamsEnabled"
+                      checked={settings.digestSettings?.teamsEnabled ?? false}
+                      onChange={e => setSettings(s => ({ ...s, digestSettings: { ...(s.digestSettings ?? { isEnabled: true, digestTime: '09:00', timezone: 'Asia/Kolkata' }), teamsEnabled: e.target.checked } }))}
+                      className="h-4 w-4 accent-action"
+                    />
+                    <label htmlFor="teamsEnabled" className="text-sm font-medium text-ink">
+                      Send daily digest to Microsoft Teams
+                    </label>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-ink mb-1">Webhook URL</label>
+                    <Input
+                      type="url"
+                      placeholder="https://xxx.webhook.office.com/webhookb2/..."
+                      value={settings.digestSettings?.teamsWebhookUrl ?? ''}
+                      onChange={e => setSettings(s => ({ ...s, digestSettings: { ...(s.digestSettings ?? { isEnabled: true, digestTime: '09:00', timezone: 'Asia/Kolkata' }), teamsWebhookUrl: e.target.value } }))}
+                    />
+                    <p className="text-xs text-[rgb(11_18_32/55%)] mt-1">
+                      Create an incoming webhook in your Teams channel settings
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={teamsTesting || !settings.digestSettings?.teamsWebhookUrl}
+                      onClick={async () => {
+                        setTeamsTesting(true)
+                        setTeamsTestResult(null)
+                        try {
+                          const res = await fetch('/api/integrations/teams/test', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ webhookUrl: settings.digestSettings?.teamsWebhookUrl }),
+                          })
+                          const data = await res.json()
+                          setTeamsTestResult(res.ok ? 'Test message sent!' : (data.error || 'Failed'))
+                        } catch {
+                          setTeamsTestResult('Failed')
+                        } finally {
+                          setTeamsTesting(false)
+                        }
+                      }}
+                    >
+                      {teamsTesting ? 'Sending...' : 'Send Test'}
+                    </Button>
+                    {teamsTestResult && (
+                      <span className="text-xs text-[rgb(11_18_32/55%)]">{teamsTestResult}</span>
                     )}
                   </div>
                 </CardContent>

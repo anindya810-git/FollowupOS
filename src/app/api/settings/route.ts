@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { isSlackWebhookUrl } from '@/lib/net-safety'
+import { isSlackWebhookUrl, isTeamsWebhookUrl } from '@/lib/net-safety'
 import { sanitizeEmailHtml } from '@/lib/email-safety'
 
 export async function GET() {
@@ -38,6 +38,7 @@ export async function PATCH(request: NextRequest) {
     calendarAutoCreate, defaultMeetingProvider, reminderPushEnabled,
     signatureHtml, emailSignatureEnabled,
     isEnabled, digestTime, timezone, slackWebhookUrl, slackEnabled,
+    teamsWebhookUrl, teamsEnabled,
   } = body
 
   const appData: Record<string, unknown> = {}
@@ -94,6 +95,13 @@ export async function PATCH(request: NextRequest) {
     digestData.slackWebhookUrl = slackWebhookUrl || null
   }
   if (slackEnabled !== undefined) digestData.slackEnabled = slackEnabled
+  if (teamsWebhookUrl !== undefined) {
+    if (teamsWebhookUrl && !isTeamsWebhookUrl(String(teamsWebhookUrl))) {
+      return NextResponse.json({ error: 'Invalid Teams webhook URL' }, { status: 400 })
+    }
+    digestData.teamsWebhookUrl = teamsWebhookUrl || null
+  }
+  if (teamsEnabled !== undefined) digestData.teamsEnabled = teamsEnabled
 
   await Promise.all([
     Object.keys(appData).length > 0 ? prisma.appSettings.upsert({

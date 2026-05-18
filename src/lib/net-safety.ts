@@ -59,3 +59,14 @@ export function isSlackWebhookUrl(raw: string | null | undefined): boolean {
     return false
   }
 }
+
+export function isTeamsWebhookUrl(raw: string | null | undefined): boolean {
+  if (!raw) return false
+  try {
+    const u = new URL(raw)
+    return u.protocol === 'https:' && (
+      u.hostname.endsWith('.webhook.office.com') ||
+      u.hostname.endsWith('.office.com')
+    )
+  } catch { return false }
+}

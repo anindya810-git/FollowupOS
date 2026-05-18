@@ -1,20 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendSlackDigest } from '@/lib/slack'
+import { sendTeamsDigest } from '@/lib/teams'
+import { sendEmailDigest } from '@/lib/email-digest'
 import { isAuthorizedCron } from '@/lib/cron-auth'
 import { safeLog } from '@/lib/safe-log'
 
 async function runDigest() {
   const settings = await prisma.digestSettings.findMany({
-    where: { isEnabled: true, slackEnabled: true, slackWebhookUrl: { not: null } },
+    where: { isEnabled: true },
     include: { user: { select: { name: true, email: true } } },
   })
 
   const today = new Date().toISOString().split('T')[0]
-  let sent = 0
+  let slackSent = 0
+  let teamsSent = 0
+  let emailSent = 0
 
   for (const s of settings) {
-    if (!s.slackWebhookUrl) continue
     const [totalOpen, overdueItems, topItems] = await Promise.all([
       prisma.actionItem.count({ where: { userId: s.userId, status: 'open' } }),
       prisma.actionItem.findMany({
@@ -28,20 +31,48 @@ async function runDigest() {
         select: { title: true, reason: true, category: true, ownerName: true },
       }),
     ])
-    try {
-      await sendSlackDigest(s.slackWebhookUrl, {
-        userName: s.user.name ?? undefined,
-        totalOpen,
-        overdueCount: overdueItems.length,
-        topItems: topItems.map(i => ({ title: i.title ?? 'Untitled', reason: i.reason ?? '', category: i.category, ownerName: i.ownerName })),
-      })
-      sent++
-    } catch (e) {
-      safeLog('error', 'digest', e, { userId: s.userId })
+
+    const digestPayload = {
+      userName: s.user.name ?? undefined,
+      totalOpen,
+      overdueCount: overdueItems.length,
+      topItems: topItems.map(i => ({ title: i.title ?? 'Untitled', reason: i.reason ?? '', category: i.category, ownerName: i.ownerName })),
+    }
+
+    if (s.slackEnabled && s.slackWebhookUrl) {
+      try {
+        await sendSlackDigest(s.slackWebhookUrl, digestPayload)
+        slackSent++
+      } catch (e) {
+        safeLog('error', 'digest:slack', e, { userId: s.userId })
+      }
+    }
+
+    if (s.teamsEnabled && s.teamsWebhookUrl) {
+      try {
+        await sendTeamsDigest(s.teamsWebhookUrl, digestPayload)
+        teamsSent++
+      } catch (e) {
+        safeLog('error', 'digest:teams', e, { userId: s.userId })
+      }
+    }
+
+    if (s.isEnabled && s.user.email) {
+      try {
+        await sendEmailDigest(s.user.email, digestPayload)
+        emailSent++
+      } catch (e) {
+        // Silently ignore missing SMTP config — don't fail the whole cron
+        if (e instanceof Error && e.message.includes('DIGEST_SMTP_HOST')) {
+          // not configured, skip silently
+        } else {
+          safeLog('error', 'digest:email', e, { userId: s.userId })
+        }
+      }
     }
   }
 
-  return { sent }
+  return { slackSent, teamsSent, emailSent }
 }
 
 export async function GET(request: NextRequest) {

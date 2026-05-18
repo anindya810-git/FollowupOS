@@ -300,6 +300,8 @@ model DigestSettings {
   timezone          String   @default("Asia/Kolkata")
   slackWebhookUrl   String?
   slackEnabled      Boolean  @default(false)
+  teamsWebhookUrl   String?
+  teamsEnabled      Boolean  @default(false)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
