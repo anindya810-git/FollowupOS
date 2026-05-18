@@ -1,3 +1,4 @@
+import { type ReactNode } from 'react'
 import Link from 'next/link'
 import { LogoMark } from '@/components/ui/Logo'
 
@@ -131,7 +132,7 @@ export default function PrivacyPage() {
   )
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="mb-10">
       <h2 className="text-lg font-semibold text-ink mb-3">{title}</h2>
