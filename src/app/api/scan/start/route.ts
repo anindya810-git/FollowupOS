@@ -70,9 +70,16 @@ export async function POST(request: NextRequest) {
   // Manual sync always does a full scan — clear the stored historyId so the
   // scanner doesn't use the incremental path (which would return 0 threads
   // if nothing changed since the last scan).
+  // Also clear thread hashes so all threads get re-classified with the current
+  // AI settings (prompt/conservative_mode changes are otherwise invisible to
+  // threads whose content hasn't changed since the last scan).
   await prisma.emailAccount.update({
     where: { id: account.id },
     data: { gmailHistoryId: null },
+  })
+  await prisma.emailThread.updateMany({
+    where: { emailAccountId: account.id },
+    data: { threadHash: null },
   })
 
   // Schedule scan to run after the response is sent.

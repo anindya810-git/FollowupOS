@@ -231,7 +231,7 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
       const sample = aiErrorSamples[0] ?? 'unknown error'
       scanDiagnostic = `${aiFailures} AI failures — ${sample}`
     } else if (noiseFiltered > 0) {
-      scanDiagnostic = `${noiseFiltered} noise-filtered · ${aiClassified} AI-classified · ${created} action items`
+      scanDiagnostic = `${noiseFiltered} noise-filtered · ${aiClassified} AI-classified`
     }
     await prisma.scanJob.update({
       where: { id: jobId },
