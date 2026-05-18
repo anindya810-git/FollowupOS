@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { LogoMark } from '@/components/ui/Logo'
 import { OpenInboxButton } from '@/components/layout/OpenInboxButton'
+import { PendinglyLoader } from '@/components/ui/PendinglyLoader'
 
 interface PlanInfo { type: string; isActive: boolean; daysLeft: number | null }
 
@@ -50,7 +51,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (status === 'loading' || !session?.user) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-paper">
-        <LogoMark className="h-8 w-8 animate-pulse-soft" />
+        <PendinglyLoader size={80} variant="light" />
       </div>
     )
   }

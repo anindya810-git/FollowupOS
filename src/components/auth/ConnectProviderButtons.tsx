@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
-import { Loader2, Server } from 'lucide-react'
+import { Server } from 'lucide-react'
+import { PendinglyLoader } from '@/components/ui/PendinglyLoader'
 import { ImapConnectForm } from './ImapConnectForm'
 
 type OAuthProvider = 'gmail' | 'outlook'
@@ -29,7 +30,7 @@ export function ConnectProviderButtons() {
           className="flex flex-col items-center gap-3 rounded-lg border border-[rgb(11_18_32/10%)] bg-white p-6 text-center hover:border-ink hover:shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {oauthLoading === 'gmail' ? (
-            <Loader2 className="h-8 w-8 animate-spin text-[rgb(11_18_32/30%)]" />
+            <PendinglyLoader size={32} variant="light" />
           ) : (
             <svg className="h-8 w-8" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -50,7 +51,7 @@ export function ConnectProviderButtons() {
           className="flex flex-col items-center gap-3 rounded-lg border border-[rgb(11_18_32/10%)] bg-white p-6 text-center hover:border-ink hover:shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {oauthLoading === 'outlook' ? (
-            <Loader2 className="h-8 w-8 animate-spin text-[rgb(11_18_32/30%)]" />
+            <PendinglyLoader size={32} variant="light" />
           ) : (
             <svg className="h-8 w-8" viewBox="0 0 24 24">
               <rect x="1" y="1" width="10" height="10" rx="1.5" fill="#F25022"/>
