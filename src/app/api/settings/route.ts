@@ -39,6 +39,7 @@ export async function PATCH(request: NextRequest) {
     signatureHtml, emailSignatureEnabled,
     isEnabled, digestTime, timezone, slackWebhookUrl, slackEnabled,
     teamsWebhookUrl, teamsEnabled,
+    whatsappEnabled,
   } = body
 
   const appData: Record<string, unknown> = {}
@@ -102,6 +103,7 @@ export async function PATCH(request: NextRequest) {
     digestData.teamsWebhookUrl = teamsWebhookUrl || null
   }
   if (teamsEnabled !== undefined) digestData.teamsEnabled = teamsEnabled
+  if (whatsappEnabled !== undefined) digestData.whatsappEnabled = !!whatsappEnabled
 
   await Promise.all([
     Object.keys(appData).length > 0 ? prisma.appSettings.upsert({

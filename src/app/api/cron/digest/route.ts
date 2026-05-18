@@ -3,19 +3,21 @@ import { prisma } from '@/lib/prisma'
 import { sendSlackDigest } from '@/lib/slack'
 import { sendTeamsDigest } from '@/lib/teams'
 import { sendEmailDigest } from '@/lib/email-digest'
+import { sendWhatsAppDigest } from '@/lib/whatsapp'
 import { isAuthorizedCron } from '@/lib/cron-auth'
 import { safeLog } from '@/lib/safe-log'
 
 async function runDigest() {
   const settings = await prisma.digestSettings.findMany({
     where: { isEnabled: true },
-    include: { user: { select: { name: true, email: true } } },
+    include: { user: { select: { name: true, email: true, phone: true } } },
   })
 
   const today = new Date().toISOString().split('T')[0]
   let slackSent = 0
   let teamsSent = 0
   let emailSent = 0
+  let whatsappSent = 0
 
   for (const s of settings) {
     const [totalOpen, overdueItems, topItems] = await Promise.all([
@@ -62,7 +64,6 @@ async function runDigest() {
         await sendEmailDigest(s.user.email, digestPayload)
         emailSent++
       } catch (e) {
-        // Silently ignore missing SMTP config — don't fail the whole cron
         if (e instanceof Error && e.message.includes('DIGEST_SMTP_HOST')) {
           // not configured, skip silently
         } else {
@@ -70,9 +71,22 @@ async function runDigest() {
         }
       }
     }
+
+    if (s.whatsappEnabled && s.user.phone) {
+      try {
+        await sendWhatsAppDigest(s.user.phone, digestPayload)
+        whatsappSent++
+      } catch (e) {
+        if (e instanceof Error && e.message.includes('WhatsApp not configured')) {
+          // not configured, skip silently
+        } else {
+          safeLog('error', 'digest:whatsapp', e, { userId: s.userId })
+        }
+      }
+    }
   }
 
-  return { slackSent, teamsSent, emailSent }
+  return { slackSent, teamsSent, emailSent, whatsappSent }
 }
 
 export async function GET(request: NextRequest) {

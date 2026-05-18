@@ -302,6 +302,7 @@ model DigestSettings {
   slackEnabled      Boolean  @default(false)
   teamsWebhookUrl   String?
   teamsEnabled      Boolean  @default(false)
+  whatsappEnabled   Boolean  @default(false)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 

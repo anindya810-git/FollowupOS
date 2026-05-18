@@ -63,7 +63,7 @@ export default function SettingsPage() {
       reminderPushEnabled?: boolean;
       emailSignatureEnabled?: boolean;
     } | null
-    digestSettings: { isEnabled: boolean; digestTime: string; timezone: string; slackWebhookUrl?: string | null; slackEnabled?: boolean; teamsWebhookUrl?: string | null; teamsEnabled?: boolean } | null
+    digestSettings: { isEnabled: boolean; digestTime: string; timezone: string; slackWebhookUrl?: string | null; slackEnabled?: boolean; teamsWebhookUrl?: string | null; teamsEnabled?: boolean; whatsappEnabled?: boolean } | null
     ignoredSenders: Array<{ id: string; senderEmail?: string; domain?: string; reason?: string }>
   }>({ appSettings: null, digestSettings: null, ignoredSenders: [] })
   const [integrations, setIntegrations] = useState<EmailAccount[]>(() => {
@@ -83,6 +83,8 @@ export default function SettingsPage() {
   const [slackTestResult, setSlackTestResult] = useState<string | null>(null)
   const [teamsTesting, setTeamsTesting] = useState(false)
   const [teamsTestResult, setTeamsTestResult] = useState<string | null>(null)
+  const [whatsappTesting, setWhatsappTesting] = useState(false)
+  const [whatsappTestResult, setWhatsappTestResult] = useState<string | null>(null)
 
   const fetchIntegrations = () =>
     fetch('/api/integrations').then(r => r.json()).then(i => {
@@ -125,6 +127,7 @@ export default function SettingsPage() {
         slackEnabled: settings.digestSettings?.slackEnabled ?? false,
         teamsWebhookUrl: settings.digestSettings?.teamsWebhookUrl ?? null,
         teamsEnabled: settings.digestSettings?.teamsEnabled ?? false,
+        whatsappEnabled: settings.digestSettings?.whatsappEnabled ?? false,
         autoFollowupEnabled: settings.appSettings?.autoFollowupEnabled ?? false,
         autoFollowupDays: settings.appSettings?.autoFollowupDays ?? 3,
         autoFollowupTemplate: settings.appSettings?.autoFollowupTemplate ?? null,
@@ -547,6 +550,60 @@ export default function SettingsPage() {
                     </Button>
                     {teamsTestResult && (
                       <span className="text-xs text-[rgb(11_18_32/55%)]">{teamsTestResult}</span>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader><CardTitle>WhatsApp Digest</CardTitle></CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="whatsappEnabled"
+                      checked={settings.digestSettings?.whatsappEnabled ?? false}
+                      onChange={e => setSettings(s => ({ ...s, digestSettings: { ...(s.digestSettings ?? { isEnabled: true, digestTime: '09:00', timezone: 'Asia/Kolkata' }), whatsappEnabled: e.target.checked } }))}
+                      className="h-4 w-4 rounded border-rule accent-ink"
+                    />
+                    <label htmlFor="whatsappEnabled" className="text-sm font-medium text-ink">
+                      Send daily digest via WhatsApp
+                    </label>
+                  </div>
+                  <p className="text-xs text-[rgb(11_18_32/55%)]">
+                    Digest will be sent to the phone number saved in your{' '}
+                    <button
+                      type="button"
+                      onClick={() => setActiveSection('account')}
+                      className="underline text-ink hover:text-action"
+                    >
+                      Account settings
+                    </button>
+                    . Requires Twilio credentials to be configured.
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={whatsappTesting || !(settings.digestSettings?.whatsappEnabled)}
+                      onClick={async () => {
+                        setWhatsappTesting(true)
+                        setWhatsappTestResult(null)
+                        try {
+                          const res = await fetch('/api/integrations/whatsapp/test', { method: 'POST' })
+                          const data = await res.json()
+                          setWhatsappTestResult(res.ok ? 'Test message sent!' : (data.error || 'Failed'))
+                        } catch {
+                          setWhatsappTestResult('Failed')
+                        } finally {
+                          setWhatsappTesting(false)
+                        }
+                      }}
+                    >
+                      {whatsappTesting ? 'Sending...' : 'Send Test'}
+                    </Button>
+                    {whatsappTestResult && (
+                      <span className="text-xs text-[rgb(11_18_32/55%)]">{whatsappTestResult}</span>
                     )}
                   </div>
                 </CardContent>
