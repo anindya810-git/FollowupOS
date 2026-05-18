@@ -5,7 +5,7 @@ import { SignInButton } from '@/components/auth/SignInButton'
 import { LogoMark } from '@/components/ui/Logo'
 import {
   Inbox, Sparkles, Clock, MessageSquare, Calendar, Bell, Shield,
-  ArrowRight, Check, Star, Gift, Users, BarChart3, Mail,
+  ArrowRight, Check, Star, Gift, Users, BarChart3, Mail, Send, Zap,
 } from 'lucide-react'
 
 export default async function HomePage() {
@@ -167,15 +167,27 @@ export default async function HomePage() {
               },
               {
                 icon: Bell, title: 'Auto-follow-up sequences',
-                desc: 'They didn\'t reply? Send a polite nudge 3 days later — and another 7 days after that.',
+                desc: 'They didn\'t reply? Send a polite nudge 3 days later — and another 7 days after that. Configure multi-step sequences.',
               },
               {
                 icon: Calendar, title: 'Calendar & task sync',
-                desc: 'Action items can auto-create Google Calendar events or Tasks with a single toggle.',
+                desc: 'Auto-create Google Calendar events or Tasks from action items. Adds Zoom, Meet, or Teams links in one click.',
               },
               {
                 icon: BarChart3, title: 'Daily digest',
-                desc: 'Every morning at 9am: today\'s priorities, what slipped yesterday, who you\'re waiting on.',
+                desc: 'Every morning: today\'s priorities, what slipped, who you\'re waiting on. Delivered by email or straight to Slack.',
+              },
+              {
+                icon: Send, title: 'Scheduled sending',
+                desc: 'Write the reply now, send it later. Schedule messages to land at exactly the right moment.',
+              },
+              {
+                icon: Zap, title: 'Inbox analytics',
+                desc: 'Track your inbox health score, average reply time, and thread resolution trends over time.',
+              },
+              {
+                icon: Inbox, title: 'Works with any inbox',
+                desc: 'Gmail, Outlook, Zoho Mail, Apple Mail, or any IMAP server. Connect multiple accounts on paid plans.',
               },
               {
                 icon: Shield, title: 'Bring your own AI key',
