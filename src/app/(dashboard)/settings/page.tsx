@@ -218,7 +218,7 @@ export default function SettingsPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <InboxSyncButton accountId={account.id} />
+                          <InboxSyncButton accountId={account.id} scanning={account.lastScan?.status === 'running' || account.lastScan?.status === 'queued'} onCancelled={fetchIntegrations} />
                           <Button variant="outline" size="sm" onClick={() => disconnectAccount(account)}>
                             Disconnect
                           </Button>
@@ -1252,7 +1252,7 @@ function ProfileCard() {
   )
 }
 
-function InboxSyncButton({ accountId }: { accountId: string }) {
+function InboxSyncButton({ accountId, scanning, onCancelled }: { accountId: string; scanning?: boolean; onCancelled?: () => void }) {
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -1275,6 +1275,28 @@ function InboxSyncButton({ accountId }: { accountId: string }) {
     } finally {
       setBusy(false)
     }
+  }
+
+  const cancel = async () => {
+    setBusy(true)
+    try {
+      await fetch('/api/scan/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ account_id: accountId }),
+      })
+      onCancelled?.()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (scanning) {
+    return (
+      <Button variant="outline" size="sm" onClick={cancel} disabled={busy}>
+        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Cancel scan'}
+      </Button>
+    )
   }
 
   return (
