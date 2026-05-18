@@ -5,7 +5,7 @@ import { SignInButton } from '@/components/auth/SignInButton'
 import { LogoMark } from '@/components/ui/Logo'
 import {
   Inbox, Sparkles, Clock, MessageSquare, Calendar, Bell, Shield,
-  ArrowRight, Check, Star, Gift, Zap, Users, BarChart3, Mail,
+  ArrowRight, Check, Star, Gift, Users, BarChart3, Mail,
 } from 'lucide-react'
 
 export default async function HomePage() {
@@ -352,7 +352,7 @@ export default async function HomePage() {
       {/* Final CTA */}
       <section className="px-6 py-24 bg-paper border-t border-[rgb(11_18_32/8%)]">
         <div className="max-w-2xl mx-auto text-center">
-          <Zap className="h-10 w-10 text-ink mx-auto mb-5" />
+          <LogoMark className="h-12 w-14 mx-auto mb-5" />
           <h2 className="text-3xl md:text-4xl font-bold text-ink mb-4">
             Stop losing follow-ups.
           </h2>
