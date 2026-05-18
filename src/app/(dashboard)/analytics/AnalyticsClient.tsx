@@ -6,7 +6,7 @@ import { LineChart } from '@/components/charts/LineChart'
 import { BarChart } from '@/components/charts/BarChart'
 import { DonutChart } from '@/components/charts/DonutChart'
 import { LogoMark } from '@/components/ui/Logo'
-import { Share2, ExternalLink } from 'lucide-react'
+import { ExternalLink, Facebook, Instagram, Linkedin, Share2, Copy, Check } from 'lucide-react'
 
 // ── Types ────────────────────────────────────────────────────────────
 interface Summary {
@@ -73,7 +73,7 @@ function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center py-32 gap-4">
       <LogoMark className="h-12 w-12 opacity-30" />
-      <p className="text-mute text-sm">Connect an inbox to see your analytics.</p>
+      <p className="text-mute text-sm">No action items yet — run a scan to populate your analytics.</p>
     </div>
   )
 }
@@ -136,10 +136,10 @@ function StatsShareCard() {
   const [userId, setUserId] = useState<string | null>(null)
   const [sharing, setSharing] = useState(false)
   const [shareResult, setShareResult] = useState<ShareResult | null>(null)
+  const [copied, setCopied] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/stats/my').then(r => r.json()).then(setStats).catch(() => {})
-    // get userId from session
     fetch('/api/user/profile').then(r => r.json()).then((d: { id: string }) => setUserId(d.id)).catch(() => {})
   }, [])
 
@@ -160,9 +160,18 @@ function StatsShareCard() {
     }
   }
 
+  const copyLink = async (platform: string) => {
+    if (!shareUrl) return
+    await navigator.clipboard.writeText(shareUrl)
+    handleShare(platform)
+    setCopied(platform)
+    setTimeout(() => setCopied(null), 2000)
+  }
+
   if (!stats) return null
 
   const { period, thisMonth } = stats
+  const shareText = `I handled ${thisMonth.handled} emails and replied to ${thisMonth.replyRate ?? '?'}% on time in ${period} using @pendingly 📧`
 
   return (
     <div className="bg-white border border-[rgba(11,18,32,0.08)] rounded-xl p-5">
@@ -178,6 +187,7 @@ function StatsShareCard() {
           </a>
         )}
       </div>
+
       <div className="flex gap-4 mb-4">
         {thisMonth.replyRate != null && (
           <div>
@@ -190,6 +200,7 @@ function StatsShareCard() {
           <p className="text-xs text-[rgba(11,18,32,0.45)]">emails handled</p>
         </div>
       </div>
+
       {shareResult && (
         <div className={`mb-3 rounded-lg px-3 py-2 text-xs font-medium ${shareResult.daysAdded > 0 ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-[rgba(11,18,32,0.04)] text-[rgba(11,18,32,0.5)]'}`}>
           {shareResult.daysAdded > 0
@@ -197,28 +208,60 @@ function StatsShareCard() {
             : 'Already shared today — bonus applies once per day.'}
         </div>
       )}
-      <div className="flex gap-2">
+
+      {/* Primary share buttons */}
+      <div className="flex gap-2 mb-2">
         <button
           disabled={sharing || !shareUrl}
-          onClick={() => {
-            handleShare('twitter')
-            window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(`I handled ${thisMonth.handled} emails and replied to ${thisMonth.replyRate ?? '?'}% on time in ${period} using @pendingly 📧`)}&url=${encodeURIComponent(shareUrl)}`, '_blank')
-          }}
+          onClick={() => { handleShare('twitter'); window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`, '_blank') }}
           className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-[#0b1220] text-white text-xs font-medium hover:bg-[#1a2535] transition-colors disabled:opacity-50"
         >
-          <Share2 className="h-3.5 w-3.5" /> Share on X
+          <Share2 className="h-3.5 w-3.5" /> X (Twitter)
         </button>
         <button
           disabled={sharing || !shareUrl}
-          onClick={() => {
-            handleShare('linkedin')
-            window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`, '_blank')
-          }}
+          onClick={() => { handleShare('linkedin'); window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`, '_blank') }}
           className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-[rgba(11,18,32,0.12)] text-[#0b1220] text-xs font-medium hover:bg-[rgba(11,18,32,0.04)] transition-colors disabled:opacity-50"
         >
-          Share on LinkedIn
+          <Linkedin className="h-3.5 w-3.5" /> LinkedIn
+        </button>
+        <button
+          disabled={sharing || !shareUrl}
+          onClick={() => { handleShare('facebook'); window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, '_blank') }}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-[rgba(11,18,32,0.12)] text-[#0b1220] text-xs font-medium hover:bg-[rgba(11,18,32,0.04)] transition-colors disabled:opacity-50"
+        >
+          <Facebook className="h-3.5 w-3.5" /> Facebook
         </button>
       </div>
+
+      {/* Copy-link buttons for platforms without web share */}
+      <div className="flex gap-2">
+        <button
+          disabled={!shareUrl}
+          onClick={() => copyLink('instagram')}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-[rgba(11,18,32,0.12)] text-[#0b1220] text-xs font-medium hover:bg-[rgba(11,18,32,0.04)] transition-colors disabled:opacity-50"
+        >
+          {copied === 'instagram' ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Instagram className="h-3.5 w-3.5" />}
+          {copied === 'instagram' ? 'Copied!' : 'Instagram'}
+        </button>
+        <button
+          disabled={!shareUrl}
+          onClick={() => copyLink('snapchat')}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-[rgba(11,18,32,0.12)] text-[#0b1220] text-xs font-medium hover:bg-[rgba(11,18,32,0.04)] transition-colors disabled:opacity-50"
+        >
+          {copied === 'snapchat' ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
+          {copied === 'snapchat' ? 'Copied!' : 'Snapchat'}
+        </button>
+        <button
+          disabled={!shareUrl}
+          onClick={() => copyLink('other')}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-[rgba(11,18,32,0.12)] text-[#0b1220] text-xs font-medium hover:bg-[rgba(11,18,32,0.04)] transition-colors disabled:opacity-50"
+        >
+          {copied === 'other' ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
+          {copied === 'other' ? 'Copied!' : 'Copy link'}
+        </button>
+      </div>
+
       <p className="text-[10px] text-[rgba(11,18,32,0.35)] mt-2">Each unique share adds 7 free days to your plan (once per day)</p>
     </div>
   )
@@ -231,7 +274,6 @@ export function AnalyticsClient({ userEmail }: { userEmail: string }) {
   const [tat, setTat] = useState<TatData | null>(null)
   const [breakdown, setBreakdown] = useState<BreakdownData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [hasData, setHasData] = useState(true)
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
@@ -246,13 +288,6 @@ export function AnalyticsClient({ userEmail }: { userEmail: string }) {
       setTrends(t as Trends)
       setTat(ta as TatData)
       setBreakdown(b as BreakdownData)
-
-      const bd = b as BreakdownData
-      const totalItems = bd?.byStatus?.reduce(
-        (acc: number, item: { status: string; count: number }) => acc + item.count,
-        0
-      ) ?? 0
-      setHasData(totalItems > 0)
     } catch {
       // silently ignore fetch errors
     } finally {
@@ -321,10 +356,7 @@ export function AnalyticsClient({ userEmail }: { userEmail: string }) {
           <StatsShareCard />
         </div>
 
-        {!loading && !hasData ? (
-          <EmptyState />
-        ) : (
-          <>
+        {<>
             {/* Row 1: 4 StatCards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8 stagger">
               {loading ? (
@@ -527,8 +559,7 @@ export function AnalyticsClient({ userEmail }: { userEmail: string }) {
                 Open items created per week — last 8 weeks
               </p>
             </div>
-          </>
-        )}
+          </>}
       </main>
     </>
   )
