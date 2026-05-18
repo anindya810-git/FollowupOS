@@ -1081,7 +1081,10 @@ async function processThread(params: {
     },
   })
 
-  if (!result) return 'ai_failed'
+  if (!result) {
+    // Throw so the scanner loop captures the real error in aiErrorSamples
+    throw new Error(classifyError ?? 'Classification failed')
+  }
   if (!result.should_show_to_user || result.primary_category === 'no_action_needed') {
     return 'skipped'
   }
