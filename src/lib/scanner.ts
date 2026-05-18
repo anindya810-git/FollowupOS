@@ -142,11 +142,23 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
       afterDate.setDate(afterDate.getDate() - scanWindowDays)
       const afterTimestamp = Math.floor(afterDate.getTime() / 1000)
 
+      // Exclude Gmail's built-in noise categories at the query level so we
+      // never fetch promotional/social/update threads at all.
+      const GMAIL_QUERY = [
+        `after:${afterTimestamp}`,
+        '-in:spam',
+        '-in:trash',
+        '-in:promotions',
+        '-in:social',
+        '-in:updates',
+        '-in:forums',
+      ].join(' ')
+
       let nextPageToken: string | undefined
       do {
         const res = await gmail.users.threads.list({
           userId: 'me',
-          q: `after:${afterTimestamp} -in:spam -in:trash`,
+          q: GMAIL_QUERY,
           maxResults: 100,
           pageToken: nextPageToken,
         })
