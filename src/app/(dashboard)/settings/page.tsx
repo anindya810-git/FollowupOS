@@ -37,6 +37,16 @@ interface EmailAccount {
   lastScan?: LastScan | null
 }
 
+type SectionId = 'inboxes' | 'notifications' | 'automation' | 'ai' | 'account'
+
+const SECTIONS: Array<{ id: SectionId; label: string }> = [
+  { id: 'inboxes', label: 'Inboxes' },
+  { id: 'notifications', label: 'Notifications' },
+  { id: 'automation', label: 'Automation' },
+  { id: 'ai', label: 'AI' },
+  { id: 'account', label: 'Account' },
+]
+
 export default function SettingsPage() {
   const [settings, setSettings] = useState<{
     appSettings: {
@@ -62,6 +72,7 @@ export default function SettingsPage() {
       return cached ? JSON.parse(cached) : []
     } catch { return [] }
   })
+  const [activeSection, setActiveSection] = useState<SectionId>('inboxes')
   const [newSender, setNewSender] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -193,13 +204,38 @@ export default function SettingsPage() {
     window.location.href = '/'
   }
 
+  const saveButton = (
+    <Button onClick={save} disabled={saving} className="w-full">
+      {saved ? 'Saved!' : saving ? 'Saving...' : 'Save Settings'}
+    </Button>
+  )
+
   return (
     <>
       <Header title="Settings" />
-      <main className="p-6 max-w-2xl">
-        <div className="space-y-6">
-          {/* Profile */}
-          <ProfileCard />
+      <main className="p-6 max-w-4xl flex gap-8">
+        {/* Sidebar */}
+        <nav className="w-48 shrink-0 space-y-0.5">
+          {SECTIONS.map(s => (
+            <button
+              key={s.id}
+              onClick={() => setActiveSection(s.id)}
+              className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                activeSection === s.id
+                  ? 'bg-[rgb(11_18_32/8%)] font-medium text-ink'
+                  : 'text-[rgb(11_18_32/55%)] hover:text-ink hover:bg-[rgb(11_18_32/4%)]'
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </nav>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0 space-y-6">
+          {/* ── Inboxes ── */}
+          {activeSection === 'inboxes' && (
+            <>
 
           {/* Connected Inboxes */}
           <Card>
@@ -334,120 +370,6 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          {/* Follow-up Rules */}
-          <Card>
-            <CardHeader><CardTitle>Follow-up Rules</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-ink mb-1">
-                  Default follow-up threshold (business days)
-                </label>
-                <Select
-                  value={String(settings.appSettings?.defaultFollowupDays ?? 3)}
-                  onChange={e => setSettings(s => ({ ...s, appSettings: { ...s.appSettings!, defaultFollowupDays: parseInt(e.target.value) } }))}
-                  className="w-32"
-                >
-                  <option value="1">1 day</option>
-                  <option value="2">2 days</option>
-                  <option value="3">3 days</option>
-                  <option value="5">5 days</option>
-                  <option value="7">7 days</option>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Daily Digest */}
-          <Card>
-            <CardHeader><CardTitle>Daily Digest</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  id="digestEnabled"
-                  checked={settings.digestSettings?.isEnabled ?? true}
-                  onChange={e => setSettings(s => ({ ...s, digestSettings: { ...s.digestSettings!, isEnabled: e.target.checked } }))}
-                  className="h-4 w-4 accent-action"
-                />
-                <label htmlFor="digestEnabled" className="text-sm font-medium text-ink">
-                  Enable daily digest email
-                </label>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-ink mb-1">Digest time</label>
-                <Input
-                  type="time"
-                  value={settings.digestSettings?.digestTime ?? '09:00'}
-                  onChange={e => setSettings(s => ({ ...s, digestSettings: { ...s.digestSettings!, digestTime: e.target.value } }))}
-                  className="w-32"
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Slack Integration */}
-          <Card>
-            <CardHeader><CardTitle>Slack Integration</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  id="slackEnabled"
-                  checked={settings.digestSettings?.slackEnabled ?? false}
-                  onChange={e => setSettings(s => ({ ...s, digestSettings: { ...(s.digestSettings ?? { isEnabled: true, digestTime: '09:00', timezone: 'Asia/Kolkata' }), slackEnabled: e.target.checked } }))}
-                  className="h-4 w-4 accent-action"
-                />
-                <label htmlFor="slackEnabled" className="text-sm font-medium text-ink">
-                  Send daily digest to Slack
-                </label>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-ink mb-1">Webhook URL</label>
-                <Input
-                  type="url"
-                  placeholder="https://hooks.slack.com/services/..."
-                  value={settings.digestSettings?.slackWebhookUrl ?? ''}
-                  onChange={e => setSettings(s => ({ ...s, digestSettings: { ...(s.digestSettings ?? { isEnabled: true, digestTime: '09:00', timezone: 'Asia/Kolkata' }), slackWebhookUrl: e.target.value } }))}
-                />
-                <p className="text-xs text-[rgb(11_18_32/55%)] mt-1">
-                  Get a webhook URL from{' '}
-                  <a href="https://api.slack.com/messaging/webhooks" target="_blank" rel="noreferrer" className="underline">
-                    https://api.slack.com/messaging/webhooks
-                  </a>
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={slackTesting || !settings.digestSettings?.slackWebhookUrl}
-                  onClick={async () => {
-                    setSlackTesting(true)
-                    setSlackTestResult(null)
-                    try {
-                      const res = await fetch('/api/integrations/slack/test', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ webhookUrl: settings.digestSettings?.slackWebhookUrl }),
-                      })
-                      const data = await res.json()
-                      setSlackTestResult(res.ok ? 'Test message sent!' : (data.error || 'Failed'))
-                    } catch {
-                      setSlackTestResult('Failed')
-                    } finally {
-                      setSlackTesting(false)
-                    }
-                  }}
-                >
-                  {slackTesting ? 'Sending...' : 'Send Test'}
-                </Button>
-                {slackTestResult && (
-                  <span className="text-xs text-[rgb(11_18_32/55%)]">{slackTestResult}</span>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Ignored Senders */}
           <Card>
             <CardHeader><CardTitle>Ignored Senders &amp; Domains</CardTitle></CardHeader>
@@ -473,199 +395,323 @@ export default function SettingsPage() {
               ))}
             </CardContent>
           </Card>
+          </>)}
 
-          {/* Notifications */}
-          <Card>
-            <CardHeader><CardTitle>Notifications</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
-              <p className="text-sm text-[rgb(11_18_32/55%)]">
-                Get push notifications on this device when follow-ups are pending.
-              </p>
-              <PushNotificationToggle />
-            </CardContent>
-          </Card>
+          {/* ── Notifications ── */}
+          {activeSection === 'notifications' && (
+            <>
+              <Card>
+                <CardHeader><CardTitle>Daily Digest</CardTitle></CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="digestEnabled"
+                      checked={settings.digestSettings?.isEnabled ?? true}
+                      onChange={e => setSettings(s => ({ ...s, digestSettings: { ...s.digestSettings!, isEnabled: e.target.checked } }))}
+                      className="h-4 w-4 accent-action"
+                    />
+                    <label htmlFor="digestEnabled" className="text-sm font-medium text-ink">
+                      Enable daily digest email
+                    </label>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-ink mb-1">Digest time</label>
+                    <Input
+                      type="time"
+                      value={settings.digestSettings?.digestTime ?? '09:00'}
+                      onChange={e => setSettings(s => ({ ...s, digestSettings: { ...s.digestSettings!, digestTime: e.target.value } }))}
+                      className="w-32"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
 
-          {/* Automation */}
-          {/* Calendar & Reminders */}
-          <Card>
-            <CardHeader><CardTitle>Calendar & reminders</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-xs text-[rgb(11_18_32/55%)]">
-                When you act on a follow-up, Pendingly can create a matching calendar event,
-                a task in Google Tasks / Microsoft To Do, or both.
-              </p>
-              <div>
-                <label className="block text-sm font-medium text-ink mb-1">Auto-create on new action items</label>
-                <select
-                  value={settings.appSettings?.calendarAutoCreate ?? 'off'}
-                  onChange={e => setSettings(s => ({ ...s, appSettings: { ...s.appSettings!, calendarAutoCreate: e.target.value as 'off' | 'event' | 'task' | 'both' } }))}
-                  className="w-full rounded-md border border-rule bg-white px-3 py-2 text-sm"
-                >
-                  <option value="off">Off — I&apos;ll add manually from each item</option>
-                  <option value="event">Calendar event (uses item due date)</option>
-                  <option value="task">Task (Google Tasks / MS To Do)</option>
-                  <option value="both">Both event and task</option>
-                </select>
-                <p className="text-xs text-[rgb(11_18_32/55%)] mt-1">
-                  Auto-create runs at scan time. You can always add or remove manually per item.
-                </p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-ink mb-1">Default meeting link</label>
-                <select
-                  value={settings.appSettings?.defaultMeetingProvider ?? 'none'}
-                  onChange={e => setSettings(s => ({ ...s, appSettings: { ...s.appSettings!, defaultMeetingProvider: e.target.value as 'none' | 'meet' | 'teams' | 'zoom' } }))}
-                  className="w-full rounded-md border border-rule bg-white px-3 py-2 text-sm"
-                >
-                  <option value="none">No meeting link</option>
-                  <option value="meet">Google Meet (Gmail accounts)</option>
-                  <option value="teams">Microsoft Teams (Outlook accounts)</option>
-                  <option value="zoom">Zoom (requires Zoom connector)</option>
-                </select>
-                <p className="text-xs text-[rgb(11_18_32/55%)] mt-1">
-                  Pre-selected when creating events. Configure Zoom in{' '}
-                  <a href="/settings/connectors" className="underline">Connectors</a>.
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  id="reminderPushEnabled"
-                  checked={settings.appSettings?.reminderPushEnabled ?? true}
-                  onChange={e => setSettings(s => ({ ...s, appSettings: { ...s.appSettings!, reminderPushEnabled: e.target.checked } }))}
-                  className="h-4 w-4 accent-action"
-                />
-                <label htmlFor="reminderPushEnabled" className="text-sm font-medium text-ink">
-                  Send a web push when a snoozed item wakes
-                </label>
-              </div>
-            </CardContent>
-          </Card>
+              <Card>
+                <CardHeader><CardTitle>Slack Integration</CardTitle></CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="slackEnabled"
+                      checked={settings.digestSettings?.slackEnabled ?? false}
+                      onChange={e => setSettings(s => ({ ...s, digestSettings: { ...(s.digestSettings ?? { isEnabled: true, digestTime: '09:00', timezone: 'Asia/Kolkata' }), slackEnabled: e.target.checked } }))}
+                      className="h-4 w-4 accent-action"
+                    />
+                    <label htmlFor="slackEnabled" className="text-sm font-medium text-ink">
+                      Send daily digest to Slack
+                    </label>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-ink mb-1">Webhook URL</label>
+                    <Input
+                      type="url"
+                      placeholder="https://hooks.slack.com/services/..."
+                      value={settings.digestSettings?.slackWebhookUrl ?? ''}
+                      onChange={e => setSettings(s => ({ ...s, digestSettings: { ...(s.digestSettings ?? { isEnabled: true, digestTime: '09:00', timezone: 'Asia/Kolkata' }), slackWebhookUrl: e.target.value } }))}
+                    />
+                    <p className="text-xs text-[rgb(11_18_32/55%)] mt-1">
+                      Get a webhook URL from{' '}
+                      <a href="https://api.slack.com/messaging/webhooks" target="_blank" rel="noreferrer" className="underline">
+                        https://api.slack.com/messaging/webhooks
+                      </a>
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={slackTesting || !settings.digestSettings?.slackWebhookUrl}
+                      onClick={async () => {
+                        setSlackTesting(true)
+                        setSlackTestResult(null)
+                        try {
+                          const res = await fetch('/api/integrations/slack/test', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ webhookUrl: settings.digestSettings?.slackWebhookUrl }),
+                          })
+                          const data = await res.json()
+                          setSlackTestResult(res.ok ? 'Test message sent!' : (data.error || 'Failed'))
+                        } catch {
+                          setSlackTestResult('Failed')
+                        } finally {
+                          setSlackTesting(false)
+                        }
+                      }}
+                    >
+                      {slackTesting ? 'Sending...' : 'Send Test'}
+                    </Button>
+                    {slackTestResult && (
+                      <span className="text-xs text-[rgb(11_18_32/55%)]">{slackTestResult}</span>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
 
-          {/* Follow-up sequences */}
-          <FollowupSequenceCard
-            value={settings.appSettings?.followupSequenceJson ?? null}
-            onChange={(v) => setSettings(s => ({ ...s, appSettings: { ...s.appSettings!, followupSequenceJson: v } }))}
-          />
-
-          <Card>
-            <CardHeader><CardTitle>Automation</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="rounded-md border border-[rgb(242_90_60/30%)] bg-[rgb(242_90_60/8%)] p-3 flex gap-2 items-start">
-                <AlertTriangle className="h-4 w-4 text-action mt-0.5 shrink-0" />
-                <p className="text-xs text-ink">
-                  Auto-follow-up will send emails on your behalf. Review your template carefully.
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  id="autoFollowupEnabled"
-                  checked={settings.appSettings?.autoFollowupEnabled ?? false}
-                  onChange={e => setSettings(s => ({ ...s, appSettings: { ...s.appSettings!, autoFollowupEnabled: e.target.checked } }))}
-                  className="h-4 w-4 accent-action"
-                />
-                <label htmlFor="autoFollowupEnabled" className="text-sm font-medium text-ink">
-                  Enable auto follow-up
-                </label>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-ink mb-1">
-                  Days of silence before sending
-                </label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={30}
-                  value={settings.appSettings?.autoFollowupDays ?? 3}
-                  onChange={e => setSettings(s => ({ ...s, appSettings: { ...s.appSettings!, autoFollowupDays: parseInt(e.target.value) || 3 } }))}
-                  className="w-32"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-ink mb-1">
-                  Email template
-                </label>
-                <textarea
-                  value={settings.appSettings?.autoFollowupTemplate ?? DEFAULT_FOLLOWUP_TEMPLATE}
-                  onChange={e => setSettings(s => ({ ...s, appSettings: { ...s.appSettings!, autoFollowupTemplate: e.target.value } }))}
-                  rows={8}
-                  className="w-full rounded-md border border-rule bg-white px-3 py-2 text-sm text-ink"
-                />
-                <p className="text-xs text-[rgb(11_18_32/55%)] mt-1">
-                  Available variables: {`{{name}}`}, {`{{firstName}}`}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Email signature */}
-          <Card>
-            <CardHeader><CardTitle>Email signature</CardTitle></CardHeader>
-            <CardContent>
-              {/* Pendingly footer toggle */}
-              <div className="flex items-start justify-between gap-3 p-3 bg-[rgb(11_18_32/4%)] rounded-lg mb-4 border border-[rgb(11_18_32/8%)]">
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-ink">Append &quot;Sent via Pendingly&quot;</p>
-                  <p className="text-xs text-[rgb(11_18_32/55%)] mt-0.5">
-                    Adds a small footer to all outgoing emails. Disabled on Lite &amp; Pro plans.
+              <Card>
+                <CardHeader><CardTitle>Notifications</CardTitle></CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-sm text-[rgb(11_18_32/55%)]">
+                    Get push notifications on this device when follow-ups are pending.
                   </p>
-                </div>
-                <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                  <input
-                    type="checkbox"
-                    checked={settings.appSettings?.emailSignatureEnabled ?? true}
-                    onChange={e => setSettings(s => ({ ...s, appSettings: { ...s.appSettings!, emailSignatureEnabled: e.target.checked } }))}
-                    className="h-4 w-4 accent-action"
-                    title="Toggle Pendingly email footer"
-                  />
-                  <a href="/upgrade" className="text-[10px] text-[rgb(11_18_32/35%)] underline hover:text-ink">Requires Lite/Pro to disable</a>
-                </div>
-              </div>
-              <p className="text-xs text-[rgb(11_18_32/55%)] mb-3">
-                Custom signature — appended via the &quot;Insert signature&quot; button in the reply editor.
-              </p>
-              <RichTextEditor
-                value={settings.appSettings?.signatureHtml ?? ''}
-                onChange={(html) => setSettings(s => ({
-                  ...s,
-                  appSettings: s.appSettings
-                    ? { ...s.appSettings, signatureHtml: html }
-                    : { defaultFollowupDays: 3, scanWindowDays: 30, conservativeMode: true, signatureHtml: html },
-                }))}
-                placeholder="e.g. Best, Aritra — Founder @ Acme"
-                minHeight={120}
+                  <PushNotificationToggle />
+                </CardContent>
+              </Card>
+
+              {saveButton}
+            </>
+          )}
+
+          {/* ── Automation ── */}
+          {activeSection === 'automation' && (
+            <>
+              <Card>
+                <CardHeader><CardTitle>Follow-up Rules</CardTitle></CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-ink mb-1">
+                      Default follow-up threshold (business days)
+                    </label>
+                    <Select
+                      value={String(settings.appSettings?.defaultFollowupDays ?? 3)}
+                      onChange={e => setSettings(s => ({ ...s, appSettings: { ...s.appSettings!, defaultFollowupDays: parseInt(e.target.value) } }))}
+                      className="w-32"
+                    >
+                      <option value="1">1 day</option>
+                      <option value="2">2 days</option>
+                      <option value="3">3 days</option>
+                      <option value="5">5 days</option>
+                      <option value="7">7 days</option>
+                    </Select>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <FollowupSequenceCard
+                value={settings.appSettings?.followupSequenceJson ?? null}
+                onChange={(v) => setSettings(s => ({ ...s, appSettings: { ...s.appSettings!, followupSequenceJson: v } }))}
               />
-            </CardContent>
-          </Card>
 
-          <Button onClick={save} disabled={saving} className="w-full">
-            {saved ? 'Saved!' : saving ? 'Saving...' : 'Save Settings'}
-          </Button>
+              <Card>
+                <CardHeader><CardTitle>Automation</CardTitle></CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="rounded-md border border-[rgb(242_90_60/30%)] bg-[rgb(242_90_60/8%)] p-3 flex gap-2 items-start">
+                    <AlertTriangle className="h-4 w-4 text-action mt-0.5 shrink-0" />
+                    <p className="text-xs text-ink">
+                      Auto-follow-up will send emails on your behalf. Review your template carefully.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="autoFollowupEnabled"
+                      checked={settings.appSettings?.autoFollowupEnabled ?? false}
+                      onChange={e => setSettings(s => ({ ...s, appSettings: { ...s.appSettings!, autoFollowupEnabled: e.target.checked } }))}
+                      className="h-4 w-4 accent-action"
+                    />
+                    <label htmlFor="autoFollowupEnabled" className="text-sm font-medium text-ink">
+                      Enable auto follow-up
+                    </label>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-ink mb-1">
+                      Days of silence before sending
+                    </label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={30}
+                      value={settings.appSettings?.autoFollowupDays ?? 3}
+                      onChange={e => setSettings(s => ({ ...s, appSettings: { ...s.appSettings!, autoFollowupDays: parseInt(e.target.value) || 3 } }))}
+                      className="w-32"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-ink mb-1">
+                      Email template
+                    </label>
+                    <textarea
+                      value={settings.appSettings?.autoFollowupTemplate ?? DEFAULT_FOLLOWUP_TEMPLATE}
+                      onChange={e => setSettings(s => ({ ...s, appSettings: { ...s.appSettings!, autoFollowupTemplate: e.target.value } }))}
+                      rows={8}
+                      className="w-full rounded-md border border-rule bg-white px-3 py-2 text-sm text-ink"
+                    />
+                    <p className="text-xs text-[rgb(11_18_32/55%)] mt-1">
+                      Available variables: {`{{name}}`}, {`{{firstName}}`}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
 
-          {/* AI usage */}
-          <UsageCard />
+              <Card>
+                <CardHeader><CardTitle>Calendar &amp; Reminders</CardTitle></CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-xs text-[rgb(11_18_32/55%)]">
+                    When you act on a follow-up, Pendingly can create a matching calendar event,
+                    a task in Google Tasks / Microsoft To Do, or both.
+                  </p>
+                  <div>
+                    <label className="block text-sm font-medium text-ink mb-1">Auto-create on new action items</label>
+                    <select
+                      value={settings.appSettings?.calendarAutoCreate ?? 'off'}
+                      onChange={e => setSettings(s => ({ ...s, appSettings: { ...s.appSettings!, calendarAutoCreate: e.target.value as 'off' | 'event' | 'task' | 'both' } }))}
+                      className="w-full rounded-md border border-rule bg-white px-3 py-2 text-sm"
+                    >
+                      <option value="off">Off — I&apos;ll add manually from each item</option>
+                      <option value="event">Calendar event (uses item due date)</option>
+                      <option value="task">Task (Google Tasks / MS To Do)</option>
+                      <option value="both">Both event and task</option>
+                    </select>
+                    <p className="text-xs text-[rgb(11_18_32/55%)] mt-1">
+                      Auto-create runs at scan time. You can always add or remove manually per item.
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-ink mb-1">Default meeting link</label>
+                    <select
+                      value={settings.appSettings?.defaultMeetingProvider ?? 'none'}
+                      onChange={e => setSettings(s => ({ ...s, appSettings: { ...s.appSettings!, defaultMeetingProvider: e.target.value as 'none' | 'meet' | 'teams' | 'zoom' } }))}
+                      className="w-full rounded-md border border-rule bg-white px-3 py-2 text-sm"
+                    >
+                      <option value="none">No meeting link</option>
+                      <option value="meet">Google Meet (Gmail accounts)</option>
+                      <option value="teams">Microsoft Teams (Outlook accounts)</option>
+                      <option value="zoom">Zoom (requires Zoom connector)</option>
+                    </select>
+                    <p className="text-xs text-[rgb(11_18_32/55%)] mt-1">
+                      Pre-selected when creating events. Configure Zoom in{' '}
+                      <a href="/settings/connectors" className="underline">Connectors</a>.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="reminderPushEnabled"
+                      checked={settings.appSettings?.reminderPushEnabled ?? true}
+                      onChange={e => setSettings(s => ({ ...s, appSettings: { ...s.appSettings!, reminderPushEnabled: e.target.checked } }))}
+                      className="h-4 w-4 accent-action"
+                    />
+                    <label htmlFor="reminderPushEnabled" className="text-sm font-medium text-ink">
+                      Send a web push when a snoozed item wakes
+                    </label>
+                  </div>
+                </CardContent>
+              </Card>
 
-          {/* AI Provider */}
-          <AiProviderCard />
+              <Card>
+                <CardHeader><CardTitle>Email signature</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="flex items-start justify-between gap-3 p-3 bg-[rgb(11_18_32/4%)] rounded-lg mb-4 border border-[rgb(11_18_32/8%)]">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-ink">Append &quot;Sent via Pendingly&quot;</p>
+                      <p className="text-xs text-[rgb(11_18_32/55%)] mt-0.5">
+                        Adds a small footer to all outgoing emails. Disabled on Lite &amp; Pro plans.
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                      <input
+                        type="checkbox"
+                        checked={settings.appSettings?.emailSignatureEnabled ?? true}
+                        onChange={e => setSettings(s => ({ ...s, appSettings: { ...s.appSettings!, emailSignatureEnabled: e.target.checked } }))}
+                        className="h-4 w-4 accent-action"
+                        title="Toggle Pendingly email footer"
+                      />
+                      <a href="/upgrade" className="text-[10px] text-[rgb(11_18_32/35%)] underline hover:text-ink">Requires Lite/Pro to disable</a>
+                    </div>
+                  </div>
+                  <p className="text-xs text-[rgb(11_18_32/55%)] mb-3">
+                    Custom signature — appended via the &quot;Insert signature&quot; button in the reply editor.
+                  </p>
+                  <RichTextEditor
+                    value={settings.appSettings?.signatureHtml ?? ''}
+                    onChange={(html) => setSettings(s => ({
+                      ...s,
+                      appSettings: s.appSettings
+                        ? { ...s.appSettings, signatureHtml: html }
+                        : { defaultFollowupDays: 3, scanWindowDays: 30, conservativeMode: true, signatureHtml: html },
+                    }))}
+                    placeholder="e.g. Best, Aritra — Founder @ Acme"
+                    minHeight={120}
+                  />
+                </CardContent>
+              </Card>
 
-          {/* Product tour */}
-          <Card>
-            <CardHeader><CardTitle>Product Tour</CardTitle></CardHeader>
-            <CardContent>
-              <Button variant="ghost" size="sm" onClick={replayTour}>Replay tour</Button>
-              <p className="text-xs text-[rgb(11_18_32/55%)] mt-2">Walks you through how Pendingly works from the dashboard.</p>
-            </CardContent>
-          </Card>
+              {saveButton}
+            </>
+          )}
 
-          {/* Danger Zone */}
-          <Card className="border-[rgb(242_90_60/20%)]">
-            <CardHeader><CardTitle className="text-action flex items-center gap-2"><AlertTriangle className="h-5 w-5" />Danger Zone</CardTitle></CardHeader>
-            <CardContent>
-              <Button variant="destructive" onClick={deleteAccount}>Delete Account &amp; All Data</Button>
-              <p className="text-xs text-[rgb(11_18_32/55%)] mt-2">This permanently deletes your account and all stored data. Cannot be undone.</p>
-            </CardContent>
-          </Card>
+          {/* ── AI ── */}
+          {activeSection === 'ai' && (
+            <>
+              <AiProviderCard />
+              <UsageCard />
+            </>
+          )}
+
+          {/* ── Account ── */}
+          {activeSection === 'account' && (
+            <>
+              <ProfileCard />
+
+              <Card>
+                <CardHeader><CardTitle>Product Tour</CardTitle></CardHeader>
+                <CardContent>
+                  <Button variant="ghost" size="sm" onClick={replayTour}>Replay tour</Button>
+                  <p className="text-xs text-[rgb(11_18_32/55%)] mt-2">Walks you through how Pendingly works from the dashboard.</p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-[rgb(242_90_60/20%)]">
+                <CardHeader><CardTitle className="text-action flex items-center gap-2"><AlertTriangle className="h-5 w-5" />Danger Zone</CardTitle></CardHeader>
+                <CardContent>
+                  <Button variant="destructive" onClick={deleteAccount}>Delete Account &amp; All Data</Button>
+                  <p className="text-xs text-[rgb(11_18_32/55%)] mt-2">This permanently deletes your account and all stored data. Cannot be undone.</p>
+                </CardContent>
+              </Card>
+            </>
+          )}
+
         </div>
       </main>
     </>
