@@ -198,10 +198,7 @@ export default function SettingsPage() {
       <Header title="Settings" />
       <main className="p-6 max-w-2xl">
         <div className="space-y-6">
-          {/* Profile */}
-          <ProfileCard />
-
-          {/* Connected Inboxes */}
+          {/* Connected Inboxes — first so it's visible immediately (no loading flash) */}
           <Card>
             <CardHeader><CardTitle>Connected Inboxes</CardTitle></CardHeader>
             <CardContent>
@@ -642,6 +639,9 @@ export default function SettingsPage() {
           <Button onClick={save} disabled={saving} className="w-full">
             {saved ? 'Saved!' : saving ? 'Saving...' : 'Save Settings'}
           </Button>
+
+          {/* Profile — placed after inboxes so the loading flash doesn't dominate the top */}
+          <ProfileCard />
 
           {/* AI usage */}
           <UsageCard />
