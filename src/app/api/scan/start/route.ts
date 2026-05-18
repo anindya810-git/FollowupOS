@@ -67,6 +67,14 @@ export async function POST(request: NextRequest) {
     },
   })
 
+  // Manual sync always does a full scan — clear the stored historyId so the
+  // scanner doesn't use the incremental path (which would return 0 threads
+  // if nothing changed since the last scan).
+  await prisma.emailAccount.update({
+    where: { id: account.id },
+    data: { gmailHistoryId: null },
+  })
+
   // Schedule scan to run after the response is sent.
   // `after()` tells Vercel to keep the function alive until the promise resolves
   // (up to maxDuration above), so the scan isn't killed when the HTTP response returns.
