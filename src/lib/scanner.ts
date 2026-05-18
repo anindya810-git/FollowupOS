@@ -1052,7 +1052,13 @@ async function processThread(params: {
 
   const inputHash = crypto.createHash('md5').update(JSON.stringify(classificationInput)).digest('hex')
 
-  const result = await classifyThread(classificationInput, aiConfig)
+  let result = null
+  let classifyError: string | null = null
+  try {
+    result = await classifyThread(classificationInput, aiConfig)
+  } catch (e) {
+    classifyError = e instanceof Error ? e.message : String(e)
+  }
 
   await prisma.aiClassificationLog.create({
     data: {
@@ -1063,7 +1069,7 @@ async function processThread(params: {
       inputHash,
       outputJson: result ? JSON.stringify(result) : null,
       confidenceScore: result?.confidence ?? null,
-      errorMessage: result ? null : 'Classification failed',
+      errorMessage: result ? null : (classifyError ?? 'Classification failed'),
       usedDefaultKey: aiConfig.isDefaultKey,
       callType: 'classify',
     },

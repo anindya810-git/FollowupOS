@@ -328,8 +328,9 @@ export async function classifyThread(
       case 'openai':    return await classifyOpenAI(input, config)
       case 'gemini':    return await classifyGemini(input, config)
     }
-  } catch {
-    return null
+  } catch (e) {
+    // Re-throw so the caller can log the real error message
+    throw e
   }
 }
 
