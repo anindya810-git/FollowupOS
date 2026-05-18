@@ -4,8 +4,8 @@ interface LogoMarkProps {
 }
 
 export function LogoMark({ className, variant = 'default' }: LogoMarkProps) {
-  const lineColor = variant === 'white' ? '#FFFFFF' : '#0B1220'
-  const lineOpacity = variant === 'white' ? '0.55' : '0.45'
+  const lineColor = (variant === 'white' || variant === 'reversed') ? '#FFFFFF' : '#0B1220'
+  const lineOpacity = (variant === 'white' || variant === 'reversed') ? '0.55' : '0.45'
 
   return (
     <svg viewBox="0 0 56 56" fill="none" className={className} aria-label="Pendingly">
