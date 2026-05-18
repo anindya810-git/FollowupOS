@@ -225,7 +225,7 @@ export default function SettingsPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <InboxSyncButton accountId={account.id} scanning={account.lastScan?.status === 'running' || account.lastScan?.status === 'queued'} onCancelled={fetchIntegrations} />
+                          <InboxSyncButton accountId={account.id} scanning={account.lastScan?.status === 'running' || account.lastScan?.status === 'queued'} onCancelled={fetchIntegrations} onStarted={fetchIntegrations} />
                           <Button variant="outline" size="sm" onClick={() => disconnectAccount(account)}>
                             Disconnect
                           </Button>
@@ -1259,7 +1259,7 @@ function ProfileCard() {
   )
 }
 
-function InboxSyncButton({ accountId, scanning, onCancelled }: { accountId: string; scanning?: boolean; onCancelled?: () => void }) {
+function InboxSyncButton({ accountId, scanning, onCancelled, onStarted }: { accountId: string; scanning?: boolean; onCancelled?: () => void; onStarted?: () => void }) {
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -1274,6 +1274,7 @@ function InboxSyncButton({ accountId, scanning, onCancelled }: { accountId: stri
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Sync failed')
+      onStarted?.()
       setDone(true)
       setTimeout(() => setDone(false), 4000)
     } catch (e) {
