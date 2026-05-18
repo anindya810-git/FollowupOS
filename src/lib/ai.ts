@@ -224,18 +224,51 @@ async function classifyOpenAI(input: ClassificationInput, config: AiConfig): Pro
   return validateClassification(parsed) ? parsed : null
 }
 
+// ─── Gemini rate limiter (free tier: 15 RPM) ─────────────────────────────────
+
+let geminiLastCallAt = 0
+const GEMINI_RPM_GAP_MS = 4200 // ~14.3 RPM, safely under the 15 RPM free tier cap
+
+async function geminiRateLimit() {
+  const wait = GEMINI_RPM_GAP_MS - (Date.now() - geminiLastCallAt)
+  if (wait > 0) await new Promise(r => setTimeout(r, wait))
+  geminiLastCallAt = Date.now()
+}
+
+function isGeminiDailyQuota(msg: string): boolean {
+  return msg.includes('PerDay') || msg.includes('per_day') || msg.includes('PerModelPerDay')
+}
+
 async function classifyGemini(input: ClassificationInput, config: AiConfig): Promise<AiClassificationOutput | null> {
   const genAI = new GoogleGenerativeAI(config.apiKey)
   const model = genAI.getGenerativeModel({
     model: config.model,
     generationConfig: { responseMimeType: 'application/json' },
   })
-  const result = await model.generateContent(
-    `${CLASSIFICATION_SYSTEM}\n\nClassify this thread:\n${JSON.stringify(input)}`
-  )
-  const text = result.response.text()
-  const parsed = JSON.parse(extractJson(text)) as AiClassificationOutput
-  return validateClassification(parsed) ? parsed : null
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await geminiRateLimit()
+    try {
+      const result = await model.generateContent(
+        `${CLASSIFICATION_SYSTEM}\n\nClassify this thread:\n${JSON.stringify(input)}`
+      )
+      const text = result.response.text()
+      const parsed = JSON.parse(extractJson(text)) as AiClassificationOutput
+      return validateClassification(parsed) ? parsed : null
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      const is429 = msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED')
+      if (!is429) throw e
+      if (isGeminiDailyQuota(msg)) {
+        throw new Error('Gemini daily quota exhausted — try again tomorrow or add a paid API key in Settings → AI Provider.')
+      }
+      // Per-minute limit: parse suggested retry delay or back off exponentially
+      const retryMatch = msg.match(/retry in (\d+(?:\.\d+)?)s/i)
+      const waitMs = retryMatch ? Math.ceil(parseFloat(retryMatch[1])) * 1000 : (attempt + 1) * 30_000
+      await new Promise(r => setTimeout(r, Math.min(waitMs, 60_000)))
+    }
+  }
+  throw new Error('Gemini rate limit: too many retries')
 }
 
 async function suggestAnthropic(userContent: string, config: AiConfig): Promise<string | null> {
