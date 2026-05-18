@@ -56,7 +56,12 @@ export default function SettingsPage() {
     digestSettings: { isEnabled: boolean; digestTime: string; timezone: string; slackWebhookUrl?: string | null; slackEnabled?: boolean } | null
     ignoredSenders: Array<{ id: string; senderEmail?: string; domain?: string; reason?: string }>
   }>({ appSettings: null, digestSettings: null, ignoredSenders: [] })
-  const [integrations, setIntegrations] = useState<EmailAccount[]>([])
+  const [integrations, setIntegrations] = useState<EmailAccount[]>(() => {
+    try {
+      const cached = localStorage.getItem('pendingly_integrations')
+      return cached ? JSON.parse(cached) : []
+    } catch { return [] }
+  })
   const [newSender, setNewSender] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -67,8 +72,10 @@ export default function SettingsPage() {
 
   const fetchIntegrations = () =>
     fetch('/api/integrations').then(r => r.json()).then(i => {
-      setIntegrations(i.accounts || [])
-      return i.accounts || []
+      const accounts = i.accounts || []
+      setIntegrations(accounts)
+      try { localStorage.setItem('pendingly_integrations', JSON.stringify(accounts)) } catch {}
+      return accounts
     })
 
   useEffect(() => {
