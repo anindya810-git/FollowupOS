@@ -65,6 +65,7 @@ export default function SettingsPage() {
   const [newSender, setNewSender] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [openErrorLogs, setOpenErrorLogs] = useState<Set<string>>(new Set())
   const [syncingContacts, setSyncingContacts] = useState(false)
   const [contactsSynced, setContactsSynced] = useState<number | null>(null)
   const [slackTesting, setSlackTesting] = useState(false)
@@ -241,9 +242,25 @@ export default function SettingsPage() {
                         const bgStyle = isRunning
                           ? { background: `linear-gradient(to right, rgb(99 102 241 / 12%) ${pct}%, rgb(11 18 32 / 4%) ${pct}%)` }
                           : undefined
+                        // Short summary: everything before the first URL or raw JSON
+                        const errorSummary = (() => {
+                          if (!scan.errorMessage) return ''
+                          const msg = scan.errorMessage
+                          const cut = Math.min(
+                            ...[msg.indexOf(' http'), msg.indexOf('[{'), msg.indexOf(': [429'), 160]
+                              .filter(i => i > 0)
+                          )
+                          return msg.slice(0, cut).replace(/\s*[—:]\s*$/, '').trim() || msg.slice(0, 80)
+                        })()
+                        const logOpen = openErrorLogs.has(account.id)
+                        const toggleLog = () => setOpenErrorLogs(prev => {
+                          const next = new Set(prev)
+                          logOpen ? next.delete(account.id) : next.add(account.id)
+                          return next
+                        })
                         return (
                           <div
-                            className={`mt-2 rounded px-3 py-2 text-xs transition-all duration-500 ${hasError ? 'bg-[rgb(242_90_60/8%)] border border-[rgb(242_90_60/20%)] text-action' : 'text-[rgb(11_18_32/55%)]'}`}
+                            className={`mt-2 rounded px-3 py-2 text-xs transition-all duration-500 ${hasError ? 'bg-[rgb(242_90_60/8%)] border border-[rgb(242_90_60/20%)]' : 'text-[rgb(11_18_32/55%)]'}`}
                             style={!hasError ? (bgStyle ?? { background: 'rgb(11 18 32 / 4%)' }) : undefined}
                           >
                             {isRunning ? (
@@ -252,7 +269,22 @@ export default function SettingsPage() {
                                 <span>{scan.threadsProcessed}/{scan.threadsFound} threads · {pct}%</span>
                               </div>
                             ) : hasError ? (
-                              <span>⚠ {scan.errorMessage}</span>
+                              <div>
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-action font-medium">⚠ {errorSummary}</span>
+                                  <button
+                                    onClick={toggleLog}
+                                    className="shrink-0 text-[11px] text-[rgb(11_18_32/50%)] hover:text-ink underline"
+                                  >
+                                    {logOpen ? 'Hide log' : 'Check error log'}
+                                  </button>
+                                </div>
+                                {logOpen && (
+                                  <pre className="mt-2 text-[10px] text-[rgb(11_18_32/70%)] bg-white/70 rounded border border-[rgb(242_90_60/15%)] p-2 overflow-auto max-h-40 whitespace-pre-wrap break-words leading-relaxed">
+                                    {scan.errorMessage}
+                                  </pre>
+                                )}
+                              </div>
                             ) : (
                               <span>Last scan: {scan.threadsProcessed} threads · {scan.actionItemsCreated} action items found{scan.errorMessage ? ` · ${scan.errorMessage}` : ''}</span>
                             )}
