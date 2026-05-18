@@ -330,27 +330,34 @@ export function decodeBase64(str: string): string {
   }
 }
 
-export function getMessageBody(payload: {
+type MailPart = {
   mimeType?: string | null
   body?: { data?: string | null } | null
-  parts?: Array<{ mimeType?: string | null; body?: { data?: string | null } | null; parts?: unknown[] | null }> | null
-}): string {
-  if (payload.body?.data) {
-    const text = decodeBase64(payload.body.data)
-    if (payload.mimeType === 'text/html') return extractTextFromHtml(text)
-    return text
-  }
-  if (payload.parts) {
-    for (const part of payload.parts) {
-      if (part.mimeType === 'text/plain' && part.body?.data) {
-        return decodeBase64(part.body.data).substring(0, 2000)
-      }
+  parts?: MailPart[] | null
+}
+
+export function getMessageBody(payload: MailPart): string {
+  // Walk the MIME tree depth-first, preferring text/plain over text/html.
+  function collect(part: MailPart): { plain: string; html: string } {
+    let plain = ''
+    let html = ''
+
+    if (part.body?.data) {
+      const decoded = decodeBase64(part.body.data)
+      if (part.mimeType === 'text/plain') plain = decoded
+      else if (part.mimeType === 'text/html') html = extractTextFromHtml(decoded)
     }
-    for (const part of payload.parts) {
-      if (part.mimeType === 'text/html' && part.body?.data) {
-        return extractTextFromHtml(decodeBase64(part.body.data))
-      }
+
+    for (const child of part.parts ?? []) {
+      const sub = collect(child)
+      if (!plain && sub.plain) plain = sub.plain
+      if (!html && sub.html) html = sub.html
     }
+
+    return { plain, html }
   }
-  return ''
+
+  const { plain, html } = collect(payload)
+  const body = plain || html
+  return body.substring(0, 4000)
 }

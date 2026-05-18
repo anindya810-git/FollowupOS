@@ -164,6 +164,7 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
     let processed = 0
     let created = 0
     let aiFailures = 0
+    let noiseFiltered = 0
 
     for (const threadId of allThreadIds) {
       try {
@@ -179,9 +180,9 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
           aiConfig,
         })
         if (result === 'created') created++
-        if (result === 'ai_failed') aiFailures++
+        else if (result === 'ai_failed') aiFailures++
+        else if (result === 'noise') noiseFiltered++
       } catch {
-        // Thread failed — count it so the progress denominator matches threadsFound.
         aiFailures++
       } finally {
         processed++
@@ -207,9 +208,12 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
       },
     })
 
+    const aiClassified = processed - noiseFiltered - aiFailures
     const scanDiagnostic = aiFailures > 0
-      ? `AI classification failed for ${aiFailures} of ${processed} threads — check your API key has credit and isn't rate-limited, or switch provider in Settings.`
-      : null
+      ? `${noiseFiltered} noise-filtered · ${aiClassified} AI-classified · ${aiFailures} AI failures — check your API key has credit and isn't rate-limited.`
+      : noiseFiltered > 0
+        ? `${noiseFiltered} of ${processed} threads were noise/newsletters · ${aiClassified} classified by AI`
+        : null
     await prisma.scanJob.update({
       where: { id: jobId },
       data: {
@@ -827,7 +831,7 @@ async function processThread(params: {
   userPreferences: { default_followup_days: number; conservative_mode: boolean }
   provider?: string
   aiConfig: AiConfig
-}): Promise<'created' | 'skipped' | 'ai_failed'> {
+}): Promise<'created' | 'skipped' | 'noise' | 'ai_failed'> {
   const { gmail, threadId, userId, emailAccountId, userEmail, userTimezone, userPreferences, provider = 'gmail', aiConfig } = params
 
   const threadRes = await gmail.users.threads.get({
@@ -858,9 +862,9 @@ async function processThread(params: {
       ],
     },
   })
-  if (ignoredSender) return 'skipped'
+  if (ignoredSender) return 'noise'
 
-  if (isNoisyThread(labels, senderEmail, subject)) return 'skipped'
+  if (isNoisyThread(labels, senderEmail, subject)) return 'noise'
 
   // Compute thread hash
   const lastMessage = messages[messages.length - 1]
