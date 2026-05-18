@@ -142,18 +142,31 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
       afterDate.setDate(afterDate.getDate() - scanWindowDays)
       const afterTimestamp = Math.floor(afterDate.getTime() / 1000)
 
-      let nextPageToken: string | undefined
-      do {
-        const res = await gmail.users.threads.list({
-          userId: 'me',
-          q: `after:${afterTimestamp} -in:spam -in:trash`,
-          maxResults: 100,
-          pageToken: nextPageToken,
-        })
-        const threads = res.data.threads || []
-        allThreadIds = allThreadIds.concat(threads.map(t => t.id!).filter(Boolean))
-        nextPageToken = res.data.nextPageToken || undefined
-      } while (nextPageToken && allThreadIds.length < 500)
+      // Try Gmail's Primary category first — this excludes Promotions, Social,
+      // Updates and Forums at the API level, so we only fetch real conversations.
+      // Fall back to the full inbox query if Primary returns nothing (some accounts
+      // have everything auto-categorised out of Primary).
+      const fetchThreadIds = async (q: string) => {
+        const ids: string[] = []
+        let pageToken: string | undefined
+        do {
+          const res = await gmail.users.threads.list({ userId: 'me', q, maxResults: 100, pageToken })
+          ids.push(...(res.data.threads || []).map(t => t.id!).filter(Boolean))
+          pageToken = res.data.nextPageToken || undefined
+        } while (pageToken && ids.length < 500)
+        return ids
+      }
+
+      allThreadIds = await fetchThreadIds(
+        `after:${afterTimestamp} -in:spam -in:trash category:primary`
+      )
+
+      if (allThreadIds.length === 0) {
+        // Primary was empty — fall back to full inbox (all tabs)
+        allThreadIds = await fetchThreadIds(
+          `after:${afterTimestamp} -in:spam -in:trash`
+        )
+      }
     }
 
     await prisma.scanJob.update({
