@@ -49,7 +49,7 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
 
     const userPreferences = {
       default_followup_days: appSettings?.defaultFollowupDays ?? 3,
-      conservative_mode: appSettings?.conservativeMode ?? true,
+      conservative_mode: false,
     }
 
     if (account.provider === 'outlook') {
