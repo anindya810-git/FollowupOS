@@ -278,7 +278,9 @@ export default function SettingsPage() {
                       {account.lastScan && (() => {
                         const scan = account.lastScan
                         const isRunning = scan.status === 'running' || scan.status === 'queued'
-                        const hasError = !!scan.errorMessage && scan.errorMessage.includes('failure')
+                        const isCancelled = scan.status === 'failed' && scan.errorMessage === 'Cancelled by user.'
+                        const hasError = scan.status === 'failed' && !!scan.errorMessage && !isCancelled
+                        const hasFailed = isCancelled || hasError
                         const pct = isRunning && scan.threadsFound > 0
                           ? Math.round((scan.threadsProcessed / scan.threadsFound) * 100)
                           : 0
@@ -288,6 +290,7 @@ export default function SettingsPage() {
                         // Short summary: just the "N AI failures" part before the em-dash
                         const errorSummary = (() => {
                           if (!scan.errorMessage) return ''
+                          if (isCancelled) return 'Cancelled by user'
                           const dashIdx = scan.errorMessage.indexOf(' — ')
                           return dashIdx > 0
                             ? scan.errorMessage.slice(0, dashIdx).trim()
@@ -301,27 +304,31 @@ export default function SettingsPage() {
                         })
                         return (
                           <div
-                            className={`mt-2 rounded px-3 py-2 text-xs transition-all duration-500 ${hasError ? 'bg-[rgb(242_90_60/8%)] border border-[rgb(242_90_60/20%)]' : 'text-[rgb(11_18_32/55%)]'}`}
-                            style={!hasError ? (bgStyle ?? { background: 'rgb(11 18 32 / 4%)' }) : undefined}
+                            className={`mt-2 rounded px-3 py-2 text-xs transition-all duration-500 ${hasError ? 'bg-[rgb(242_90_60/8%)] border border-[rgb(242_90_60/20%)]' : isCancelled ? 'bg-[rgb(11_18_32/4%)] border border-[rgb(11_18_32/8%)]' : 'text-[rgb(11_18_32/55%)]'}`}
+                            style={!hasFailed ? (bgStyle ?? { background: 'rgb(11 18 32 / 4%)' }) : undefined}
                           >
                             {isRunning ? (
                               <div className="flex justify-between">
                                 <span className="font-medium text-ink">Scanning…</span>
                                 <span>{scan.threadsProcessed}/{scan.threadsFound} threads · {pct}%</span>
                               </div>
-                            ) : hasError ? (
+                            ) : hasFailed ? (
                               <div>
                                 <div className="flex items-center justify-between gap-2">
-                                  <span className="text-action font-medium">⚠ {errorSummary} · {scan.actionItemsCreated} action items</span>
-                                  <button
-                                    onClick={toggleLog}
-                                    className="shrink-0 text-[11px] text-[rgb(11_18_32/50%)] hover:text-ink underline"
-                                  >
-                                    {logOpen ? 'Hide log' : 'Check error log'}
-                                  </button>
+                                  <span className={`font-medium ${hasError ? 'text-action' : 'text-[rgb(11_18_32/60%)]'}`}>
+                                    {hasError ? '⚠ ' : '○ '}{errorSummary} · {scan.threadsProcessed} threads · {scan.actionItemsCreated} action items
+                                  </span>
+                                  {scan.errorMessage && (
+                                    <button
+                                      onClick={toggleLog}
+                                      className="shrink-0 text-[11px] text-[rgb(11_18_32/50%)] hover:text-ink underline"
+                                    >
+                                      {logOpen ? 'Hide log' : 'View log'}
+                                    </button>
+                                  )}
                                 </div>
-                                {logOpen && (
-                                  <pre className="mt-2 text-[10px] text-[rgb(11_18_32/70%)] bg-white/70 rounded border border-[rgb(242_90_60/15%)] p-2 overflow-auto max-h-40 whitespace-pre-wrap break-words leading-relaxed">
+                                {logOpen && scan.errorMessage && (
+                                  <pre className={`mt-2 text-[10px] text-[rgb(11_18_32/70%)] bg-white/70 rounded border p-2 overflow-auto max-h-40 whitespace-pre-wrap break-words leading-relaxed ${hasError ? 'border-[rgb(242_90_60/15%)]' : 'border-[rgb(11_18_32/10%)]'}`}>
                                     {scan.errorMessage}
                                   </pre>
                                 )}
