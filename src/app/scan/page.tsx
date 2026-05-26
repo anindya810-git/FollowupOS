@@ -104,8 +104,15 @@ function ScanProgress() {
   return (
     <div className="min-h-screen bg-paper flex items-center justify-center p-4">
       <div className="max-w-md w-full text-center">
-        <div className="flex items-center justify-center mb-8">
-          <LogoLockup size="lg" />
+        <div className="flex flex-col items-center gap-3 mb-8">
+          {status === 'completed' ? (
+            <LogoLockup size="lg" />
+          ) : (
+            <>
+              <PendinglyLoader size={64} variant="light" />
+              <span className="text-xl font-semibold tracking-[-0.02em] text-ink">Pendingly</span>
+            </>
+          )}
         </div>
 
         <h1 className="text-2xl font-bold text-ink mb-2">Building your action queue</h1>
