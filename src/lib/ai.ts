@@ -270,13 +270,16 @@ async function classifyGemini(input: ClassificationInput, config: AiConfig): Pro
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       const is429 = msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED')
-      if (!is429) throw e
+      const is503 = msg.includes('503') || msg.includes('Service Unavailable') || msg.includes('high demand')
+      if (!is429 && !is503) throw e
       if (isGeminiDailyQuota(msg)) {
         throw new Error('Gemini daily quota exhausted — try again tomorrow or add a paid API key in Settings → AI Provider.')
       }
-      // Per-minute limit: parse suggested retry delay or back off exponentially
+      // 503 overload: back off 5s, 10s, 20s. 429 rate limit: use suggested delay.
       const retryMatch = msg.match(/retry in (\d+(?:\.\d+)?)s/i)
-      const waitMs = retryMatch ? Math.ceil(parseFloat(retryMatch[1])) * 1000 : (attempt + 1) * 30_000
+      const waitMs = is503
+        ? (attempt + 1) * 5_000
+        : retryMatch ? Math.ceil(parseFloat(retryMatch[1])) * 1000 : (attempt + 1) * 30_000
       await new Promise(r => setTimeout(r, Math.min(waitMs, 60_000)))
     }
   }
