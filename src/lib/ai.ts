@@ -252,11 +252,10 @@ function isGeminiDailyQuota(msg: string): boolean {
 
 async function classifyGemini(input: ClassificationInput, config: AiConfig): Promise<AiClassificationOutput | null> {
   const genAI = new GoogleGenerativeAI(config.apiKey)
-  // responseMimeType is v1beta-only; v1 rejects it — rely on extractJson() instead.
-  const model = genAI.getGenerativeModel(
-    { model: config.model },
-    { apiVersion: 'v1' },
-  )
+  // Use v1beta (SDK default) — gemini-2.5-flash is a preview model and only
+  // available on the v1beta endpoint. v1 returns 403 "access denied" for it.
+  // responseMimeType has been removed so v1beta works without issue.
+  const model = genAI.getGenerativeModel({ model: config.model })
 
   for (let attempt = 0; attempt < 3; attempt++) {
     await geminiRateLimit()
@@ -314,7 +313,8 @@ async function suggestOpenAI(userContent: string, config: AiConfig): Promise<str
 
 async function suggestGemini(userContent: string, config: AiConfig): Promise<string | null> {
   const genAI = new GoogleGenerativeAI(config.apiKey)
-  const model = genAI.getGenerativeModel({ model: config.model }, { apiVersion: 'v1' })
+  // v1beta default — gemini-2.5-flash requires v1beta (preview model)
+  const model = genAI.getGenerativeModel({ model: config.model })
   const result = await model.generateContent(`${SUGGESTION_SYSTEM}\n\n${userContent}`)
   let text = result.response.text().trim()
   // Gemini sometimes wraps responses in ```text … ``` even when not asked.
@@ -354,11 +354,8 @@ async function draftOpenAI(userContent: string, config: AiConfig): Promise<{ dra
 
 async function draftGemini(userContent: string, config: AiConfig): Promise<{ draft: string; subject_suggestion: string } | null> {
   const genAI = new GoogleGenerativeAI(config.apiKey)
-  // responseMimeType is v1beta-only; v1 rejects it — rely on extractJson() instead.
-  const model = genAI.getGenerativeModel(
-    { model: config.model },
-    { apiVersion: 'v1' },
-  )
+  // v1beta default — gemini-2.5-flash requires v1beta (preview model)
+  const model = genAI.getGenerativeModel({ model: config.model })
   const result = await model.generateContent(`${DRAFT_SYSTEM}\n\n${userContent}`)
   return JSON.parse(extractJson(result.response.text()))
 }
