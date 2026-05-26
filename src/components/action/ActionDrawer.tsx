@@ -128,8 +128,15 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
   if (!item) return null
   const active = detail || item
 
+  // The "contact" is whoever sent the email — last inbound (non-user) message.
+  // ownerEmail is set by the AI classifier and can be the user's own address
+  // when owner_type=user, so we prefer the inbound message sender.
+  const lastInbound = active.emailThread?.messages?.find(m => !m.isFromUser)
+  const contactEmail = lastInbound?.senderEmail || ''
+  const contactName = lastInbound?.senderName || active.ownerName || ''
+
   const ignoreSender = async (scope: 'email' | 'domain') => {
-    const email = active.ownerEmail || active.emailThread?.messages?.[0]?.senderEmail || ''
+    const email = contactEmail
     if (!email) return
     const domain = email.split('@')[1] || ''
     const label = scope === 'email' ? email : `@${domain}`
@@ -266,30 +273,32 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
             <h2 className="text-base font-semibold text-ink leading-snug">
               {active.title || active.emailThread?.subject}
             </h2>
-            {(active.ownerName || active.ownerEmail) && (
+            {(contactName || contactEmail) && (
               <div className="flex items-center gap-2 mt-1 flex-wrap">
-                <p className="text-sm text-[rgb(11_18_32/55%)]">{active.ownerName} · {active.ownerEmail}</p>
-                {active.ownerEmail && (
+                <p className="text-sm text-[rgb(11_18_32/55%)]">
+                  {contactName}{contactName && contactEmail ? ' · ' : ''}{contactEmail}
+                </p>
+                {contactEmail && (
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
                       onClick={() => ignoreSender('email')}
                       disabled={ignoring}
                       className="inline-flex items-center gap-1 text-[10px] text-[rgb(11_18_32/55%)] hover:text-ink border border-[rgb(11_18_32/15%)] hover:border-[rgb(11_18_32/30%)] px-1.5 py-0.5 rounded transition-colors disabled:opacity-50"
-                      title={`Stop showing emails from ${active.ownerEmail}`}
+                      title={`Stop showing emails from ${contactEmail}`}
                     >
                       <UserX className="h-2.5 w-2.5" />
                       Ignore sender
                     </button>
-                    {active.ownerEmail.includes('@') && (
+                    {contactEmail.includes('@') && (
                       <button
                         type="button"
                         onClick={() => ignoreSender('domain')}
                         disabled={ignoring}
                         className="inline-flex items-center gap-1 text-[10px] text-[rgb(11_18_32/55%)] hover:text-ink border border-[rgb(11_18_32/15%)] hover:border-[rgb(11_18_32/30%)] px-1.5 py-0.5 rounded transition-colors disabled:opacity-50"
-                        title={`Stop showing emails from @${active.ownerEmail.split('@')[1]}`}
+                        title={`Stop showing emails from @${contactEmail.split('@')[1]}`}
                       >
-                        Ignore @{active.ownerEmail.split('@')[1]}
+                        Ignore @{contactEmail.split('@')[1]}
                       </button>
                     )}
                   </div>

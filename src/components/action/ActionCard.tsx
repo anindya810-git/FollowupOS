@@ -1,7 +1,7 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { categoryLabel, timeAgo } from '@/lib/utils'
-import { ExternalLink, Clock, Check, EyeOff, Calendar as CalendarIcon, AlertCircle, Archive, Link2, Paperclip } from 'lucide-react'
+import { ExternalLink, Clock, Check, EyeOff, Calendar as CalendarIcon, AlertCircle, Archive, Link2, Paperclip, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { playChime } from '@/lib/sounds'
 import { SnoozeMenu } from './SnoozeMenu'
@@ -33,11 +33,48 @@ function formatMeetingTime(iso: string): string {
 
 export function ActionCard({ item, onStatusChange, onSelect, selected, onSelectChange, meeting }: ActionCardProps) {
   const [loading, setLoading] = useState(false)
+  const [ignoreOpen, setIgnoreOpen] = useState(false)
+  const [ignoring, setIgnoring] = useState(false)
+  const ignoreRef = useRef<HTMLDivElement>(null)
 
   const handle = async (status: string, extra?: Record<string, string>) => {
     setLoading(true)
     await onStatusChange(item.id, status, extra)
     setLoading(false)
+  }
+
+  // Close ignore popup when clicking outside
+  useEffect(() => {
+    if (!ignoreOpen) return
+    const handler = (e: MouseEvent) => {
+      if (ignoreRef.current && !ignoreRef.current.contains(e.target as Node)) {
+        setIgnoreOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [ignoreOpen])
+
+  const lastInbound = item.emailThread?.messages?.find(m => !m.isFromUser)
+  const senderEmail = lastInbound?.senderEmail || item.ownerEmail || ''
+  const senderDomain = senderEmail.includes('@') ? senderEmail.split('@')[1] : ''
+
+  const ignoreSender = async (scope: 'email' | 'domain') => {
+    setIgnoring(true)
+    setIgnoreOpen(false)
+    try {
+      if (senderEmail) {
+        const body = scope === 'email' ? { sender_email: senderEmail } : { domain: senderDomain }
+        await fetch('/api/settings/ignored-senders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+      }
+      await handle('ignored')
+    } finally {
+      setIgnoring(false)
+    }
   }
 
   const selectable = typeof onSelectChange === 'function'
@@ -181,16 +218,39 @@ export function ActionCard({ item, onStatusChange, onSelect, selected, onSelectC
           <Check className="h-3 w-3 mr-1" />
           Done
         </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="transition-all duration-150"
-          onClick={() => handle('ignored')}
-          disabled={loading}
-        >
-          <EyeOff className="h-3 w-3 mr-1" />
-          Ignore
-        </Button>
+        <div ref={ignoreRef} className="relative">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="transition-all duration-150"
+            onClick={(e) => { e.stopPropagation(); setIgnoreOpen(o => !o) }}
+            disabled={loading || ignoring}
+          >
+            <EyeOff className="h-3 w-3 mr-1" />
+            Ignore
+            <ChevronDown className="h-3 w-3 ml-0.5" />
+          </Button>
+          {ignoreOpen && (
+            <div className="absolute bottom-full left-0 mb-1 bg-white border border-rule rounded-lg shadow-lg z-50 min-w-[200px] py-1 text-xs">
+              <button
+                className="w-full text-left px-3 py-2 hover:bg-paper-2 text-ink"
+                onClick={(e) => { e.stopPropagation(); ignoreSender('email') }}
+              >
+                <span className="font-medium">Ignore this sender</span>
+                {senderEmail && <span className="block text-[rgb(11_18_32/40%)] truncate">{senderEmail}</span>}
+              </button>
+              {senderDomain && (
+                <button
+                  className="w-full text-left px-3 py-2 hover:bg-paper-2 text-ink border-t border-rule"
+                  onClick={(e) => { e.stopPropagation(); ignoreSender('domain') }}
+                >
+                  <span className="font-medium">Ignore all from @{senderDomain}</span>
+                  <span className="block text-[rgb(11_18_32/40%)]">Every email from this domain</span>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
