@@ -35,7 +35,7 @@ function ScanProgress() {
       await fetch('/api/scan/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ account_id: account.id, scan_window_days: 30 }),
+        body: JSON.stringify({ account_id: account.id, scan_window_days: 14 }),
       })
     }
   }, [jobId])
@@ -114,7 +114,7 @@ function ScanProgress() {
             ? `Analyzed ${progress.processed} of ${progress.found} threads — ${progress.created} action item${progress.created !== 1 ? 's' : ''} found so far...`
             : progress.found > 0
             ? `Analyzing ${progress.found} threads for follow-ups...`
-            : 'Scanning your Gmail inbox...'}
+            : 'Scanning your last 14 days of email...'}
         </p>
 
         {error ? (
@@ -146,7 +146,7 @@ function ScanProgress() {
 
 export default function ScanPage() {
   return (
-    <Suspense fallback={<PendinglyLoaderPage label="Scanning your inbox…" sublabel="Reading the last 30 days. Building your queue." />}>
+    <Suspense fallback={<PendinglyLoaderPage label="Scanning your inbox…" sublabel="Reading the last 14 days. Building your queue." />}>
       <ScanProgress />
     </Suspense>
   )

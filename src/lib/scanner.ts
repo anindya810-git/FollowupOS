@@ -180,9 +180,13 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
     let noiseFiltered = 0
     const aiErrorSamples: string[] = []
 
-    for (const threadId of allThreadIds) {
-      try {
-        const result = await processThread({
+    // Process in parallel batches of 5 — ~5× faster than sequential while
+    // staying well within Gmail's per-user quota (250 units/s; threads.get = 5 units).
+    const BATCH_SIZE = 5
+    for (let i = 0; i < allThreadIds.length; i += BATCH_SIZE) {
+      const batch = allThreadIds.slice(i, i + BATCH_SIZE)
+      const batchResults = await Promise.allSettled(
+        batch.map(threadId => processThread({
           gmail,
           threadId,
           userId,
@@ -192,27 +196,28 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
           userPreferences,
           provider: account.provider,
           aiConfig,
-        })
-        if (result === 'created') created++
-        else if (result === 'ai_failed') aiFailures++
-        else if (result === 'noise') noiseFiltered++
-      } catch (e) {
-        aiFailures++
-        if (aiErrorSamples.length < 3) {
-          aiErrorSamples.push(e instanceof Error ? e.message : String(e))
-        }
-      } finally {
+        }))
+      )
+
+      for (const r of batchResults) {
         processed++
+        if (r.status === 'fulfilled') {
+          if (r.value === 'created') created++
+          else if (r.value === 'ai_failed') aiFailures++
+          else if (r.value === 'noise') noiseFiltered++
+        } else {
+          aiFailures++
+          if (aiErrorSamples.length < 3) {
+            aiErrorSamples.push(r.reason instanceof Error ? r.reason.message : String(r.reason))
+          }
+        }
       }
 
-      if (processed % 3 === 0) {
-        await prisma.scanJob.update({
-          where: { id: jobId },
-          data: { threadsProcessed: processed, actionItemsCreated: created },
-        })
-      }
-      // Rate limiting
-      await new Promise(r => setTimeout(r, 100))
+      // Update progress after every batch
+      await prisma.scanJob.update({
+        where: { id: jobId },
+        data: { threadsProcessed: processed, actionItemsCreated: created },
+      })
     }
 
     await prisma.emailAccount.update({
