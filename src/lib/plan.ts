@@ -25,8 +25,8 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
   free: {
     emailAccounts: 1,
     aiCallsPerMonth: 1000,
-    scanWindowDays: 7,          // 7-day look-back on first scan
-    maxThreadsPerScan: 75,      // cap to stay within Vercel timeout
+    scanWindowDays: 3,          // last 3 days (matches pricing page)
+    maxThreadsPerScan: 50,      // conservative cap to stay within Vercel timeout
     followupSequenceSteps: 0,
     canDisableSignature: false,
     calendarAutoCreate: false,
@@ -36,8 +36,8 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
   lite: {
     emailAccounts: 3,
     aiCallsPerMonth: 5000,
-    scanWindowDays: 30,         // 30-day look-back on first scan
-    maxThreadsPerScan: 200,
+    scanWindowDays: 7,          // last 7 days (matches pricing page)
+    maxThreadsPerScan: 150,
     followupSequenceSteps: 3,
     canDisableSignature: true,
     calendarAutoCreate: true,
@@ -47,8 +47,8 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
   pro: {
     emailAccounts: -1,
     aiCallsPerMonth: -1,
-    scanWindowDays: 30,         // 30-day look-back on first scan
-    maxThreadsPerScan: 200,
+    scanWindowDays: 30,         // full 30-day history (matches pricing page)
+    maxThreadsPerScan: 300,
     followupSequenceSteps: -1,
     canDisableSignature: true,
     calendarAutoCreate: true,

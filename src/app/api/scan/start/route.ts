@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
   const plan = await getUserPlan(session.user.id)
   const limits = PLAN_LIMITS[plan.type]
 
-  // First scan: use the full plan look-back window (7 days free / 30 days paid).
+  // First scan: use the full plan look-back window (3 days free / 7 days lite / 30 days pro).
   // Subsequent syncs: only look at the last 7 days for Outlook/IMAP (Gmail uses
   // the incremental History API and ignores this window entirely).
   const isFirstScan = !account.initialScanCompleted

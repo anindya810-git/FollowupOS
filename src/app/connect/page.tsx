@@ -41,7 +41,7 @@ export default async function ConnectPage() {
           <div className="mt-8 space-y-2 border-t border-[rgb(11_18_32/8%)] pt-6">
             {[
               'Read-only — we never send emails on your behalf',
-              'Only the last 30 days of email are scanned',
+              'Scans 3–30 days of email history depending on your plan',
               'Disconnect any account at any time from Settings',
             ].map(text => (
               <p key={text} className="text-xs text-[rgb(11_18_32/55%)] flex items-start gap-2">
