@@ -25,7 +25,13 @@ export function Header({ title, userEmail, onSync }: HeaderProps) {
       <h1 className="text-sm font-semibold text-ink tracking-tight">{title}</h1>
       <div className="flex items-center gap-2">
         {onSync && (
-          <Button variant="ghost" size="sm" onClick={handleSync} disabled={syncing}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleSync}
+            disabled={syncing}
+            title="Refresh — re-fetches your latest action items and dashboard data"
+          >
             <RefreshCw className={cn('h-3.5 w-3.5', syncing && 'animate-spin')} />
           </Button>
         )}

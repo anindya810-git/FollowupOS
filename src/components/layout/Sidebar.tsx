@@ -1,6 +1,6 @@
 'use client'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { LogoMark } from '@/components/ui/Logo'
 import { OpenInboxButton } from '@/components/layout/OpenInboxButton'
@@ -17,6 +17,7 @@ import {
   Gift,
   Zap,
   CreditCard,
+  CheckCircle2,
 } from 'lucide-react'
 
 const navGroups = [
@@ -25,6 +26,7 @@ const navGroups = [
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { href: '/queue', label: 'All Items', icon: ListTodo },
+      { href: '/queue?status=done', label: 'Completed', icon: CheckCircle2 },
       { href: '/analytics', label: 'Analytics', icon: BarChart2 },
     ],
   },
@@ -49,6 +51,7 @@ const navGroups = [
 
 export function Sidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
 
   return (
     <div className="flex h-screen w-60 flex-shrink-0 flex-col bg-ink text-white">
@@ -76,7 +79,10 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
             </p>
             {group.items.map(item => {
               const Icon = item.icon
-              const isActive = pathname === item.href.split('?')[0] && !item.href.includes('?')
+              const [itemPath, itemQuery] = item.href.split('?')
+              const isActive = itemQuery
+                ? pathname === itemPath && new URLSearchParams(itemQuery).toString() === searchParams.toString()
+                : pathname === itemPath && searchParams.toString() === ''
               return (
                 <Link
                   key={item.href}

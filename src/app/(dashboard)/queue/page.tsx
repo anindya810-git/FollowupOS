@@ -85,7 +85,10 @@ function QueueContent() {
 
   const title = category
     ? categoryLabel(category)
-    : status === 'snoozed' ? 'Snoozed' : status === 'ignored' ? 'Ignored' : 'Action Queue'
+    : status === 'snoozed' ? 'Snoozed'
+    : status === 'ignored' ? 'Ignored'
+    : status === 'done' ? 'Completed'
+    : 'Action Queue'
 
   return (
     <>
@@ -111,7 +114,7 @@ function QueueContent() {
           <div className="rounded-xl bg-white border border-[rgb(11_18_32/8%)] p-12 text-center">
             <p className="text-[rgb(11_18_32/55%)] text-lg">No items found.</p>
             <p className="text-[rgb(11_18_32/30%)] text-sm mt-1">
-              {status === 'open' ? 'Your inbox is clear — no follow-ups needed.' : 'Nothing here yet.'}
+              {status === 'open' ? 'Your inbox is clear — no follow-ups needed.' : status === 'done' ? 'Nothing completed yet.' : 'Nothing here yet.'}
             </p>
           </div>
         ) : (

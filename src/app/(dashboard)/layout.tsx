@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Sidebar } from '@/components/layout/Sidebar'
@@ -69,7 +69,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         transition-transform duration-300 ease-in-out
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}>
-        <Sidebar onClose={() => setSidebarOpen(false)} />
+        <Suspense fallback={<div className="w-60 flex-shrink-0 bg-ink" />}>
+          <Sidebar onClose={() => setSidebarOpen(false)} />
+        </Suspense>
       </div>
       <div className="flex flex-col flex-1 overflow-hidden min-w-0">
         {/* Plan expiry banner — shown when ≤14 days left on free trial */}
