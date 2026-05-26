@@ -25,6 +25,14 @@ export async function GET() {
           providerUrl: true,
           lastMessageAt: true,
           participants: true,
+          // Last inbound message so ActionCard can show sender name/email
+          // and populate the ignore-sender/ignore-domain dropdown correctly.
+          messages: {
+            where: { isFromUser: false },
+            orderBy: { sentAt: 'desc' },
+            take: 1,
+            select: { senderEmail: true, senderName: true, isFromUser: true, linksJson: true, attachmentsJson: true },
+          },
         },
       },
     },

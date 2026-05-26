@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
               where: { isFromUser: false },
               orderBy: { sentAt: 'desc' },
               take: 1,
-              select: { linksJson: true, attachmentsJson: true },
+              select: { senderEmail: true, senderName: true, isFromUser: true, linksJson: true, attachmentsJson: true },
             },
           },
         },
