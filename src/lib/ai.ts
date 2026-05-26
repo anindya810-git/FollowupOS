@@ -252,8 +252,9 @@ function isGeminiDailyQuota(msg: string): boolean {
 
 async function classifyGemini(input: ClassificationInput, config: AiConfig): Promise<AiClassificationOutput | null> {
   const genAI = new GoogleGenerativeAI(config.apiKey)
+  // responseMimeType is v1beta-only; v1 rejects it — rely on extractJson() instead.
   const model = genAI.getGenerativeModel(
-    { model: config.model, generationConfig: { responseMimeType: 'application/json' } },
+    { model: config.model },
     { apiVersion: 'v1' },
   )
 
@@ -350,8 +351,9 @@ async function draftOpenAI(userContent: string, config: AiConfig): Promise<{ dra
 
 async function draftGemini(userContent: string, config: AiConfig): Promise<{ draft: string; subject_suggestion: string } | null> {
   const genAI = new GoogleGenerativeAI(config.apiKey)
+  // responseMimeType is v1beta-only; v1 rejects it — rely on extractJson() instead.
   const model = genAI.getGenerativeModel(
-    { model: config.model, generationConfig: { responseMimeType: 'application/json' } },
+    { model: config.model },
     { apiVersion: 'v1' },
   )
   const result = await model.generateContent(`${DRAFT_SYSTEM}\n\n${userContent}`)
