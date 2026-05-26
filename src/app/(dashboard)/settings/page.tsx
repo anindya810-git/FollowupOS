@@ -852,9 +852,9 @@ type AiConfigStatus = {
 }
 
 const PROVIDER_META = {
-  gemini:    { label: 'Google Gemini',  placeholder: 'AIza...',     docs: 'https://aistudio.google.com/apikey',         note: 'Free tier available — get a key at Google AI Studio. Model: gemini-2.0-flash.' },
-  anthropic: { label: 'Anthropic',      placeholder: 'sk-ant-...',  docs: 'https://console.anthropic.com/settings/keys', note: 'Claude Sonnet 4.6. ~$0.20–0.50 per inbox scan.' },
-  openai:    { label: 'OpenAI',         placeholder: 'sk-...',      docs: 'https://platform.openai.com/api-keys',        note: 'GPT-4o mini. Very cost-effective per scan.' },
+  gemini:    { label: 'Google Gemini',  model: 'gemini-2.5-flash-lite', placeholder: 'AIza...',     docs: 'https://aistudio.google.com/apikey',         note: 'Free tier available — get a key at Google AI Studio.' },
+  anthropic: { label: 'Anthropic',      model: 'claude-sonnet-4-6',     placeholder: 'sk-ant-...',  docs: 'https://console.anthropic.com/settings/keys', note: '~$0.20–0.50 per inbox scan.' },
+  openai:    { label: 'OpenAI',         model: 'gpt-4o-mini',           placeholder: 'sk-...',      docs: 'https://platform.openai.com/api-keys',        note: 'Very cost-effective per scan.' },
 } as const
 
 type Provider = keyof typeof PROVIDER_META
@@ -1154,8 +1154,11 @@ function AiProviderCard() {
             return (
               <div key={provider} className={`rounded-lg border p-4 space-y-2.5 ${isActive && anyConfigured ? 'border-action/40 bg-action/[0.03]' : 'border-[rgb(11_18_32/8%)]'}`}>
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm font-medium text-ink">{meta.label}</p>
+                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-[rgb(11_18_32/6%)] text-[rgb(11_18_32/50%)]" style={{ fontFamily: 'var(--font-mono)' }}>
+                      {meta.model}
+                    </span>
                     {isActive && anyConfigured && (
                       <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-action/10 text-action">Active</span>
                     )}
