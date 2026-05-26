@@ -221,10 +221,18 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
         }
       }
 
-      // Update progress after every batch
+      // Update progress after every batch, including running error diagnostic
+      // so that if the scan is cancelled mid-flight the error info is preserved.
+      const runningDiagnostic = aiFailures > 0
+        ? `${aiFailures} AI failure${aiFailures === 1 ? '' : 's'} — ${aiErrorSamples[0] ?? 'unknown error'}`
+        : null
       await prisma.scanJob.update({
         where: { id: jobId },
-        data: { threadsProcessed: processed, actionItemsCreated: created },
+        data: {
+          threadsProcessed: processed,
+          actionItemsCreated: created,
+          ...(runningDiagnostic !== null ? { errorMessage: runningDiagnostic } : {}),
+        },
       })
     }
 
@@ -246,8 +254,9 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
     } else if (noiseFiltered > 0) {
       scanDiagnostic = `${noiseFiltered} noise-filtered · ${aiClassified} AI-classified`
     }
-    await prisma.scanJob.update({
-      where: { id: jobId },
+    // Only mark completed if the job hasn't already been cancelled by the user.
+    await prisma.scanJob.updateMany({
+      where: { id: jobId, status: { not: 'failed' } },
       data: {
         status: 'completed',
         threadsProcessed: processed,

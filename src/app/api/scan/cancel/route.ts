@@ -27,14 +27,26 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  const updated = await prisma.scanJob.updateMany({
+  // Read jobs first so we can preserve any accumulated error info written
+  // by the scanner during partial processing.
+  const jobs = await prisma.scanJob.findMany({
     where: {
       emailAccountId: account_id,
       userId: session.user.id,
       status: { in: ['queued', 'running'] },
     },
-    data: { status: 'failed', errorMessage: 'Cancelled by user.' },
+    select: { id: true, errorMessage: true },
   })
 
-  return NextResponse.json({ cancelled: updated.count })
+  for (const job of jobs) {
+    const cancelMsg = job.errorMessage
+      ? `Cancelled by user. — ${job.errorMessage}`
+      : 'Cancelled by user.'
+    await prisma.scanJob.update({
+      where: { id: job.id },
+      data: { status: 'failed', errorMessage: cancelMsg },
+    })
+  }
+
+  return NextResponse.json({ cancelled: jobs.length })
 }
