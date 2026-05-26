@@ -22,6 +22,8 @@ export async function POST(request: NextRequest) {
   }
   const account_id = typeof body.account_id === 'string' ? body.account_id : undefined
   const requested_days = typeof body.scan_window_days === 'number' ? body.scan_window_days : 30
+  // Optional hard cap on threads classified (used for onboarding quick-scan)
+  const max_threads = typeof body.max_threads === 'number' ? body.max_threads : undefined
 
   // Cap by plan: free=3d, lite=7d, pro=unlimited (use whatever the user asked for)
   const plan = await getUserPlan(session.user.id)
@@ -85,15 +87,15 @@ export async function POST(request: NextRequest) {
   // Schedule scan to run after the response is sent.
   // `after()` tells Vercel to keep the function alive until the promise resolves
   // (up to maxDuration above), so the scan isn't killed when the HTTP response returns.
-  after(triggerScan(scanJob.id, session.user.id, account.id, scan_window_days))
+  after(triggerScan(scanJob.id, session.user.id, account.id, scan_window_days, max_threads))
 
   return NextResponse.json({ job_id: scanJob.id, status: 'queued' })
 }
 
-async function triggerScan(jobId: string, userId: string, accountId: string, days: number) {
+async function triggerScan(jobId: string, userId: string, accountId: string, days: number, maxThreads?: number) {
   try {
     const { runInitialScan } = await import('@/lib/scanner')
-    await runInitialScan(jobId, userId, accountId, days)
+    await runInitialScan(jobId, userId, accountId, days, maxThreads)
   } catch (error) {
     safeLog('error', 'scan-start', error)
   }

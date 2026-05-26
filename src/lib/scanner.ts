@@ -20,7 +20,7 @@ function countRepeatedAsks(messages: Array<{ is_from_user: boolean; from: string
   return count
 }
 
-export async function runInitialScan(jobId: string, userId: string, emailAccountId: string, scanWindowDays: number = 30) {
+export async function runInitialScan(jobId: string, userId: string, emailAccountId: string, scanWindowDays: number = 30, maxThreads?: number) {
   try {
     await prisma.scanJob.update({ where: { id: jobId }, data: { status: 'running' } })
 
@@ -167,6 +167,12 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
           `after:${afterTimestamp} -in:spam -in:trash`
         )
       }
+    }
+
+    // Onboarding quick-scan: cap threads so the scan finishes within Vercel's
+    // 60 s Hobby timeout (12 threads × 4.2 s Gemini gap ≈ 50 s).
+    if (maxThreads && allThreadIds.length > maxThreads) {
+      allThreadIds = allThreadIds.slice(0, maxThreads)
     }
 
     await prisma.scanJob.update({
