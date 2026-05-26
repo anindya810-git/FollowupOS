@@ -22,7 +22,7 @@ export interface AiConfig {
 const DEFAULT_MODELS: Record<AiProvider, string> = {
   anthropic: 'claude-sonnet-4-6',
   openai: 'gpt-4o-mini',
-  gemini: 'gemini-2.5-flash',
+  gemini: 'gemini-2.5-flash-lite',
 }
 
 // ─── Errors ───────────────────────────────────────────────────────────────────
