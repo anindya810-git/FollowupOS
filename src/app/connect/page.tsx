@@ -1,11 +1,25 @@
 import { auth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
 import { ConnectProviderButtons } from '@/components/auth/ConnectProviderButtons'
 import { LogoMark } from '@/components/ui/Logo'
 
 export default async function ConnectPage() {
   const session = await auth()
-  if (!session?.user) redirect('/')
+  if (!session?.user?.id) redirect('/')
+
+  // Returning user: already connected an inbox → go straight to dashboard
+  const [user, existingAccount] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { onboardingCompleted: true },
+    }),
+    prisma.emailAccount.findFirst({
+      where: { userId: session.user.id, connectedStatus: 'connected' },
+      select: { id: true },
+    }),
+  ])
+  if (user?.onboardingCompleted || existingAccount) redirect('/dashboard')
 
   return (
     <div className="min-h-screen bg-paper flex flex-col">

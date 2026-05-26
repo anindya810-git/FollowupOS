@@ -60,7 +60,9 @@ export default function SignupPage() {
   const handleSignIn = async (providerId: string, available: boolean) => {
     if (!available) return
     setLoading(providerId)
-    await signIn(providerId, { callbackUrl: '/connect' })
+    // New users are redirected to /connect by the dashboard onboarding check.
+    // Returning users land directly on /dashboard.
+    await signIn(providerId, { callbackUrl: '/dashboard' })
   }
 
   return (
