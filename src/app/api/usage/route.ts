@@ -7,34 +7,73 @@ export async function GET() {
   const session = await auth()
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const usage = await getUserAiUsage(session.user.id)
+  const now = new Date()
 
-  // Breakdown by call type this month — useful for the transparency UI
-  const monthStart = new Date()
+  const monthStart = new Date(now)
   monthStart.setDate(1)
   monthStart.setHours(0, 0, 0, 0)
 
-  const breakdown = await prisma.aiClassificationLog.groupBy({
-    by: ['callType', 'usedDefaultKey'],
-    where: {
-      userId: session.user.id,
-      createdAt: { gte: monthStart },
-    },
-    _count: { _all: true },
-  })
+  const dayStart = new Date(now)
+  dayStart.setHours(0, 0, 0, 0)
 
-  const byType = {
-    classify:   { default: 0, byok: 0 },
-    suggest:    { default: 0, byok: 0 },
-    draft:      { default: 0, byok: 0 },
-  } as Record<string, { default: number; byok: number }>
+  const [usage, monthlyRows, todayRows] = await Promise.all([
+    getUserAiUsage(session.user.id),
 
-  for (const row of breakdown) {
-    const t = row.callType || 'classify'
-    if (!byType[t]) byType[t] = { default: 0, byok: 0 }
-    if (row.usedDefaultKey) byType[t].default += row._count._all
-    else                    byType[t].byok    += row._count._all
+    // Monthly: group by callType + modelProvider + usedDefaultKey
+    prisma.aiClassificationLog.groupBy({
+      by: ['callType', 'modelProvider', 'usedDefaultKey'],
+      where: { userId: session.user.id, createdAt: { gte: monthStart } },
+      _count: { _all: true },
+    }),
+
+    // Today: group by callType + modelProvider + usedDefaultKey
+    prisma.aiClassificationLog.groupBy({
+      by: ['callType', 'modelProvider', 'usedDefaultKey'],
+      where: { userId: session.user.id, createdAt: { gte: dayStart } },
+      _count: { _all: true },
+    }),
+  ])
+
+  // Helper: build { classify/suggest/draft → { default, byok } } shape
+  function buildByType(rows: typeof monthlyRows) {
+    const out: Record<string, { default: number; byok: number }> = {
+      classify: { default: 0, byok: 0 },
+      suggest:  { default: 0, byok: 0 },
+      draft:    { default: 0, byok: 0 },
+    }
+    for (const row of rows) {
+      const t = row.callType || 'classify'
+      if (!out[t]) out[t] = { default: 0, byok: 0 }
+      if (row.usedDefaultKey) out[t].default += row._count._all
+      else                    out[t].byok    += row._count._all
+    }
+    return out
   }
 
-  return NextResponse.json({ ...usage, byType })
+  // Helper: build { provider → { default, byok } } shape
+  function buildByProvider(rows: typeof monthlyRows) {
+    const out: Record<string, { default: number; byok: number }> = {}
+    for (const row of rows) {
+      const p = row.modelProvider || 'unknown'
+      if (!out[p]) out[p] = { default: 0, byok: 0 }
+      if (row.usedDefaultKey) out[p].default += row._count._all
+      else                    out[p].byok    += row._count._all
+    }
+    return out
+  }
+
+  const byType        = buildByType(monthlyRows)
+  const byProvider    = buildByProvider(monthlyRows)
+  const todayByType   = buildByType(todayRows)
+  const todayByProvider = buildByProvider(todayRows)
+  const todayTotal    = todayRows.reduce((sum, r) => sum + r._count._all, 0)
+
+  return NextResponse.json({
+    ...usage,
+    byType,
+    byProvider,
+    todayTotal,
+    todayByType,
+    todayByProvider,
+  })
 }

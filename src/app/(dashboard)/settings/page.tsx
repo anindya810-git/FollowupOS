@@ -860,6 +860,10 @@ interface UsageInfo {
   resetAt: string
   planType: 'free' | 'lite' | 'pro'
   byType: Record<string, { default: number; byok: number }>
+  byProvider: Record<string, { default: number; byok: number }>
+  todayTotal: number
+  todayByType: Record<string, { default: number; byok: number }>
+  todayByProvider: Record<string, { default: number; byok: number }>
 }
 
 function UsageCard() {
@@ -876,38 +880,63 @@ function UsageCard() {
     ? new Date(usage.resetAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     : ''
 
-  const totalByok = (usage.byType.classify?.byok ?? 0) + (usage.byType.suggest?.byok ?? 0) + (usage.byType.draft?.byok ?? 0)
+  const PROVIDER_LABELS: Record<string, string> = {
+    google:    'Google Gemini',
+    anthropic: 'Anthropic (Claude)',
+    openai:    'OpenAI (GPT)',
+    unknown:   'Unknown provider',
+  }
+
+  // All providers seen this month or today
+  const allProviders = Array.from(new Set([
+    ...Object.keys(usage.byProvider),
+    ...Object.keys(usage.todayByProvider),
+  ])).filter(p => {
+    const m = usage.byProvider[p] || { default: 0, byok: 0 }
+    const t = usage.todayByProvider[p] || { default: 0, byok: 0 }
+    return m.default + m.byok + t.default + t.byok > 0
+  })
+
+  const monthlyTotal = Object.values(usage.byProvider).reduce((s, r) => s + r.default + r.byok, 0)
+  const anyByok = Object.values(usage.byProvider).some(r => r.byok > 0) ||
+                  Object.values(usage.todayByProvider).some(r => r.byok > 0)
 
   return (
     <Card>
-      <CardHeader><CardTitle>AI usage this month</CardTitle></CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex items-baseline justify-between">
-          <div>
-            <p className="text-2xl font-bold text-ink">
-              {usage.used.toLocaleString()}<span className="text-sm font-normal text-[rgb(11_18_32/55%)]"> / {unlimited ? '∞' : usage.limit.toLocaleString()}</span>
-            </p>
-            <p className="text-[11px] text-[rgb(11_18_32/55%)] mt-0.5">
-              Pendingly-key AI calls this month {unlimited ? '(unlimited on Pro)' : ''}
-            </p>
+      <CardHeader><CardTitle>AI usage</CardTitle></CardHeader>
+      <CardContent className="space-y-5">
+
+        {/* Today vs Month headline */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-lg border border-[rgb(11_18_32/8%)] bg-paper p-3">
+            <p className="text-[11px] text-[rgb(11_18_32/45%)] font-medium uppercase tracking-wider mb-1">Today</p>
+            <p className="text-2xl font-bold text-ink">{usage.todayTotal.toLocaleString()}</p>
+            <p className="text-[11px] text-[rgb(11_18_32/50%)] mt-0.5">API calls</p>
           </div>
-          <div className="text-right">
-            <p className="text-[11px] text-[rgb(11_18_32/45%)]">Plan</p>
-            <p className="text-sm font-medium text-ink capitalize">{usage.planType}</p>
+          <div className="rounded-lg border border-[rgb(11_18_32/8%)] bg-paper p-3">
+            <p className="text-[11px] text-[rgb(11_18_32/45%)] font-medium uppercase tracking-wider mb-1">This month</p>
+            <p className="text-2xl font-bold text-ink">
+              {monthlyTotal.toLocaleString()}
+              {!unlimited && <span className="text-sm font-normal text-[rgb(11_18_32/40%)]"> / {usage.limit.toLocaleString()}</span>}
+            </p>
+            <p className="text-[11px] text-[rgb(11_18_32/50%)] mt-0.5">
+              {unlimited ? 'Unlimited (Pro)' : `Resets ${resetLabel}`}
+            </p>
           </div>
         </div>
 
-        {!unlimited && (
+        {/* Quota progress bar (non-Pro only) */}
+        {!unlimited && usage.used > 0 && (
           <div>
             <div className="h-1.5 bg-[rgb(11_18_32/8%)] rounded-full overflow-hidden">
               <div
-                className={`h-full rounded-full ${usage.exceeded ? 'bg-red-500' : usage.percent > 80 ? 'bg-amber-500' : 'bg-[#0b1220]'}`}
+                className={`h-full rounded-full transition-all ${usage.exceeded ? 'bg-red-500' : usage.percent > 80 ? 'bg-amber-500' : 'bg-ink'}`}
                 style={{ width: `${Math.min(usage.percent, 100)}%` }}
               />
             </div>
-            <p className="text-[10px] text-[rgb(11_18_32/45%)] mt-1.5 flex items-center justify-between">
-              <span>{usage.percent}% used</span>
-              <span>Resets {resetLabel}</span>
+            <p className="text-[10px] text-[rgb(11_18_32/45%)] mt-1 flex items-center justify-between">
+              <span>{usage.percent}% of Pendingly-key quota used</span>
+              <span>Plan: <span className="capitalize">{usage.planType}</span></span>
             </p>
           </div>
         )}
@@ -916,33 +945,77 @@ function UsageCard() {
           <div className="rounded-lg border border-red-200 bg-red-50 p-3">
             <p className="text-xs font-medium text-red-900">Monthly quota reached</p>
             <p className="text-xs text-red-800 mt-0.5">
-              New scans and AI suggestions are paused until {resetLabel}. <a href="/upgrade" className="underline font-medium">Upgrade</a> or add your own API key to continue.
+              Scans and AI suggestions are paused until {resetLabel}. <a href="/upgrade" className="underline font-medium">Upgrade</a> or add your own API key below.
             </p>
           </div>
         )}
 
-        {/* Breakdown */}
+        {/* Provider breakdown table */}
+        {allProviders.length > 0 && (
+          <div className="rounded-lg border border-[rgb(11_18_32/8%)] overflow-hidden">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-[rgb(11_18_32/6%)] bg-paper">
+                  <th className="text-left px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/45%)]">Provider</th>
+                  <th className="text-right px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/45%)]">Today</th>
+                  <th className="text-right px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/45%)]">This month</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allProviders.map((p, i) => {
+                  const month = usage.byProvider[p] || { default: 0, byok: 0 }
+                  const today = usage.todayByProvider[p] || { default: 0, byok: 0 }
+                  const isDefault = month.default > 0 || today.default > 0
+                  return (
+                    <tr key={p} className={i > 0 ? 'border-t border-[rgb(11_18_32/6%)]' : ''}>
+                      <td className="px-3 py-2.5 text-ink font-medium">
+                        {PROVIDER_LABELS[p] ?? p}
+                        <span className="ml-1.5 text-[10px] text-[rgb(11_18_32/35%)] font-normal">
+                          {isDefault && month.byok === 0 && today.byok === 0 ? 'Pendingly key' : ''}
+                          {!isDefault ? 'BYOK' : ''}
+                          {isDefault && (month.byok > 0 || today.byok > 0) ? 'Pendingly + BYOK' : ''}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2.5 text-right font-mono text-ink">
+                        {(today.default + today.byok).toLocaleString()}
+                      </td>
+                      <td className="px-3 py-2.5 text-right font-mono text-ink">
+                        {(month.default + month.byok).toLocaleString()}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Call type breakdown */}
         <div className="rounded-lg border border-[rgb(11_18_32/8%)] p-3 space-y-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/45%)]">Breakdown</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/45%)]">By call type — this month</p>
           {(['classify', 'suggest', 'draft'] as const).map(t => {
-            const row = usage.byType[t] || { default: 0, byok: 0 }
+            const month = usage.byType[t] || { default: 0, byok: 0 }
+            const today = usage.todayByType[t] || { default: 0, byok: 0 }
+            const monthTotal = month.default + month.byok
+            const todayTotal = today.default + today.byok
+            if (monthTotal === 0 && todayTotal === 0) return null
             return (
               <div key={t} className="flex items-center justify-between text-xs">
-                <span className="text-[rgb(11_18_32/65%)] capitalize">
+                <span className="text-[rgb(11_18_32/65%)]">
                   {t === 'classify' ? 'Email classification' : t === 'suggest' ? 'Quick suggestions' : 'Full drafts'}
                 </span>
-                <span className="font-mono text-ink">
-                  {row.default}
-                  {row.byok > 0 && <span className="text-[rgb(11_18_32/40%)]"> +{row.byok} BYOK</span>}
+                <span className="font-mono text-ink tabular-nums">
+                  {todayTotal > 0 && <span className="text-[rgb(11_18_32/40%)] mr-2">+{todayTotal} today</span>}
+                  {monthTotal}
                 </span>
               </div>
             )
           })}
         </div>
 
-        {totalByok > 0 && (
+        {anyByok && (
           <p className="text-[11px] text-[rgb(11_18_32/45%)]">
-            BYOK calls aren&apos;t metered — they bill to your own provider account.
+            BYOK calls aren&apos;t metered against your plan — they bill directly to your provider account.
           </p>
         )}
       </CardContent>
