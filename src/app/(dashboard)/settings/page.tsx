@@ -851,10 +851,12 @@ type AiConfigStatus = {
   providers: { anthropic: ProviderStatus; openai: ProviderStatus; gemini: ProviderStatus }
 }
 
+// costPerThread: estimated cost in USD per thread that reaches AI classification
+// (~1,500 input tokens + ~200 output tokens per classify call)
 const PROVIDER_META = {
-  gemini:    { label: 'Google Gemini',  model: 'gemini-2.5-flash-lite', placeholder: 'AIza...',     docs: 'https://aistudio.google.com/apikey',         note: 'Free tier available — get a key at Google AI Studio.' },
-  anthropic: { label: 'Anthropic',      model: 'claude-sonnet-4-6',     placeholder: 'sk-ant-...',  docs: 'https://console.anthropic.com/settings/keys', note: '~$0.20–0.50 per inbox scan.' },
-  openai:    { label: 'OpenAI',         model: 'gpt-4o-mini',           placeholder: 'sk-...',      docs: 'https://platform.openai.com/api-keys',        note: 'Very cost-effective per scan.' },
+  gemini:    { label: 'Google Gemini',  model: 'gemini-2.5-flash-lite', costPerThread: '$0.00023', placeholder: 'AIza...',     docs: 'https://aistudio.google.com/apikey',         note: 'Free tier available — get a key at Google AI Studio.' },
+  anthropic: { label: 'Anthropic',      model: 'claude-sonnet-4-6',     costPerThread: '$0.0075',  placeholder: 'sk-ant-...',  docs: 'https://console.anthropic.com/settings/keys', note: 'Frontier-class model. Higher quality, higher cost.' },
+  openai:    { label: 'OpenAI',         model: 'gpt-4o-mini',           costPerThread: '$0.00035', placeholder: 'sk-...',      docs: 'https://platform.openai.com/api-keys',        note: 'Fast and cost-effective.' },
 } as const
 
 type Provider = keyof typeof PROVIDER_META
@@ -1158,6 +1160,9 @@ function AiProviderCard() {
                     <p className="text-sm font-medium text-ink">{meta.label}</p>
                     <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-[rgb(11_18_32/6%)] text-[rgb(11_18_32/50%)]" style={{ fontFamily: 'var(--font-mono)' }}>
                       {meta.model}
+                    </span>
+                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-[rgb(11_18_32/4%)] text-[rgb(11_18_32/40%)] border border-[rgb(11_18_32/8%)]" style={{ fontFamily: 'var(--font-mono)' }} title="Approximate cost per thread that reaches AI classification (~1,500 input + ~200 output tokens)">
+                      ~{meta.costPerThread}/thread
                     </span>
                     {isActive && anyConfigured && (
                       <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-action/10 text-action">Active</span>
