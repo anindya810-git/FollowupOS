@@ -127,9 +127,15 @@ export function ActionCard({ item, onStatusChange, onSelect, selected, onSelectC
             <p className="text-sm font-medium text-ink truncate leading-snug">
               {item.title || item.emailThread?.subject || 'No Subject'}
             </p>
-            {item.ownerName && (
-              <p className="text-xs text-[rgb(11_18_32/55%)] mt-0.5">{item.ownerName}</p>
-            )}
+            {(() => {
+              // Use last inbound message sender — ownerName can be the user's
+              // own name when owner_type=user (wrong for display purposes).
+              const inbound = item.emailThread?.messages?.find(m => !m.isFromUser)
+              const displayName = inbound?.senderName || inbound?.senderEmail || ''
+              return displayName ? (
+                <p className="text-xs text-[rgb(11_18_32/55%)] mt-0.5">{displayName}</p>
+              ) : null
+            })()}
             {item.reason && (
               <p className="text-xs text-[rgb(11_18_32/55%)] mt-1.5 line-clamp-1">{item.reason}</p>
             )}

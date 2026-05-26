@@ -133,7 +133,9 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
   // when owner_type=user, so we prefer the inbound message sender.
   const lastInbound = active.emailThread?.messages?.find(m => !m.isFromUser)
   const contactEmail = lastInbound?.senderEmail || ''
-  const contactName = lastInbound?.senderName || active.ownerName || ''
+  // Never fall back to ownerName — it's the AI's classification owner which
+  // is set to the user's own name when owner_type=user.
+  const contactName = lastInbound?.senderName || ''
 
   const ignoreSender = async (scope: 'email' | 'domain') => {
     const email = contactEmail
