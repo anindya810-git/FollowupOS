@@ -110,8 +110,10 @@ function ScanProgress() {
 
         <h1 className="text-2xl font-bold text-ink mb-2">Building your action queue</h1>
         <p className="text-[rgb(11_18_32/55%)] mb-8">
-          {progress.found > 0
-            ? `Analyzing ${progress.found} threads, found ${progress.created} action items so far...`
+          {progress.found > 0 && progress.created > 0
+            ? `Analyzed ${progress.processed} of ${progress.found} threads — ${progress.created} action item${progress.created !== 1 ? 's' : ''} found so far...`
+            : progress.found > 0
+            ? `Analyzing ${progress.found} threads for follow-ups...`
             : 'Scanning your Gmail inbox...'}
         </p>
 
