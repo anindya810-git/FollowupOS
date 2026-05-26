@@ -230,6 +230,24 @@ export function IntelliAction({ onSelectItem, onStatusChange, meetingsByEmail }:
   useEffect(() => { load() }, [])
 
   const handleChange = async (id: string, status: string, extra?: Record<string, string>) => {
+    // Optimistically remove item from all tiers immediately so the UI
+    // clears without waiting for the server round-trip.
+    if (status !== 'open') {
+      setData(prev => {
+        if (!prev) return prev
+        const out = (arr: SerializedItem[]) => arr.filter(i => i.id !== id)
+        return {
+          ...prev,
+          tiers: {
+            urgent:      out(prev.tiers.urgent),
+            quickReply:  out(prev.tiers.quickReply),
+            deeperReply: out(prev.tiers.deeperReply),
+            chase:       out(prev.tiers.chase),
+            other:       out(prev.tiers.other),
+          },
+        }
+      })
+    }
     await onStatusChange(id, status, extra)
     load()
   }
