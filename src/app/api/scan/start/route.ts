@@ -21,14 +21,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
   const account_id = typeof body.account_id === 'string' ? body.account_id : undefined
-  const requested_days = typeof body.scan_window_days === 'number' ? body.scan_window_days : 30
-  // Optional hard cap on threads classified (used for onboarding quick-scan)
-  const max_threads = typeof body.max_threads === 'number' ? body.max_threads : undefined
-
-  // Cap by plan: free=3d, lite=7d, pro=unlimited (use whatever the user asked for)
-  const plan = await getUserPlan(session.user.id)
-  const planCap = PLAN_LIMITS[plan.type].scanWindowDays
-  const scan_window_days = planCap === -1 ? requested_days : Math.min(requested_days, planCap)
 
   const account = await prisma.emailAccount.findFirst({
     where: { id: account_id, userId: session.user.id, connectedStatus: 'connected' },
@@ -36,6 +28,18 @@ export async function POST(request: NextRequest) {
   if (!account) {
     return NextResponse.json({ error: 'Account not found' }, { status: 404 })
   }
+
+  // Resolve plan and its limits — these are authoritative; client-provided
+  // scan_window_days is ignored to prevent users from scanning more than their plan allows.
+  const plan = await getUserPlan(session.user.id)
+  const limits = PLAN_LIMITS[plan.type]
+
+  // First scan: use the full plan look-back window (7 days free / 30 days paid).
+  // Subsequent syncs: only look at the last 7 days for Outlook/IMAP (Gmail uses
+  // the incremental History API and ignores this window entirely).
+  const isFirstScan = !account.initialScanCompleted
+  const scan_window_days = isFirstScan ? limits.scanWindowDays : 7
+  const max_threads = limits.maxThreadsPerScan === -1 ? undefined : limits.maxThreadsPerScan
 
   // Idempotency: if a scan is already queued or running for this account,
   // return that job — UNLESS it's been stuck for >15 minutes (Vercel killed it),
@@ -69,27 +73,39 @@ export async function POST(request: NextRequest) {
     },
   })
 
-  // Manual sync always does a full scan — clear the stored historyId so the
-  // scanner doesn't use the incremental path (which would return 0 threads
-  // if nothing changed since the last scan).
-  // Also clear thread hashes so all threads get re-classified with the current
-  // AI settings (prompt/conservative_mode changes are otherwise invisible to
-  // threads whose content hasn't changed since the last scan).
-  await prisma.emailAccount.update({
-    where: { id: account.id },
-    data: { gmailHistoryId: null },
-  })
-  await prisma.emailThread.updateMany({
-    where: { emailAccountId: account.id },
-    data: { threadHash: null },
-  })
+  // INCREMENTAL SYNC: do NOT clear gmailHistoryId or thread hashes.
+  //
+  // Gmail:  the scanner keeps the stored historyId and uses Gmail's History API
+  //         to fetch only threads that have had new messages since the last scan.
+  //         This means re-syncing is instant when there are no new emails.
+  //
+  // Outlook/IMAP: thread hashes are preserved so unchanged threads are skipped
+  //               in O(1) without re-calling the AI.
+  //
+  // If you need to force a full re-classification (e.g. after changing AI settings),
+  // pass force_full_rescan: true in the request body.
+  const force_full_rescan = body.force_full_rescan === true
+  if (force_full_rescan) {
+    await prisma.emailAccount.update({
+      where: { id: account.id },
+      data: { gmailHistoryId: null },
+    })
+    await prisma.emailThread.updateMany({
+      where: { emailAccountId: account.id },
+      data: { threadHash: null },
+    })
+  }
 
   // Schedule scan to run after the response is sent.
-  // `after()` tells Vercel to keep the function alive until the promise resolves
-  // (up to maxDuration above), so the scan isn't killed when the HTTP response returns.
   after(triggerScan(scanJob.id, session.user.id, account.id, scan_window_days, max_threads))
 
-  return NextResponse.json({ job_id: scanJob.id, status: 'queued' })
+  return NextResponse.json({
+    job_id: scanJob.id,
+    status: 'queued',
+    scan_window_days,
+    max_threads: max_threads ?? null,
+    is_first_scan: isFirstScan,
+  })
 }
 
 async function triggerScan(jobId: string, userId: string, accountId: string, days: number, maxThreads?: number) {

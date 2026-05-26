@@ -224,24 +224,29 @@ async function classifyOpenAI(input: ClassificationInput, config: AiConfig): Pro
   return validateClassification(parsed) ? parsed : null
 }
 
-// ─── Gemini rate limiter (free tier: 15 RPM) ─────────────────────────────────
+// ─── Gemini rate limiter ──────────────────────────────────────────────────────
 // Uses slot-reservation so concurrent callers each get a distinct future slot
 // rather than all reading the same timestamp and firing simultaneously.
+//
+// Free tier (Pendingly default key): 15 RPM hard cap → 4200 ms gap
+// Paid BYOK key: typically 1000+ RPM → 500 ms gap (~120 RPM, well within limits)
 
 let geminiNextSlotAt = 0
-const GEMINI_RPM_GAP_MS = 4200 // ~14.3 RPM, safely under the 15 RPM free-tier cap
+const GEMINI_FREE_RPM_GAP_MS = 4200  // ~14.3 RPM, under the 15 RPM free-tier cap
+const GEMINI_PAID_RPM_GAP_MS = 500   // ~120 RPM, safe for paid tier
 
-async function geminiRateLimit() {
+async function geminiRateLimit(isDefaultKey = true) {
+  const gapMs = isDefaultKey ? GEMINI_FREE_RPM_GAP_MS : GEMINI_PAID_RPM_GAP_MS
   const now = Date.now()
   let waitMs = 0
   if (geminiNextSlotAt <= now) {
     // Slot is free — take it now
-    geminiNextSlotAt = now + GEMINI_RPM_GAP_MS
+    geminiNextSlotAt = now + gapMs
   } else {
     // Reserve the next slot and wait for it
     // (synchronous reservation before any await — no race condition)
     waitMs = geminiNextSlotAt - now
-    geminiNextSlotAt += GEMINI_RPM_GAP_MS
+    geminiNextSlotAt += gapMs
   }
   if (waitMs > 0) await new Promise(r => setTimeout(r, waitMs))
 }
@@ -258,7 +263,7 @@ async function classifyGemini(input: ClassificationInput, config: AiConfig): Pro
   const model = genAI.getGenerativeModel({ model: config.model })
 
   for (let attempt = 0; attempt < 3; attempt++) {
-    await geminiRateLimit()
+    await geminiRateLimit(config.isDefaultKey)
     try {
       const result = await model.generateContent(
         `${CLASSIFICATION_SYSTEM}\n\nClassify this thread:\n${JSON.stringify(input)}`
@@ -312,6 +317,7 @@ async function suggestOpenAI(userContent: string, config: AiConfig): Promise<str
 }
 
 async function suggestGemini(userContent: string, config: AiConfig): Promise<string | null> {
+  await geminiRateLimit(config.isDefaultKey)
   const genAI = new GoogleGenerativeAI(config.apiKey)
   // v1beta default — gemini-2.5-flash requires v1beta (preview model)
   const model = genAI.getGenerativeModel({ model: config.model })
@@ -353,6 +359,7 @@ async function draftOpenAI(userContent: string, config: AiConfig): Promise<{ dra
 }
 
 async function draftGemini(userContent: string, config: AiConfig): Promise<{ draft: string; subject_suggestion: string } | null> {
+  await geminiRateLimit(config.isDefaultKey)
   const genAI = new GoogleGenerativeAI(config.apiKey)
   // v1beta default — gemini-2.5-flash requires v1beta (preview model)
   const model = genAI.getGenerativeModel({ model: config.model })

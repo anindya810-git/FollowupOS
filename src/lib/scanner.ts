@@ -3,7 +3,7 @@ import { getGmailClient, getGmailThreadUrl, isNoisyThread, getMessageBody } from
 import { getOutlookAccessToken, getOutlookThreads, isNoisyOutlookMessage } from './outlook'
 import { getImapThreads, isNoisyImapSender } from './imap'
 import { classifyThread, generateQuickSuggestion, resolveAiConfig, MissingAiConfigError } from './ai'
-import { canMakeAiCall } from './plan'
+import { canMakeAiCall, getUserPlan, PLAN_LIMITS } from './plan'
 import type { AiConfig } from './ai'
 import { upsertContact } from './contacts'
 import { maybeAutoCreateCalendar } from './auto-calendar'
@@ -20,7 +20,7 @@ function countRepeatedAsks(messages: Array<{ is_from_user: boolean; from: string
   return count
 }
 
-export async function runInitialScan(jobId: string, userId: string, emailAccountId: string, scanWindowDays: number = 30, maxThreads?: number) {
+export async function runInitialScan(jobId: string, userId: string, emailAccountId: string, scanWindowDays?: number, maxThreads?: number) {
   try {
     await prisma.scanJob.update({ where: { id: jobId }, data: { status: 'running' } })
 
@@ -29,6 +29,15 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
 
     const user = await prisma.user.findUnique({ where: { id: userId } })
     if (!user) throw new Error('User not found')
+
+    // Derive plan-based defaults when caller didn't specify (e.g. direct callback invocation).
+    // This ensures the Gmail OAuth callback uses the same limits as the /api/scan/start route.
+    if (scanWindowDays === undefined || maxThreads === undefined) {
+      const plan = await getUserPlan(userId)
+      const limits = PLAN_LIMITS[plan.type]
+      if (scanWindowDays === undefined) scanWindowDays = limits.scanWindowDays
+      if (maxThreads === undefined && limits.maxThreadsPerScan !== -1) maxThreads = limits.maxThreadsPerScan
+    }
 
     const aiConfig = await resolveAiConfig(userId)
     if (!aiConfig) {
@@ -60,7 +69,8 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
         userEmail: account.emailAddress,
         userTimezone: user.timezone,
         userPreferences,
-        scanWindowDays,
+        scanWindowDays: scanWindowDays!,
+        maxThreads,
         aiConfig,
       })
       return
@@ -74,7 +84,8 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
         userEmail: account.emailAddress,
         userTimezone: user.timezone,
         userPreferences,
-        scanWindowDays,
+        scanWindowDays: scanWindowDays!,
+        maxThreads,
         aiConfig,
       })
       return
@@ -286,9 +297,10 @@ async function scanOutlookAccount(params: {
   userTimezone: string
   userPreferences: { default_followup_days: number; conservative_mode: boolean }
   scanWindowDays: number
+  maxThreads?: number
   aiConfig: AiConfig
 }) {
-  const { jobId, userId, emailAccountId, userEmail, userTimezone, userPreferences, scanWindowDays, aiConfig } = params
+  const { jobId, userId, emailAccountId, userEmail, userTimezone, userPreferences, scanWindowDays, maxThreads, aiConfig } = params
 
   let accessToken: string
   let threads
@@ -305,6 +317,11 @@ async function scanOutlookAccount(params: {
       throw new Error('Your Outlook connection has expired. Reconnect it from Settings → Connected Inboxes, then re-run the scan.')
     }
     throw e
+  }
+
+  // Apply thread cap
+  if (maxThreads && threads.length > maxThreads) {
+    threads = threads.slice(0, maxThreads)
   }
 
   await prisma.scanJob.update({
@@ -587,14 +604,20 @@ async function scanImapAccount(params: {
   userTimezone: string
   userPreferences: { default_followup_days: number; conservative_mode: boolean }
   scanWindowDays: number
+  maxThreads?: number
   aiConfig: AiConfig
 }) {
-  const { jobId, userId, emailAccountId, userEmail, userTimezone, userPreferences, scanWindowDays, aiConfig } = params
+  const { jobId, userId, emailAccountId, userEmail, userTimezone, userPreferences, scanWindowDays, maxThreads, aiConfig } = params
 
   const account = await prisma.emailAccount.findUnique({ where: { id: emailAccountId } })
   if (!account) throw new Error('Email account not found')
 
-  const threads = await getImapThreads(emailAccountId, scanWindowDays)
+  let threads = await getImapThreads(emailAccountId, scanWindowDays)
+
+  // Apply thread cap
+  if (maxThreads && threads.length > maxThreads) {
+    threads = threads.slice(0, maxThreads)
+  }
 
   await prisma.scanJob.update({
     where: { id: jobId },
