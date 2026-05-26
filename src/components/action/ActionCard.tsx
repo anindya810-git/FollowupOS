@@ -155,7 +155,7 @@ export function ActionCard({ item, onStatusChange, onSelect, selected, onSelectC
         {item.emailThread?.providerUrl && (
           <Button variant="ghost" size="sm" className="transition-all duration-150" onClick={() => window.open(item.emailThread!.providerUrl!, '_blank')}>
             <ExternalLink className="h-3 w-3 mr-1" />
-            Open
+            View in Inbox
           </Button>
         )}
         <SnoozeMenu
