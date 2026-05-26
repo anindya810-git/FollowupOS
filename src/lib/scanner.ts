@@ -180,9 +180,11 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
     let noiseFiltered = 0
     const aiErrorSamples: string[] = []
 
-    // Process in parallel batches of 5 — ~5× faster than sequential while
-    // staying well within Gmail's per-user quota (250 units/s; threads.get = 5 units).
-    const BATCH_SIZE = 5
+    // Default (free-tier) Gemini key: 15 RPM — must stay sequential so the
+    // slot-reservation rate limiter can space calls 4.2 s apart without
+    // concurrent callers all reserving slots and flooding the API.
+    // BYOK keys (paid tiers) have much higher limits, so parallel is fine.
+    const BATCH_SIZE = aiConfig.isDefaultKey ? 1 : 5
     for (let i = 0; i < allThreadIds.length; i += BATCH_SIZE) {
       const batch = allThreadIds.slice(i, i + BATCH_SIZE)
       const batchResults = await Promise.allSettled(

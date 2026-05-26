@@ -225,14 +225,25 @@ async function classifyOpenAI(input: ClassificationInput, config: AiConfig): Pro
 }
 
 // ─── Gemini rate limiter (free tier: 15 RPM) ─────────────────────────────────
+// Uses slot-reservation so concurrent callers each get a distinct future slot
+// rather than all reading the same timestamp and firing simultaneously.
 
-let geminiLastCallAt = 0
-const GEMINI_RPM_GAP_MS = 4200 // ~14.3 RPM, safely under the 15 RPM free tier cap
+let geminiNextSlotAt = 0
+const GEMINI_RPM_GAP_MS = 4200 // ~14.3 RPM, safely under the 15 RPM free-tier cap
 
 async function geminiRateLimit() {
-  const wait = GEMINI_RPM_GAP_MS - (Date.now() - geminiLastCallAt)
-  if (wait > 0) await new Promise(r => setTimeout(r, wait))
-  geminiLastCallAt = Date.now()
+  const now = Date.now()
+  let waitMs = 0
+  if (geminiNextSlotAt <= now) {
+    // Slot is free — take it now
+    geminiNextSlotAt = now + GEMINI_RPM_GAP_MS
+  } else {
+    // Reserve the next slot and wait for it
+    // (synchronous reservation before any await — no race condition)
+    waitMs = geminiNextSlotAt - now
+    geminiNextSlotAt += GEMINI_RPM_GAP_MS
+  }
+  if (waitMs > 0) await new Promise(r => setTimeout(r, waitMs))
 }
 
 function isGeminiDailyQuota(msg: string): boolean {
