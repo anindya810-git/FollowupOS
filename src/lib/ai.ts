@@ -453,13 +453,11 @@ FULL THREAD (chronological, oldest first):
 
 ${buildThreadText(params.messages)}`
 
-  try {
-    switch (cfg.provider) {
-      case 'anthropic': return await draftAnthropic(userContent, cfg)
-      case 'openai':    return await draftOpenAI(userContent, cfg)
-      case 'gemini':    return await draftGemini(userContent, cfg)
-    }
-  } catch {
-    return null
+  // Let errors propagate — the caller (generate-draft route) handles them
+  // and returns a real error message to the UI instead of silent null.
+  switch (cfg.provider) {
+    case 'anthropic': return await draftAnthropic(userContent, cfg)
+    case 'openai':    return await draftOpenAI(userContent, cfg)
+    case 'gemini':    return await draftGemini(userContent, cfg)
   }
 }

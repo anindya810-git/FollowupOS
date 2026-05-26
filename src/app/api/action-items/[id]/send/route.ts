@@ -33,7 +33,10 @@ export async function POST(
       emailThread: {
         include: {
           emailAccount: true,
-          messages: { orderBy: { sentAt: 'desc' }, take: 1 },
+          // Fetch all messages desc so we can find the last inbound sender.
+          // Using only messages[0] (most recent) caused self-sends when the
+          // user had replied last in the thread.
+          messages: { orderBy: { sentAt: 'desc' } },
         },
       },
     },
@@ -43,7 +46,11 @@ export async function POST(
   }
 
   const account = item.emailThread.emailAccount
-  const toEmail = item.ownerEmail || item.emailThread.messages[0]?.senderEmail
+  // Find the last message NOT from the user — that's who we're replying to.
+  const lastInbound = item.emailThread.messages.find(m => !m.isFromUser)
+  const toEmail = item.ownerEmail && item.ownerEmail !== account.emailAddress
+    ? item.ownerEmail
+    : lastInbound?.senderEmail
   if (!toEmail) {
     return NextResponse.json({ error: 'No recipient' }, { status: 400 })
   }

@@ -154,6 +154,7 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
 
   const generateReply = async () => {
     setGenerating(true)
+    setSendError(null)
     try {
       const res = await fetch(`/api/action-items/${item.id}/generate-draft`, {
         method: 'POST',
@@ -161,7 +162,17 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
         body: JSON.stringify({ tone, output_type: 'email_reply' }),
       })
       const data = await res.json()
-      setDraft(textToHtml(data.draft || 'Failed to generate draft.'))
+      if (!res.ok) {
+        setSendError(data.error || 'Failed to generate draft')
+        return
+      }
+      if (data.draft) {
+        setDraft(textToHtml(data.draft))
+      } else {
+        setSendError('Draft generation returned an empty response')
+      }
+    } catch {
+      setSendError('Failed to generate draft')
     } finally {
       setGenerating(false)
     }
@@ -489,27 +500,32 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
               {/* Send / Schedule controls */}
               {!confirmingSend && !scheduleOpen ? (
                 <div className="flex items-center gap-2 flex-wrap">
-                  <Button
-                    size="sm"
-                    onClick={() => { setSendError(null); setConfirmingSend(true) }}
-                    disabled={sending || scheduling || !active.ownerEmail || !draft.trim()}
-                  >
-                    <Send className="h-3.5 w-3.5 mr-1.5" />
-                    Send now
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => { setSendError(null); setScheduleOpen(true) }}
-                    disabled={sending || scheduling || !active.ownerEmail || !draft.trim()}
-                  >
-                    <Clock className="h-3.5 w-3.5 mr-1.5" />
-                    Schedule
-                    <ChevronDown className="h-3 w-3 ml-1" />
-                  </Button>
-                  {!active.ownerEmail && (
-                    <span className="text-[11px] text-[rgb(11_18_32/50%)]">No recipient on this thread</span>
-                  )}
+                  {(() => {
+                    const hasRecipient = !!(active.ownerEmail || active.emailThread?.messages?.find(m => !m.isFromUser)?.senderEmail)
+                    return (<>
+                      <Button
+                        size="sm"
+                        onClick={() => { setSendError(null); setConfirmingSend(true) }}
+                        disabled={sending || scheduling || !hasRecipient || !draft.trim()}
+                      >
+                        <Send className="h-3.5 w-3.5 mr-1.5" />
+                        Send now
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => { setSendError(null); setScheduleOpen(true) }}
+                        disabled={sending || scheduling || !hasRecipient || !draft.trim()}
+                      >
+                        <Clock className="h-3.5 w-3.5 mr-1.5" />
+                        Schedule
+                        <ChevronDown className="h-3 w-3 ml-1" />
+                      </Button>
+                      {!hasRecipient && (
+                        <span className="text-[11px] text-[rgb(11_18_32/50%)]">No recipient on this thread</span>
+                      )}
+                    </>)
+                  })()}
                   {sendError && (
                     <span className="text-[11px] text-action">{sendError}</span>
                   )}
@@ -517,7 +533,12 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
               ) : confirmingSend ? (
                 <div className="flex items-center gap-2 bg-paper-2 border border-rule rounded-md px-3 py-2 flex-wrap">
                   <span className="text-xs text-ink">
-                    Send to {active.ownerEmail || active.emailThread?.messages?.[0]?.senderEmail}?
+                    Send to {(() => {
+                      const lastInbound = active.emailThread?.messages?.find(m => !m.isFromUser)
+                      return active.ownerEmail && active.ownerEmail !== active.emailThread?.emailAccount?.emailAddress
+                        ? active.ownerEmail
+                        : (lastInbound?.senderName || lastInbound?.senderEmail || 'sender')
+                    })()}?
                   </span>
                   <Button size="sm" onClick={sendReply} disabled={sending}>
                     {sending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Confirm send'}

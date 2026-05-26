@@ -53,24 +53,30 @@ export async function POST(
     return NextResponse.json({ error: quota.reason, quota_exceeded: true }, { status: 429 })
   }
 
-  const draft = await generateDraft({
-    threadSubject: item.title || item.emailThread?.subject || 'Email Thread',
-    reason: item.reason || '',
-    suggestedAction: item.suggestedAction || '',
-    messages: (item.emailThread?.messages || []).map((m: any) => ({
-      from: m.senderEmail || '',
-      body: m.bodyExcerpt || m.snippet || '',
-      isFromUser: m.isFromUser,
-      sentAt: m.sentAt ? m.sentAt.toISOString() : undefined,
-    })),
-    tone,
-    outputType: output_type,
-    userName: user?.name || session.user.email || 'User',
-    config: aiConfig,
-  })
+  let draft: { draft: string; subject_suggestion: string } | null = null
+  try {
+    draft = await generateDraft({
+      threadSubject: item.title || item.emailThread?.subject || 'Email Thread',
+      reason: item.reason || '',
+      suggestedAction: item.suggestedAction || '',
+      messages: (item.emailThread?.messages || []).map((m: any) => ({
+        from: m.senderEmail || '',
+        body: m.bodyExcerpt || m.snippet || '',
+        isFromUser: m.isFromUser,
+        sentAt: m.sentAt ? m.sentAt.toISOString() : undefined,
+      })),
+      tone,
+      outputType: output_type,
+      userName: user?.name || session.user.email || 'User',
+      config: aiConfig,
+    })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Draft generation failed'
+    return NextResponse.json({ error: msg }, { status: 500 })
+  }
 
   if (!draft) {
-    return NextResponse.json({ error: 'Draft generation failed' }, { status: 500 })
+    return NextResponse.json({ error: 'Draft generation returned empty response' }, { status: 500 })
   }
 
   // Meter the call
