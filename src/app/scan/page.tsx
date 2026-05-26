@@ -35,7 +35,7 @@ function ScanProgress() {
       await fetch('/api/scan/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ account_id: account.id, scan_window_days: 14, max_threads: 12 }),
+        body: JSON.stringify({ account_id: account.id, scan_window_days: 14 }),
       })
     }
   }, [jobId])
@@ -123,7 +123,7 @@ function ScanProgress() {
             ? `Analyzed ${progress.processed} of ${progress.found} threads — ${progress.created} action item${progress.created !== 1 ? 's' : ''} found so far...`
             : progress.found > 0
             ? `Analyzing ${progress.found} threads for follow-ups...`
-            : 'Quick scan — checking your 12 most recent threads…'}
+            : 'Scanning your last 14 days of email...'}
         </p>
 
         {error ? (
@@ -146,11 +146,6 @@ function ScanProgress() {
                 </div>
               ))}
             </div>
-            {status !== 'completed' && (
-              <p className="text-[11px] text-[rgb(11_18_32/35%)] mt-5 pt-4 border-t border-rule">
-                Quick scan · 12 threads · ~50 seconds. Run a full scan any time from Settings.
-              </p>
-            )}
           </div>
         )}
       </div>
