@@ -22,7 +22,7 @@ export interface AiConfig {
 const DEFAULT_MODELS: Record<AiProvider, string> = {
   anthropic: 'claude-sonnet-4-6',
   openai: 'gpt-4o-mini',
-  gemini: 'gemini-1.5-flash',
+  gemini: 'gemini-2.0-flash-lite',
 }
 
 // ─── Errors ───────────────────────────────────────────────────────────────────
@@ -251,7 +251,7 @@ function isGeminiDailyQuota(msg: string): boolean {
 }
 
 async function classifyGemini(input: ClassificationInput, config: AiConfig): Promise<AiClassificationOutput | null> {
-  const genAI = new GoogleGenerativeAI(config.apiKey)
+  const genAI = new GoogleGenerativeAI(config.apiKey, { apiVersion: 'v1' })
   const model = genAI.getGenerativeModel({
     model: config.model,
     generationConfig: { responseMimeType: 'application/json' },
@@ -309,7 +309,7 @@ async function suggestOpenAI(userContent: string, config: AiConfig): Promise<str
 }
 
 async function suggestGemini(userContent: string, config: AiConfig): Promise<string | null> {
-  const genAI = new GoogleGenerativeAI(config.apiKey)
+  const genAI = new GoogleGenerativeAI(config.apiKey, { apiVersion: 'v1' })
   const model = genAI.getGenerativeModel({ model: config.model })
   const result = await model.generateContent(`${SUGGESTION_SYSTEM}\n\n${userContent}`)
   let text = result.response.text().trim()
@@ -349,7 +349,7 @@ async function draftOpenAI(userContent: string, config: AiConfig): Promise<{ dra
 }
 
 async function draftGemini(userContent: string, config: AiConfig): Promise<{ draft: string; subject_suggestion: string } | null> {
-  const genAI = new GoogleGenerativeAI(config.apiKey)
+  const genAI = new GoogleGenerativeAI(config.apiKey, { apiVersion: 'v1' })
   const model = genAI.getGenerativeModel({
     model: config.model,
     generationConfig: { responseMimeType: 'application/json' },
