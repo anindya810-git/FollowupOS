@@ -277,9 +277,14 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
             </h2>
             {(contactName || contactEmail) && (
               <div className="flex items-center gap-2 mt-1 flex-wrap">
-                <p className="text-sm text-[rgb(11_18_32/55%)]">
-                  {contactName}{contactName && contactEmail ? ' · ' : ''}{contactEmail}
-                </p>
+                <div>
+                  {contactName && (
+                    <p className="text-sm font-medium text-[rgb(11_18_32/70%)]">{contactName}</p>
+                  )}
+                  {contactEmail && (
+                    <p className="text-xs text-[rgb(11_18_32/45%)]">{contactEmail}</p>
+                  )}
+                </div>
                 {contactEmail && (
                   <div className="flex items-center gap-1">
                     <button

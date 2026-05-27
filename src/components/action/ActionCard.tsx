@@ -131,10 +131,15 @@ export function ActionCard({ item, onStatusChange, onSelect, selected, onSelectC
               // Use last inbound message sender — ownerName can be the user's
               // own name when owner_type=user (wrong for display purposes).
               const inbound = item.emailThread?.messages?.find(m => !m.isFromUser)
-              const displayName = inbound?.senderName || inbound?.senderEmail || ''
-              return displayName ? (
-                <p className="text-xs text-[rgb(11_18_32/55%)] mt-0.5">{displayName}</p>
-              ) : null
+              const name = inbound?.senderName || ''
+              const email = inbound?.senderEmail || ''
+              if (!name && !email) return null
+              return (
+                <div className="mt-0.5">
+                  {name && <p className="text-xs font-medium text-[rgb(11_18_32/70%)]">{name}</p>}
+                  {email && <p className="text-xs text-[rgb(11_18_32/40%)]">{email}</p>}
+                </div>
+              )
             })()}
             {item.reason && (
               <p className="text-xs text-[rgb(11_18_32/55%)] mt-1.5 line-clamp-1">{item.reason}</p>
