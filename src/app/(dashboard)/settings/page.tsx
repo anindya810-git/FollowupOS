@@ -87,19 +87,48 @@ export default function SettingsPage() {
   const [generatingSig, setGeneratingSig] = useState(false)
   const [sigGenError, setSigGenError] = useState<string | null>(null)
   const [justConnected, setJustConnected] = useState<string | null>(null)
+  const [setupAccount, setSetupAccount] = useState<{ id: string; provider: string } | null>(null)
 
-  // When redirected here after connecting an additional inbox, show a banner
-  // and make sure the Inboxes section is in view. Read from window.location so
-  // we don't need a Suspense boundary for useSearchParams. Clean the URL after.
+  // When redirected here after connecting an additional inbox, open the scan
+  // setup prompt (sensitivity + instructions) before the first scan, or show
+  // the background-scan banner. Read from window.location so we don't need a
+  // Suspense boundary for useSearchParams. Clean the URL afterwards.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
+    const setup = params.get('setup')
+    const setupAccountId = params.get('account')
     const connected = params.get('connected')
-    if (connected) {
+    if (setup && setupAccountId) {
+      setSetupAccount({ id: setupAccountId, provider: setup })
+      setActiveSection('inboxes')
+      window.history.replaceState({}, '', '/settings')
+    } else if (connected) {
       setJustConnected(connected === 'outlook' ? 'Outlook' : connected === 'gmail' ? 'Gmail' : connected)
       setActiveSection('inboxes')
       window.history.replaceState({}, '', '/settings')
     }
   }, [])
+
+  // Save the chosen sensitivity + instructions for the new inbox, then kick off
+  // its first scan in the background.
+  const startSetupScan = async (level: number, instructions: string) => {
+    if (!setupAccount) return
+    const acct = setupAccount
+    await fetch(`/api/integrations/${acct.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ noiseFilterLevel: level, scanInstructions: instructions.trim() || null }),
+    }).catch(() => {})
+    markScanStarting([acct.id])
+    await fetch('/api/scan/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ account_id: acct.id }),
+    }).catch(() => {})
+    setJustConnected(acct.provider === 'outlook' ? 'Outlook' : 'Gmail')
+    setSetupAccount(null)
+    fetchIntegrations()
+  }
 
   const fetchIntegrations = async () => {
     try {
@@ -825,7 +854,112 @@ export default function SettingsPage() {
 
         </div>
       </main>
+
+      {setupAccount && (
+        <ScanSetupModal
+          email={integrations.find(a => a.id === setupAccount.id)?.emailAddress ?? null}
+          provider={setupAccount.provider}
+          globalLevel={settings.appSettings?.noiseFilterLevel ?? 3}
+          onStart={startSetupScan}
+          onSkip={() => setSetupAccount(null)}
+        />
+      )}
     </>
+  )
+}
+
+function ScanSetupModal({
+  email,
+  provider,
+  globalLevel,
+  onStart,
+  onSkip,
+}: {
+  email: string | null
+  provider: string
+  globalLevel: number
+  onStart: (level: number, instructions: string) => Promise<void> | void
+  onSkip: () => void
+}) {
+  const [level, setLevel] = useState(globalLevel)
+  const [instructions, setInstructions] = useState('')
+  const [starting, setStarting] = useState(false)
+  const label = NOISE_LEVEL_LABELS[level]
+  const providerName = provider === 'outlook' ? 'Outlook' : provider === 'gmail' ? 'Gmail' : provider
+
+  const start = async () => {
+    setStarting(true)
+    try { await onStart(level, instructions) } finally { setStarting(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-ink/30" onClick={starting ? undefined : onSkip} />
+      <div className="relative w-full max-w-lg rounded-2xl bg-white shadow-xl border border-rule overflow-hidden">
+        <div className="px-6 py-4 border-b border-rule">
+          <h2 className="text-base font-semibold text-ink">Set up scan for your new inbox</h2>
+          <p className="text-xs text-[rgb(11_18_32/55%)] mt-0.5">
+            {email ? <span className="font-mono">{email}</span> : `${providerName} connected`} — choose how Pendingly should scan it before we start.
+          </p>
+        </div>
+
+        <div className="px-6 py-5 space-y-5 max-h-[60vh] overflow-y-auto">
+          {/* Scan sensitivity */}
+          <div>
+            <label className="block text-sm font-medium text-ink mb-1.5">Scan sensitivity</label>
+            <p className="text-xs text-[rgb(11_18_32/55%)] mb-2.5">
+              Controls how many automated emails are filtered out before Pendingly AI sees them. Lower = more emails scanned; higher = faster, fewer false positives.
+            </p>
+            <div className="flex gap-1.5">
+              {[1, 2, 3, 4, 5].map(n => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setLevel(n)}
+                  className={`flex-1 rounded-lg border px-2 py-2 text-xs font-medium transition-colors ${
+                    level === n
+                      ? 'bg-ink text-white border-ink'
+                      : 'bg-white text-[rgb(11_18_32/60%)] border-[rgb(11_18_32/15%)] hover:border-[rgb(11_18_32/30%)]'
+                  }`}
+                >
+                  {NOISE_LEVEL_LABELS[n].name}
+                </button>
+              ))}
+            </div>
+            {label && (
+              <p className="text-xs text-[rgb(11_18_32/55%)] mt-2 leading-relaxed">{label.description}</p>
+            )}
+          </div>
+
+          {/* Instructions / prompt */}
+          <div>
+            <label className="block text-sm font-medium text-ink mb-1.5">
+              Scan instructions <span className="font-normal text-[rgb(11_18_32/45%)]">(optional)</span>
+            </label>
+            <p className="text-xs text-[rgb(11_18_32/55%)] mb-2.5">
+              Teach Pendingly what matters in this inbox — e.g. &ldquo;Flag anything from clients about invoices&rdquo; or &ldquo;Ignore internal newsletters&rdquo;.
+            </p>
+            <textarea
+              value={instructions}
+              onChange={e => setInstructions(e.target.value)}
+              rows={3}
+              maxLength={2000}
+              placeholder="Add any specific instructions for this inbox…"
+              className="w-full text-sm border border-rule rounded-lg px-3 py-2 bg-white resize-none focus:outline-none focus:ring-1 focus:ring-action"
+            />
+          </div>
+        </div>
+
+        <div className="px-6 py-4 border-t border-rule flex items-center justify-end gap-2">
+          <Button variant="ghost" size="sm" onClick={onSkip} disabled={starting}>
+            Skip for now
+          </Button>
+          <Button size="sm" onClick={start} disabled={starting}>
+            {starting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Start scan'}
+          </Button>
+        </div>
+      </div>
+    </div>
   )
 }
 

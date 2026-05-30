@@ -65,14 +65,19 @@ export async function GET(request: NextRequest) {
     })
 
     // Is this an *additional* inbox? If the user already has another connected
-    // account, the scan should run in the background (inline progress in
-    // Settings) rather than taking over with the full-screen onboarding scan.
+    // account, they're an existing user adding a second inbox.
     const otherConnected = await prisma.emailAccount.count({
       where: { userId: session.user.id, connectedStatus: 'connected', id: { not: account.id } },
     })
     const isAdditionalInbox = otherConnected > 0
 
-    // Create scan job and kick it off.
+    if (isAdditionalInbox) {
+      // Don't scan yet. Send the user to Settings with a setup prompt where they
+      // choose scan sensitivity + instructions, then start the background scan.
+      return NextResponse.redirect(new URL(`/settings?setup=outlook&account=${account.id}`, request.url))
+    }
+
+    // First inbox — run the full onboarding flow (AI key setup + scan page).
     const scanJob = await prisma.scanJob.create({
       data: {
         userId: session.user.id,
@@ -82,13 +87,6 @@ export async function GET(request: NextRequest) {
     })
     triggerScan(scanJob.id, session.user.id, account.id)
 
-    if (isAdditionalInbox) {
-      // Background scan — land on Settings where Connected Inboxes shows live
-      // progress and the rest of the app stays usable. Don't reset onboarding.
-      return NextResponse.redirect(new URL('/settings?connected=outlook', request.url))
-    }
-
-    // First inbox — run the full onboarding flow (AI key setup + scan page).
     await prisma.user.update({
       where: { id: session.user.id },
       data: { onboardingCompleted: false },
