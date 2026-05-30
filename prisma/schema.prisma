@@ -16,6 +16,11 @@ model User {
   designation          String?
   company              String?
   phone                String?
+  socialLinkedin       String?
+  socialTwitter        String?
+  socialInstagram      String?
+  socialFacebook       String?
+  socialSnapchat       String?
   onboardingCompleted  Boolean   @default(false)
   anthropicApiKeyEncrypted String?
   openaiApiKeyEncrypted    String?

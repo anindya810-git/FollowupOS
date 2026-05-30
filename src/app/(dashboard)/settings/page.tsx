@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Trash2, Plus, AlertTriangle, LogOut, RefreshCw, Loader2, Check, ChevronDown, RotateCcw } from 'lucide-react'
+import { Trash2, Plus, AlertTriangle, LogOut, RefreshCw, Loader2, Check, ChevronDown, RotateCcw, Sparkles } from 'lucide-react'
 import { PushNotificationToggle } from '@/components/PushNotificationToggle'
 import { DEFAULT_FOLLOWUP_TEMPLATE } from '@/lib/templates'
 import { RichTextEditor } from '@/components/editor/RichTextEditor'
@@ -87,6 +87,8 @@ export default function SettingsPage() {
   const [teamsTestResult, setTeamsTestResult] = useState<string | null>(null)
   const [whatsappTesting, setWhatsappTesting] = useState(false)
   const [whatsappTestResult, setWhatsappTestResult] = useState<string | null>(null)
+  const [generatingSig, setGeneratingSig] = useState(false)
+  const [sigGenError, setSigGenError] = useState<string | null>(null)
 
   const fetchIntegrations = () =>
     fetch('/api/integrations').then(r => r.json()).then(i => {
@@ -145,6 +147,18 @@ export default function SettingsPage() {
     setSaving(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+  }
+
+  const generateSignature = async () => {
+    setGeneratingSig(true)
+    setSigGenError(null)
+    try {
+      const res = await fetch('/api/settings/generate-signature', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok || data.error) { setSigGenError(data.error ?? 'Generation failed'); return }
+      setSettings(s => ({ ...s, appSettings: s.appSettings ? { ...s.appSettings, signatureHtml: data.html } : { defaultFollowupDays: 3, scanWindowDays: 30, conservativeMode: true, signatureHtml: data.html } }))
+    } catch { setSigGenError('Network error') }
+    finally { setGeneratingSig(false) }
   }
 
   const disconnectAccount = async (account: EmailAccount) => {
@@ -849,9 +863,25 @@ export default function SettingsPage() {
                       <a href="/upgrade" className="text-[10px] text-[rgb(11_18_32/35%)] underline hover:text-ink">Requires Lite/Pro to disable</a>
                     </div>
                   </div>
-                  <p className="text-xs text-[rgb(11_18_32/55%)] mb-3">
-                    Custom signature — appended via the &quot;Insert signature&quot; button in the reply editor.
-                  </p>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs text-[rgb(11_18_32/55%)]">
+                      Custom signature — appended via the &quot;Insert signature&quot; button in the reply editor.
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={generateSignature}
+                      disabled={generatingSig}
+                      className="shrink-0 ml-3 gap-1.5"
+                      title="Generate signature using your profile & social links (Account → Profile)"
+                    >
+                      {generatingSig ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                      {generatingSig ? 'Generating…' : 'Generate with AI'}
+                    </Button>
+                  </div>
+                  {sigGenError && (
+                    <p className="text-xs text-red-600 mb-2">{sigGenError}</p>
+                  )}
                   <RichTextEditor
                     value={settings.appSettings?.signatureHtml ?? ''}
                     onChange={(html) => setSettings(s => ({
@@ -1513,6 +1543,11 @@ interface ProfileData {
   company: string | null
   phone: string | null
   createdAt: string
+  socialLinkedin: string | null
+  socialTwitter: string | null
+  socialInstagram: string | null
+  socialFacebook: string | null
+  socialSnapchat: string | null
 }
 
 const PROFILE_CACHE_KEY = 'pendingly_profile'
@@ -1564,6 +1599,21 @@ function ProfileCard() {
       return match ? match[1] : '+91'
     } catch { return '+91' }
   })
+  const [socialLinkedin, setSocialLinkedin] = useState(() => {
+    try { const c = localStorage.getItem(PROFILE_CACHE_KEY); return c ? (JSON.parse(c) as ProfileData).socialLinkedin ?? '' : '' } catch { return '' }
+  })
+  const [socialTwitter, setSocialTwitter] = useState(() => {
+    try { const c = localStorage.getItem(PROFILE_CACHE_KEY); return c ? (JSON.parse(c) as ProfileData).socialTwitter ?? '' : '' } catch { return '' }
+  })
+  const [socialInstagram, setSocialInstagram] = useState(() => {
+    try { const c = localStorage.getItem(PROFILE_CACHE_KEY); return c ? (JSON.parse(c) as ProfileData).socialInstagram ?? '' : '' } catch { return '' }
+  })
+  const [socialFacebook, setSocialFacebook] = useState(() => {
+    try { const c = localStorage.getItem(PROFILE_CACHE_KEY); return c ? (JSON.parse(c) as ProfileData).socialFacebook ?? '' : '' } catch { return '' }
+  })
+  const [socialSnapchat, setSocialSnapchat] = useState(() => {
+    try { const c = localStorage.getItem(PROFILE_CACHE_KEY); return c ? (JSON.parse(c) as ProfileData).socialSnapchat ?? '' : '' } catch { return '' }
+  })
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
@@ -1581,6 +1631,11 @@ function ProfileCard() {
         const match = (d.phone ?? '').match(/^(\+\d+)\s(.*)$/)
         if (match) { setPhoneCC(match[1]); setPhone(match[2]) }
         else if (d.phone) setPhone(d.phone)
+        setSocialLinkedin(d.socialLinkedin ?? '')
+        setSocialTwitter(d.socialTwitter ?? '')
+        setSocialInstagram(d.socialInstagram ?? '')
+        setSocialFacebook(d.socialFacebook ?? '')
+        setSocialSnapchat(d.socialSnapchat ?? '')
       })
       .catch(() => {})
   }, [])
@@ -1592,10 +1647,10 @@ function ProfileCard() {
       await fetch('/api/user/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, timezone, designation, company, phone: fullPhone }),
+        body: JSON.stringify({ name, timezone, designation, company, phone: fullPhone, socialLinkedin, socialTwitter, socialInstagram, socialFacebook, socialSnapchat }),
       })
       if (data) {
-        const updated = { ...data, name, timezone, designation, company, phone: fullPhone || null }
+        const updated = { ...data, name, timezone, designation, company, phone: fullPhone || null, socialLinkedin: socialLinkedin || null, socialTwitter: socialTwitter || null, socialInstagram: socialInstagram || null, socialFacebook: socialFacebook || null, socialSnapchat: socialSnapchat || null }
         try { localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(updated)) } catch {}
         setData(updated)
       }
@@ -1612,7 +1667,12 @@ function ProfileCard() {
     timezone !== data.timezone ||
     designation !== (data.designation ?? '') ||
     company !== (data.company ?? '') ||
-    fullPhone !== (data.phone ?? '')
+    fullPhone !== (data.phone ?? '') ||
+    socialLinkedin !== (data.socialLinkedin ?? '') ||
+    socialTwitter !== (data.socialTwitter ?? '') ||
+    socialInstagram !== (data.socialInstagram ?? '') ||
+    socialFacebook !== (data.socialFacebook ?? '') ||
+    socialSnapchat !== (data.socialSnapchat ?? '')
   )
 
   return (
@@ -1719,6 +1779,30 @@ function ProfileCard() {
               <p className="text-[11px] text-[rgb(11_18_32/50%)] mt-1">
                 Affects digest delivery, scheduling, and snooze wake times.
               </p>
+            </div>
+
+            <div>
+              <p className="text-sm font-medium text-ink mb-2">Social Media</p>
+              <p className="text-[11px] text-[rgb(11_18_32/50%)] mb-3">Used to generate your email signature. Enter a full URL or just your username/handle.</p>
+              <div className="grid grid-cols-2 gap-3">
+                {([
+                  { label: 'LinkedIn', value: socialLinkedin, set: setSocialLinkedin, placeholder: 'linkedin.com/in/yourname' },
+                  { label: 'Twitter / X', value: socialTwitter, set: setSocialTwitter, placeholder: '@handle or URL' },
+                  { label: 'Instagram', value: socialInstagram, set: setSocialInstagram, placeholder: '@handle or URL' },
+                  { label: 'Facebook', value: socialFacebook, set: setSocialFacebook, placeholder: 'facebook.com/yourname' },
+                  { label: 'Snapchat', value: socialSnapchat, set: setSocialSnapchat, placeholder: '@username' },
+                ] as Array<{ label: string; value: string; set: (v: string) => void; placeholder: string }>).map(({ label, value, set, placeholder }) => (
+                  <div key={label}>
+                    <label className="block text-xs font-medium text-[rgb(11_18_32/55%)] mb-1">{label}</label>
+                    <Input
+                      type="text"
+                      value={value}
+                      onChange={e => set(e.target.value)}
+                      placeholder={placeholder}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
 
             {dirty && (
