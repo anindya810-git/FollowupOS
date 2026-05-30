@@ -64,6 +64,15 @@ export async function GET(request: NextRequest) {
       update: {},
     })
 
+    // Is this an *additional* inbox? If the user already has another connected
+    // account, they're an existing user adding a second inbox — the scan should
+    // run in the background (with inline progress in Settings) instead of taking
+    // over the whole app with the full-screen onboarding scan page.
+    const otherConnected = await prisma.emailAccount.count({
+      where: { userId: session.user.id, connectedStatus: 'connected', id: { not: account.id } },
+    })
+    const isAdditionalInbox = otherConnected > 0
+
     // Create scan job and kick it off (was previously queued forever; the
     // /scan page only re-picked it up because /api/scan/start is idempotent).
     const scanJob = await prisma.scanJob.create({
@@ -75,7 +84,13 @@ export async function GET(request: NextRequest) {
     })
     triggerScan(scanJob.id, session.user.id, account.id)
 
-    // Mark onboarding started
+    if (isAdditionalInbox) {
+      // Background scan — land on Settings where Connected Inboxes shows live
+      // progress and the rest of the app stays usable. Don't reset onboarding.
+      return NextResponse.redirect(new URL('/settings?connected=gmail', request.url))
+    }
+
+    // First inbox — run the full onboarding flow (AI key setup + scan page).
     await prisma.user.update({
       where: { id: session.user.id },
       data: { onboardingCompleted: false },

@@ -86,6 +86,20 @@ export default function SettingsPage() {
   const [contactsSynced, setContactsSynced] = useState<number | null>(null)
   const [generatingSig, setGeneratingSig] = useState(false)
   const [sigGenError, setSigGenError] = useState<string | null>(null)
+  const [justConnected, setJustConnected] = useState<string | null>(null)
+
+  // When redirected here after connecting an additional inbox, show a banner
+  // and make sure the Inboxes section is in view. Read from window.location so
+  // we don't need a Suspense boundary for useSearchParams. Clean the URL after.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const connected = params.get('connected')
+    if (connected) {
+      setJustConnected(connected === 'outlook' ? 'Outlook' : connected === 'gmail' ? 'Gmail' : connected)
+      setActiveSection('inboxes')
+      window.history.replaceState({}, '', '/settings')
+    }
+  }, [])
 
   const fetchIntegrations = async () => {
     try {
@@ -292,6 +306,24 @@ export default function SettingsPage() {
           {/* ── Inboxes ── */}
           {activeSection === 'inboxes' && (
             <>
+
+          {justConnected && (
+            <div className="flex items-start gap-3 rounded-lg border border-[rgb(26_143_94/25%)] bg-[rgb(26_143_94/8%)] px-4 py-3">
+              <Check className="h-4 w-4 text-done flex-shrink-0 mt-0.5" />
+              <div className="flex-1 text-sm">
+                <p className="font-medium text-ink">{justConnected} connected — scanning in the background</p>
+                <p className="text-[rgb(11_18_32/55%)] mt-0.5">
+                  We&apos;re building this inbox&apos;s action queue now. You can keep using Pendingly — progress shows below and new items appear automatically.
+                </p>
+              </div>
+              <button
+                onClick={() => setJustConnected(null)}
+                className="text-[rgb(11_18_32/40%)] hover:text-ink text-xs flex-shrink-0"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
 
           {/* Connected Inboxes */}
           <Card>
