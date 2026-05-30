@@ -271,8 +271,12 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
       data: {
         initialScanCompleted: true,
         lastSyncedAt: new Date(),
-        // Store historyId captured at scan-start so the next sync only sees new changes
-        ...(profileHistoryId ? { gmailHistoryId: profileHistoryId } : {}),
+        // Store historyId captured at scan-start so the next sync only sees new
+        // changes — but ONLY if every thread classified cleanly. If any AI call
+        // failed (e.g. provider outage / bad model), keep the old historyId so the
+        // next sync re-fetches and retries those threads instead of skipping past
+        // them forever.
+        ...(profileHistoryId && aiFailures === 0 ? { gmailHistoryId: profileHistoryId } : {}),
       },
     })
 
@@ -410,14 +414,16 @@ async function scanOutlookAccount(params: {
           lastMessageAt,
           lastMessageFromUser: thread.lastMessageFromUser,
           providerUrl: thread.providerUrl,
-          threadHash,
+          // Set only after a successful classification (see below) so a failed
+          // AI call doesn't permanently mark the thread "seen".
+          threadHash: null,
         },
         update: {
           subject: thread.subject,
           participants: JSON.stringify(thread.participants),
           lastMessageAt,
           lastMessageFromUser: thread.lastMessageFromUser,
-          threadHash,
+          threadHash: null,
           updatedAt: new Date(),
         },
       })
@@ -518,8 +524,15 @@ async function scanOutlookAccount(params: {
         },
       })
 
-      if (!result) aiFailures++
-      if (!result || !result.should_show_to_user || result.primary_category === 'no_action_needed') {
+      if (!result) {
+        // Leave threadHash null so this thread is retried on the next sync.
+        aiFailures++
+        processed++
+        continue
+      }
+      // Classification succeeded — record the hash so this state is skipped next sync.
+      await prisma.emailThread.update({ where: { id: upsertedThread.id }, data: { threadHash } })
+      if (!result.should_show_to_user || result.primary_category === 'no_action_needed') {
         processed++
         continue
       }
@@ -718,7 +731,8 @@ async function scanImapAccount(params: {
           participants: JSON.stringify(thread.participants),
           lastMessageAt,
           lastMessageFromUser: thread.lastMessageFromUser,
-          threadHash,
+          // Set only after a successful classification (see below).
+          threadHash: null,
           providerUrl: imapProviderUrl,
         },
         update: {
@@ -726,7 +740,7 @@ async function scanImapAccount(params: {
           participants: JSON.stringify(thread.participants),
           lastMessageAt,
           lastMessageFromUser: thread.lastMessageFromUser,
-          threadHash,
+          threadHash: null,
           providerUrl: imapProviderUrl,
           updatedAt: new Date(),
         },
@@ -810,8 +824,15 @@ async function scanImapAccount(params: {
         },
       })
 
-      if (!result) aiFailures++
-      if (!result || !result.should_show_to_user || result.primary_category === 'no_action_needed') {
+      if (!result) {
+        // Leave threadHash null so this thread is retried on the next sync.
+        aiFailures++
+        processed++
+        continue
+      }
+      // Classification succeeded — record the hash so this state is skipped next sync.
+      await prisma.emailThread.update({ where: { id: upsertedThread.id }, data: { threadHash } })
+      if (!result.should_show_to_user || result.primary_category === 'no_action_needed') {
         processed++
         continue
       }
@@ -1083,14 +1104,17 @@ async function processThread(params: {
       lastMessageAt: lastMsgDate,
       lastMessageFromUser,
       providerUrl: getGmailThreadUrl(threadId),
-      threadHash,
+      // threadHash is set only AFTER a successful classification (see below).
+      // If we wrote it here and the AI call failed, the thread would be marked
+      // "seen" and never retried on the next sync.
+      threadHash: null,
     },
     update: {
       subject,
       participants: JSON.stringify(Array.from(participants)),
       lastMessageAt: lastMsgDate,
       lastMessageFromUser,
-      threadHash,
+      threadHash: null,
       updatedAt: new Date(),
     },
   })
@@ -1170,9 +1194,13 @@ async function processThread(params: {
   })
 
   if (!result) {
-    // Throw so the scanner loop captures the real error in aiErrorSamples
+    // Throw so the scanner loop captures the real error in aiErrorSamples.
+    // threadHash stays null, so this thread is retried on the next sync.
     throw new Error(classifyError ?? 'Classification failed')
   }
+  // Classification succeeded — now it's safe to record the hash so this exact
+  // thread state is skipped on future syncs.
+  await prisma.emailThread.update({ where: { id: upsertedThread.id }, data: { threadHash } })
   if (!result.should_show_to_user || result.primary_category === 'no_action_needed') {
     return 'skipped'
   }
