@@ -48,6 +48,7 @@ model User {
   aiLogs         AiClassificationLog[]
   userFeedback   UserFeedback[]
   ignoredSenders IgnoredSender[]
+  watchList      WatchList[]
   digestSettings DigestSettings?
   appSettings    AppSettings?
   contacts       Contact[]
@@ -302,6 +303,35 @@ model IgnoredSender {
   createdAt   DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// A WatchList entry tells Pendingly to push-notify the user on any NEW inbound
+// mail matching it — independent of urgency classification. An entry targets
+// exactly one of: a specific thread (threadId = providerThreadId), a person
+// (senderEmail), or a whole domain.
+model WatchList {
+  id          String   @id @default(cuid())
+  userId      String
+  senderEmail String?
+  domain      String?
+  threadId    String?  // providerThreadId of a specific thread
+  label       String?  // friendly label for the UI (contact name / subject)
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// De-dupes watchlist push notifications: one row per message we've already
+// notified about, so re-scans of the same thread never re-notify.
+model WatchNotification {
+  id                String   @id @default(cuid())
+  userId            String
+  providerMessageId String
+  createdAt         DateTime @default(now())
+
+  @@unique([userId, providerMessageId])
 }
 
 model DigestSettings {

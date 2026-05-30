@@ -88,6 +88,7 @@ export interface ActionItemWithThread {
     id: string
     subject: string | null
     providerUrl: string | null
+    providerThreadId?: string | null
     lastMessageAt: Date | null
     participants: string | null
     emailAccount?: { provider: string; emailAddress: string } | null

@@ -7,6 +7,7 @@ import { canMakeAiCall, getUserPlan, PLAN_LIMITS } from './plan'
 import type { AiConfig } from './ai'
 import { upsertContact } from './contacts'
 import { maybeAutoCreateCalendar } from './auto-calendar'
+import { notifyWatchlistMatch } from './watchlist'
 import { extractLinksFromText, extractGmailAttachments, extractImapAttachments } from './email-extract'
 import type { ClassificationInput } from '@/types'
 import crypto from 'crypto'
@@ -563,6 +564,25 @@ async function scanOutlookAccount(params: {
         })
       }
 
+      // Watchlist push — notify on new watched inbound mail (latest non-user msg).
+      {
+        const inbound = [...thread.messages].reverse().find(m => {
+          const fe = m.from?.emailAddress?.address ?? ''
+          return fe.toLowerCase() !== userEmail.toLowerCase()
+        })
+        await notifyWatchlistMatch({
+          userId,
+          providerThreadId: thread.conversationId,
+          subject: thread.subject || '',
+          latestInbound: inbound && inbound.id ? {
+            providerMessageId: inbound.id,
+            senderEmail: inbound.from?.emailAddress?.address ?? '',
+            senderName: inbound.from?.emailAddress?.name ?? null,
+            sentAt: inbound.receivedDateTime ? new Date(inbound.receivedDateTime) : null,
+          } : null,
+        })
+      }
+
       const classificationInput: ClassificationInput = {
         user_email: userEmail,
         current_date: new Date().toISOString().split('T')[0],
@@ -862,6 +882,23 @@ async function scanImapAccount(params: {
             linksJson: imapLinks.length ? JSON.stringify(imapLinks) : null,
             attachmentsJson: imapAttachments.length ? JSON.stringify(imapAttachments) : null,
           },
+        })
+      }
+
+      // Watchlist push — IMAP messages are ordered latest-first, so the first
+      // non-user message is the most recent inbound one.
+      {
+        const inbound = thread.messages.find(m => !m.isFromUser)
+        await notifyWatchlistMatch({
+          userId,
+          providerThreadId: thread.threadId,
+          subject: thread.subject || '',
+          latestInbound: inbound ? {
+            providerMessageId: String(inbound.uid),
+            senderEmail: inbound.from ?? '',
+            senderName: inbound.fromName ?? null,
+            sentAt: inbound.date ? new Date(inbound.date) : null,
+          } : null,
         })
       }
 
@@ -1225,6 +1262,21 @@ async function processThread(params: {
       },
     })
   }
+
+  // Watchlist push — independent of classification. Notify if a new inbound
+  // message on this thread/sender/domain is being watched.
+  const gmailLatestInbound = [...messagePersistData].reverse().find(m => !m.isFromUser) ?? null
+  await notifyWatchlistMatch({
+    userId,
+    providerThreadId: threadId,
+    subject,
+    latestInbound: gmailLatestInbound && {
+      providerMessageId: gmailLatestInbound.providerMessageId,
+      senderEmail: gmailLatestInbound.senderEmail,
+      senderName: gmailLatestInbound.senderName,
+      sentAt: gmailLatestInbound.sentAt,
+    },
+  })
 
   // AI Classification
   const classificationInput: ClassificationInput = {

@@ -10,13 +10,19 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const [appSettings, digestSettings, ignoredSenders] = await Promise.all([
+  const [appSettings, digestSettings, ignoredSenders, watchList] = await Promise.all([
     prisma.appSettings.findUnique({ where: { userId: session.user.id } }),
     prisma.digestSettings.findUnique({ where: { userId: session.user.id } }),
     prisma.ignoredSender.findMany({ where: { userId: session.user.id } }),
+    // Resilient: if the WatchList table doesn't exist yet (migration pending),
+    // don't break the entire settings page — just return an empty list.
+    prisma.watchList.findMany({
+      where: { userId: session.user.id },
+      orderBy: { createdAt: 'desc' },
+    }).catch(() => []),
   ])
 
-  return NextResponse.json({ appSettings, digestSettings, ignoredSenders })
+  return NextResponse.json({ appSettings, digestSettings, ignoredSenders, watchList })
 }
 
 export async function PATCH(request: NextRequest) {

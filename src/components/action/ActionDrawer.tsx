@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { FilterSelect } from '@/components/ui/filter-select'
 import { categoryLabel, timeAgo } from '@/lib/utils'
-import { X, ExternalLink, Loader2, Send, Zap, AlertCircle, Archive, Clock, ChevronDown, Check, EyeOff, RotateCcw } from 'lucide-react'
+import { X, ExternalLink, Loader2, Send, Zap, AlertCircle, Archive, Clock, ChevronDown, Check, EyeOff, RotateCcw, Eye } from 'lucide-react'
 import { playChime } from '@/lib/sounds'
 import { RichTextEditor } from '@/components/editor/RichTextEditor'
 import { CalendarForm } from './CalendarForm'
@@ -74,6 +74,9 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
   const [installedConnectors, setInstalledConnectors] = useState<string[]>([])
   const [ignoreFooterOpen, setIgnoreFooterOpen] = useState(false)
   const ignoreFooterRef = useRef<HTMLDivElement>(null)
+  const [watchOpen, setWatchOpen] = useState(false)
+  const [watchMsg, setWatchMsg] = useState<string | null>(null)
+  const watchRef = useRef<HTMLDivElement>(null)
   const [customWhen, setCustomWhen] = useState(() => {
     const d = new Date()
     d.setHours(d.getHours() + 1, 0, 0, 0)
@@ -120,6 +123,8 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
     setCalendarOpen(false)
     setCalendarResult(null)
     setIgnoreFooterOpen(false)
+    setWatchOpen(false)
+    setWatchMsg(null)
   }, [item?.id])
 
   useEffect(() => {
@@ -132,6 +137,15 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [ignoreFooterOpen])
+
+  useEffect(() => {
+    if (!watchOpen) return
+    const handler = (e: MouseEvent) => {
+      if (watchRef.current && !watchRef.current.contains(e.target as Node)) setWatchOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [watchOpen])
 
   if (!item) return null
   const active = detail || item
@@ -183,6 +197,38 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
       // ignore silently — drawer stays open on failure
     } finally {
       setIgnoring(false)
+    }
+  }
+
+  const addToWatch = async (scope: 'thread' | 'email' | 'domain') => {
+    setWatchOpen(false)
+    let payload: Record<string, string> = {}
+    let confirmMsg = ''
+    if (scope === 'thread') {
+      const threadId = active.emailThread?.providerThreadId
+      if (!threadId) return
+      payload = { thread_id: threadId, label: active.title || active.emailThread?.subject || 'Watched thread' }
+      confirmMsg = 'Watching this thread'
+    } else if (scope === 'email') {
+      if (!contactEmail) return
+      payload = { sender_email: contactEmail, label: contactName || contactEmail }
+      confirmMsg = `Watching ${contactEmail}`
+    } else {
+      const domain = contactEmail.split('@')[1] || ''
+      if (!domain) return
+      payload = { domain, label: `@${domain}` }
+      confirmMsg = `Watching @${domain}`
+    }
+    try {
+      const res = await fetch('/api/settings/watchlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) throw new Error('Failed')
+      setWatchMsg(confirmMsg)
+    } catch {
+      setWatchMsg('Could not add to watchlist')
     }
   }
 
@@ -303,7 +349,49 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
                 )}
               </div>
             )}
-            <p className="text-xs text-[rgb(11_18_32/30%)] mt-1">
+
+            {/* WatchList control */}
+            <div className="mt-2 flex items-center gap-2">
+              <div ref={watchRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setWatchOpen(o => !o)}
+                  className="inline-flex items-center gap-1.5 text-xs text-[rgb(11_18_32/60%)] hover:text-ink border border-[rgb(11_18_32/15%)] hover:border-[rgb(11_18_32/30%)] px-2 py-1 rounded-md transition-colors"
+                  title="Get push notifications for new mail here"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  Watch
+                  <ChevronDown className="h-3 w-3" />
+                </button>
+                {watchOpen && (
+                  <div className="absolute top-full left-0 mt-1 bg-white border border-rule rounded-lg shadow-lg z-50 min-w-[220px] py-1 text-xs">
+                    <button className="w-full text-left px-3 py-2 hover:bg-paper-2 text-ink" onClick={() => addToWatch('thread')}>
+                      <span className="font-medium">Watch this thread</span>
+                      <span className="block text-[rgb(11_18_32/40%)]">Notify me on every new reply</span>
+                    </button>
+                    {contactEmail && (
+                      <button className="w-full text-left px-3 py-2 hover:bg-paper-2 text-ink border-t border-rule" onClick={() => addToWatch('email')}>
+                        <span className="font-medium">Watch this sender</span>
+                        <span className="block text-[rgb(11_18_32/40%)] truncate">{contactEmail}</span>
+                      </button>
+                    )}
+                    {contactEmail.includes('@') && (
+                      <button className="w-full text-left px-3 py-2 hover:bg-paper-2 text-ink border-t border-rule" onClick={() => addToWatch('domain')}>
+                        <span className="font-medium">Watch all from @{contactEmail.split('@')[1]}</span>
+                        <span className="block text-[rgb(11_18_32/40%)]">Every email from this domain</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+              {watchMsg && (
+                <span className="inline-flex items-center gap-1 text-xs text-action">
+                  <Eye className="h-3 w-3" />{watchMsg}
+                </span>
+              )}
+            </div>
+
+            <p className="text-xs text-[rgb(11_18_32/30%)] mt-2">
               Last activity {timeAgo(active.lastActivityAt)}
             </p>
           </div>
