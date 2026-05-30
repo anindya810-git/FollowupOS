@@ -1,9 +1,9 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Select } from '@/components/ui/select'
+import { FilterSelect } from '@/components/ui/filter-select'
 import { categoryLabel, timeAgo } from '@/lib/utils'
-import { X, ExternalLink, Loader2, Send, AlertCircle, Archive, Clock, ChevronDown, UserX } from 'lucide-react'
+import { X, ExternalLink, Loader2, Send, Zap, AlertCircle, Archive, Clock, ChevronDown, UserX } from 'lucide-react'
 import { playChime } from '@/lib/sounds'
 import { RichTextEditor } from '@/components/editor/RichTextEditor'
 import { CalendarForm } from './CalendarForm'
@@ -438,16 +438,21 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
             <div className="px-4 py-3 bg-paper-2 border-b border-rule flex items-center justify-between gap-2 flex-wrap">
               <p className="text-xs font-semibold uppercase tracking-wider text-[rgb(11_18_32/30%)]">Compose reply</p>
               <div className="flex items-center gap-2">
-                <Select value={tone} onChange={e => setTone(e.target.value)} className="text-xs h-8">
-                  <option value="polite">Polite</option>
-                  <option value="firm">Firm</option>
-                  <option value="short">Short</option>
-                  <option value="executive">Executive</option>
-                  <option value="friendly">Friendly</option>
-                  <option value="escalation">Escalation</option>
-                </Select>
-                <Button onClick={generateReply} disabled={generating} size="sm" variant="outline">
-                  {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <>Generate draft</>}
+                <FilterSelect
+                  value={tone}
+                  onChange={setTone}
+                  className="w-32"
+                  options={[
+                    { value: 'polite', label: 'Polite' },
+                    { value: 'firm', label: 'Firm' },
+                    { value: 'short', label: 'Short' },
+                    { value: 'executive', label: 'Executive' },
+                    { value: 'friendly', label: 'Friendly' },
+                    { value: 'escalation', label: 'Escalation' },
+                  ]}
+                />
+                <Button onClick={generateReply} disabled={generating} size="sm" variant="outline" className="gap-1.5">
+                  {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><Zap className="h-3.5 w-3.5" /> Pendingly Assist</>}
                 </Button>
               </div>
             </div>
@@ -455,7 +460,7 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
               <RichTextEditor
                 value={draft}
                 onChange={setDraft}
-                placeholder="Write your reply, or click 'Generate draft' / 'Use this draft' above..."
+                placeholder="Write your reply, or click 'Pendingly Assist' above to draft one..."
                 minHeight={180}
                 signatureHtml={signatureHtml}
               />
