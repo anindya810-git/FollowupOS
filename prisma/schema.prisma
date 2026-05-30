@@ -12,6 +12,7 @@ model User {
   email                String    @unique
   emailVerified        DateTime?
   image                String?
+  customImage          String?
   timezone             String    @default("Asia/Kolkata")
   designation          String?
   company              String?

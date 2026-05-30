@@ -9,10 +9,11 @@ export async function GET() {
   }
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { id: true, name: true, email: true, image: true, timezone: true, createdAt: true, designation: true, company: true, phone: true, socialLinkedin: true, socialTwitter: true, socialInstagram: true, socialFacebook: true, socialSnapchat: true },
+    select: { id: true, name: true, email: true, image: true, customImage: true, timezone: true, createdAt: true, designation: true, company: true, phone: true, socialLinkedin: true, socialTwitter: true, socialInstagram: true, socialFacebook: true, socialSnapchat: true },
   })
   if (!user) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  return NextResponse.json(user)
+  const { customImage, ...rest } = user
+  return NextResponse.json({ ...rest, image: customImage ?? user.image })
 }
 
 export async function PATCH(request: NextRequest) {

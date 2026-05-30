@@ -1,12 +1,12 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { signOut } from 'next-auth/react'
 import { Header } from '@/components/layout/Header'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Trash2, Plus, AlertTriangle, LogOut, RefreshCw, Loader2, Check, ChevronDown, RotateCcw, Sparkles } from 'lucide-react'
+import { Trash2, Plus, AlertTriangle, LogOut, RefreshCw, Loader2, Check, ChevronDown, RotateCcw, Sparkles, Camera, RotateCw } from 'lucide-react'
 import { PushNotificationToggle } from '@/components/PushNotificationToggle'
 import { DEFAULT_FOLLOWUP_TEMPLATE } from '@/lib/templates'
 import { RichTextEditor } from '@/components/editor/RichTextEditor'
@@ -1533,6 +1533,160 @@ function FollowupSequenceCard({ value, onChange }: { value: string | null; onCha
   )
 }
 
+const CROP_SIZE = 280
+const OUTPUT_SIZE = 256
+
+function AvatarCropModal({ src, onSave, onCancel }: {
+  src: string
+  onSave: (dataUrl: string) => void
+  onCancel: () => void
+}) {
+  const imgRef = useRef<HTMLImageElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const dragRef = useRef({ active: false, startX: 0, startY: 0, startOX: 0, startOY: 0 })
+  const [naturalSize, setNaturalSize] = useState({ w: 0, h: 0 })
+  const [offsetX, setOffsetX] = useState(0)
+  const [offsetY, setOffsetY] = useState(0)
+  const [zoom, setZoom] = useState(1)
+  const [rotation, setRotation] = useState(0)
+
+  const isSwapped = rotation === 90 || rotation === 270
+  const { w: nw, h: nh } = naturalSize
+  const baseScale = nw > 0
+    ? Math.max(CROP_SIZE / (isSwapped ? nh : nw), CROP_SIZE / (isSwapped ? nw : nh))
+    : 1
+  const scale = baseScale * zoom
+  const dw = nw * scale
+  const dh = nh * scale
+  const imgLeft = (CROP_SIZE - dw) / 2 + offsetX
+  const imgTop = (CROP_SIZE - dh) / 2 + offsetY
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const handler = (e: WheelEvent) => {
+      e.preventDefault()
+      setZoom(z => Math.max(1, Math.min(3, z - e.deltaY * 0.003)))
+    }
+    el.addEventListener('wheel', handler, { passive: false })
+    return () => el.removeEventListener('wheel', handler)
+  }, [])
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    containerRef.current?.setPointerCapture(e.pointerId)
+    dragRef.current = { active: true, startX: e.clientX, startY: e.clientY, startOX: offsetX, startOY: offsetY }
+  }
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!dragRef.current.active) return
+    const { startX, startY, startOX, startOY } = dragRef.current
+    const newOX = startOX + e.clientX - startX
+    const newOY = startOY + e.clientY - startY
+    const maxX = Math.max(0, dw / 2 - CROP_SIZE / 2)
+    const maxY = Math.max(0, dh / 2 - CROP_SIZE / 2)
+    setOffsetX(Math.max(-maxX, Math.min(maxX, newOX)))
+    setOffsetY(Math.max(-maxY, Math.min(maxY, newOY)))
+  }
+  const onPointerUp = () => { dragRef.current.active = false }
+
+  const handleRotate = () => {
+    setRotation(r => (r + 90) % 360)
+    setOffsetX(0); setOffsetY(0)
+  }
+
+  const handleSave = () => {
+    const img = imgRef.current
+    if (!img || !img.complete) return
+    const canvas = document.createElement('canvas')
+    canvas.width = OUTPUT_SIZE
+    canvas.height = OUTPUT_SIZE
+    const ctx = canvas.getContext('2d')!
+    const ratio = OUTPUT_SIZE / CROP_SIZE
+    ctx.translate(OUTPUT_SIZE / 2, OUTPUT_SIZE / 2)
+    ctx.translate(offsetX * ratio, offsetY * ratio)
+    ctx.rotate((rotation * Math.PI) / 180)
+    ctx.drawImage(img, -dw * ratio / 2, -dh * ratio / 2, dw * ratio, dh * ratio)
+    onSave(canvas.toDataURL('image/jpeg', 0.88))
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onMouseDown={e => { if (e.target === e.currentTarget) onCancel() }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-[rgb(11_18_32/8%)]">
+          <p className="text-sm font-semibold text-ink">Edit profile photo</p>
+          <p className="text-xs text-[rgb(11_18_32/45%)] mt-0.5">Drag to reposition · scroll or slider to zoom</p>
+        </div>
+
+        <div className="px-5 py-5 flex flex-col items-center gap-4">
+          {/* Circular crop preview */}
+          <div
+            ref={containerRef}
+            className="relative overflow-hidden rounded-full cursor-grab active:cursor-grabbing select-none bg-[rgb(11_18_32/6%)]"
+            style={{ width: CROP_SIZE, height: CROP_SIZE, touchAction: 'none' }}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerUp}
+          >
+            {nw > 0 && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                ref={imgRef}
+                src={src}
+                alt=""
+                draggable={false}
+                onLoad={e => setNaturalSize({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+                style={{
+                  position: 'absolute',
+                  left: imgLeft,
+                  top: imgTop,
+                  width: dw,
+                  height: dh,
+                  transform: `rotate(${rotation}deg)`,
+                  transformOrigin: 'center',
+                  userSelect: 'none',
+                  pointerEvents: 'none',
+                }}
+              />
+            )}
+            {nw === 0 && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img ref={imgRef} src={src} alt="" className="opacity-0 absolute"
+                onLoad={e => setNaturalSize({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })} />
+            )}
+            {/* subtle ring */}
+            <div className="absolute inset-0 rounded-full pointer-events-none ring-2 ring-inset ring-white/30" />
+          </div>
+
+          {/* Zoom slider */}
+          <div className="flex items-center gap-3 w-full px-1">
+            <span className="text-base text-[rgb(11_18_32/35%)] leading-none select-none font-light">−</span>
+            <input
+              type="range" min={1} max={3} step={0.01} value={zoom}
+              onChange={e => setZoom(Number(e.target.value))}
+              className="flex-1 accent-action h-1"
+            />
+            <span className="text-base text-[rgb(11_18_32/35%)] leading-none select-none font-light">+</span>
+          </div>
+        </div>
+
+        <div className="px-5 pb-5 flex items-center justify-between">
+          <button
+            onClick={handleRotate}
+            className="flex items-center gap-1.5 text-sm text-[rgb(11_18_32/55%)] hover:text-ink transition-colors"
+          >
+            <RotateCw className="h-3.5 w-3.5" />
+            Rotate 90°
+          </button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={onCancel}>Cancel</Button>
+            <Button size="sm" onClick={handleSave} disabled={nw === 0}>Apply</Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 interface ProfileData {
   id: string
   name: string | null
@@ -1616,6 +1770,9 @@ function ProfileCard() {
   })
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [cropSrc, setCropSrc] = useState<string | null>(null)
+  const [avatarUploading, setAvatarUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     fetch('/api/user/profile')
@@ -1639,6 +1796,34 @@ function ProfileCard() {
       })
       .catch(() => {})
   }, [])
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    const reader = new FileReader()
+    reader.onload = ev => { if (typeof ev.target?.result === 'string') setCropSrc(ev.target.result) }
+    reader.readAsDataURL(file)
+  }
+
+  const handleCropSave = async (dataUrl: string) => {
+    setCropSrc(null)
+    setAvatarUploading(true)
+    try {
+      const res = await fetch('/api/user/avatar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageData: dataUrl }),
+      })
+      if (res.ok && data) {
+        const updated = { ...data, image: dataUrl }
+        try { localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(updated)) } catch {}
+        setData(updated)
+      }
+    } finally {
+      setAvatarUploading(false)
+    }
+  }
 
   const save = async () => {
     setSaving(true)
@@ -1683,15 +1868,32 @@ function ProfileCard() {
           <p className="text-sm text-[rgb(11_18_32/55%)]">Loading…</p>
         ) : (
           <>
+            {cropSrc && (
+              <AvatarCropModal src={cropSrc} onSave={handleCropSave} onCancel={() => setCropSrc(null)} />
+            )}
             <div className="flex items-center gap-4">
-              {data.image ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={data.image} alt="" className="h-12 w-12 rounded-full object-cover" />
-              ) : (
-                <div className="h-12 w-12 rounded-full bg-paper-2 border border-rule flex items-center justify-center text-sm font-semibold text-ink">
-                  {(data.name || data.email).slice(0, 1).toUpperCase()}
-                </div>
-              )}
+              {/* Clickable avatar with camera overlay */}
+              <div className="relative group shrink-0 h-14 w-14">
+                {data.image ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={data.image} alt="" className="h-14 w-14 rounded-full object-cover" />
+                ) : (
+                  <div className="h-14 w-14 rounded-full bg-paper-2 border border-rule flex items-center justify-center text-base font-semibold text-ink">
+                    {(data.name || data.email).slice(0, 1).toUpperCase()}
+                  </div>
+                )}
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={avatarUploading}
+                  title="Change profile photo"
+                  className="absolute inset-0 rounded-full flex items-center justify-center bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  {avatarUploading
+                    ? <Loader2 className="h-4 w-4 text-white animate-spin" />
+                    : <Camera className="h-4 w-4 text-white" />}
+                </button>
+                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+              </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-ink truncate">{data.email}</p>
                 <p className="text-[11px] text-[rgb(11_18_32/50%)]">
