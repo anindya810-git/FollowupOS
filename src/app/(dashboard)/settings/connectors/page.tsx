@@ -1,12 +1,85 @@
 'use client'
-import { useEffect, useState, Suspense } from 'react'
+import { useEffect, useState, Suspense, type ReactNode } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Header } from '@/components/layout/Header'
 import { Button } from '@/components/ui/button'
-import { Video, Check, ExternalLink, Loader2 } from 'lucide-react'
+import { Check, ExternalLink, Loader2, Video } from 'lucide-react'
+import { GoogleMeetLogo, MicrosoftTeamsLogo, ZoomLogo } from '@/components/icons/BrandLogos'
 
 interface InboxStatus { hasGmail: boolean; hasOutlook: boolean }
 interface ZoomStatus { connected: boolean; accountEmail: string | null; configured: boolean }
+
+type ConnectorState =
+  | { kind: 'available' }
+  | { kind: 'needs'; label: string }
+  | { kind: 'connect'; href: string }
+  | { kind: 'connected'; onDisconnect: () => void; busy: boolean }
+  | { kind: 'unconfigured' }
+  | { kind: 'loading' }
+
+function StatusControl({ state }: { state: ConnectorState }) {
+  switch (state.kind) {
+    case 'available':
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-[rgb(26_143_94/10%)] px-3 py-1 text-xs font-semibold text-done">
+          <Check className="h-3.5 w-3.5" /> Available
+        </span>
+      )
+    case 'connected':
+      return (
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[rgb(26_143_94/10%)] px-3 py-1 text-xs font-semibold text-done">
+            <Check className="h-3.5 w-3.5" /> Connected
+          </span>
+          <Button variant="outline" size="sm" onClick={state.onDisconnect} disabled={state.busy}>
+            {state.busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Disconnect'}
+          </Button>
+        </div>
+      )
+    case 'connect':
+      return (
+        <a
+          href={state.href}
+          className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[rgb(11_18_32/85%)]"
+        >
+          Connect <ExternalLink className="h-3 w-3" />
+        </a>
+      )
+    case 'needs':
+      return <span className="text-xs font-medium text-[rgb(11_18_32/45%)]">{state.label}</span>
+    case 'unconfigured':
+      return <span className="text-xs font-medium text-[rgb(11_18_32/45%)]">Server not configured</span>
+    case 'loading':
+      return <Loader2 className="h-4 w-4 animate-spin text-[rgb(11_18_32/35%)]" />
+  }
+}
+
+function ConnectorRow({
+  logo,
+  name,
+  description,
+  state,
+}: {
+  logo: ReactNode
+  name: string
+  description: string
+  state: ConnectorState
+}) {
+  return (
+    <div className="flex items-center gap-4 px-5 py-4">
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-rule bg-white shadow-sm">
+        {logo}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-ink">{name}</p>
+        <p className="mt-0.5 text-xs leading-relaxed text-[rgb(11_18_32/55%)]">{description}</p>
+      </div>
+      <div className="shrink-0">
+        <StatusControl state={state} />
+      </div>
+    </div>
+  )
+}
 
 function ConnectorsInner() {
   const params = useSearchParams()
@@ -43,105 +116,80 @@ function ConnectorsInner() {
     }
   }
 
+  const meetState: ConnectorState = inbox == null
+    ? { kind: 'loading' }
+    : inbox.hasGmail ? { kind: 'available' } : { kind: 'needs', label: 'Connect Gmail first' }
+
+  const teamsState: ConnectorState = inbox == null
+    ? { kind: 'loading' }
+    : inbox.hasOutlook ? { kind: 'available' } : { kind: 'needs', label: 'Connect Outlook first' }
+
+  const zoomState: ConnectorState = zoom == null
+    ? { kind: 'loading' }
+    : zoom.connected ? { kind: 'connected', onDisconnect: disconnectZoom, busy: disconnecting }
+    : zoom.configured ? { kind: 'connect', href: '/api/integrations/zoom/connect' }
+    : { kind: 'unconfigured' }
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-ink">Connectors</h1>
-        <p className="text-sm text-[rgb(11_18_32/55%)] mt-1">
+    <>
+      <Header title="Connectors" />
+      <main className="p-6 max-w-3xl">
+        <p className="text-sm text-[rgb(11_18_32/55%)] mb-6 max-w-2xl">
           Wire up video conferencing and other tools. When enabled, Pendingly can schedule
           meetings with one click from any action item.
         </p>
-      </div>
 
-      {connected === 'zoom' && (
-        <div className="bg-[rgb(26_143_94/8%)] border border-[rgb(26_143_94/25%)] rounded-lg p-3 text-sm text-done">
-          Zoom connected.
-        </div>
-      )}
-      {error && (
-        <div className="bg-action/10 border border-action/30 rounded-lg p-3 text-sm text-action">
-          {error === 'zoom_not_configured' ? 'Zoom is not configured on this server. Ask your admin to set ZOOM_CLIENT_ID and ZOOM_CLIENT_SECRET.'
-           : error === 'invalid_state'      ? 'Connection failed — invalid OAuth state. Try again.'
-           : error === 'zoom_exchange_failed' ? 'Zoom rejected the connection. Make sure the OAuth app redirect URI matches and try again.'
-           : 'Connection failed.'}
-        </div>
-      )}
+        {connected === 'zoom' && (
+          <div className="mb-5 rounded-lg border border-[rgb(26_143_94/25%)] bg-[rgb(26_143_94/8%)] p-3 text-sm text-done">
+            Zoom connected successfully.
+          </div>
+        )}
+        {error && (
+          <div className="mb-5 rounded-lg border border-action/30 bg-action/10 p-3 text-sm text-action">
+            {error === 'zoom_not_configured' ? 'Zoom is not configured on this server. Ask your admin to set ZOOM_CLIENT_ID and ZOOM_CLIENT_SECRET.'
+             : error === 'invalid_state' ? 'Connection failed — invalid OAuth state. Try again.'
+             : error === 'zoom_exchange_failed' ? 'Zoom rejected the connection. Make sure the OAuth app redirect URI matches and try again.'
+             : 'Connection failed.'}
+          </div>
+        )}
 
-      <Card>
-        <CardHeader><CardTitle>Video conferencing</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
-          {/* Google Meet */}
-          <div className="border border-rule rounded-lg p-4 flex items-start gap-4">
-            <div className="h-10 w-10 rounded-md bg-[rgb(11_18_32/4%)] flex items-center justify-center">
-              <Video className="h-5 w-5 text-ink" />
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-ink">Google Meet</p>
-              <p className="text-xs text-[rgb(11_18_32/55%)] mt-0.5">
-                Auto-creates Meet links on Google Calendar events. No extra setup.
-              </p>
-            </div>
-            {inbox?.hasGmail ? (
-              <span className="text-xs text-done flex items-center gap-1"><Check className="h-3.5 w-3.5" />Available</span>
-            ) : (
-              <span className="text-xs text-[rgb(11_18_32/50%)]">Connect Gmail first</span>
-            )}
+        <section className="rounded-2xl border border-rule bg-white overflow-hidden">
+          <div className="flex items-center gap-2 px-5 py-3.5 border-b border-rule bg-paper-2">
+            <Video className="h-4 w-4 text-[rgb(11_18_32/45%)]" />
+            <h2 className="text-[13px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/55%)]">Video conferencing</h2>
           </div>
 
-          {/* Microsoft Teams */}
-          <div className="border border-rule rounded-lg p-4 flex items-start gap-4">
-            <div className="h-10 w-10 rounded-md bg-[rgb(11_18_32/4%)] flex items-center justify-center">
-              <Video className="h-5 w-5 text-ink" />
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-ink">Microsoft Teams</p>
-              <p className="text-xs text-[rgb(11_18_32/55%)] mt-0.5">
-                Auto-creates Teams links on Outlook Calendar events. No extra setup.
-              </p>
-            </div>
-            {inbox?.hasOutlook ? (
-              <span className="text-xs text-done flex items-center gap-1"><Check className="h-3.5 w-3.5" />Available</span>
-            ) : (
-              <span className="text-xs text-[rgb(11_18_32/50%)]">Connect Outlook first</span>
-            )}
+          <div className="divide-y divide-rule">
+            <ConnectorRow
+              logo={<GoogleMeetLogo className="h-6 w-6" />}
+              name="Google Meet"
+              description="Auto-creates Meet links on Google Calendar events. No extra setup."
+              state={meetState}
+            />
+            <ConnectorRow
+              logo={<MicrosoftTeamsLogo className="h-7 w-7" />}
+              name="Microsoft Teams"
+              description="Auto-creates Teams links on Outlook Calendar events. No extra setup."
+              state={teamsState}
+            />
+            <ConnectorRow
+              logo={<ZoomLogo className="h-7 w-7" />}
+              name="Zoom"
+              description={zoom?.connected
+                ? `Connected as ${zoom.accountEmail || 'your Zoom account'}. Meetings are created via your account.`
+                : 'Schedule Zoom meetings directly from action items. Requires a Zoom account.'}
+              state={zoomState}
+            />
           </div>
-
-          {/* Zoom */}
-          <div className="border border-rule rounded-lg p-4 flex items-start gap-4">
-            <div className="h-10 w-10 rounded-md bg-[rgb(11_18_32/4%)] flex items-center justify-center">
-              <Video className="h-5 w-5 text-ink" />
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-ink">Zoom</p>
-              <p className="text-xs text-[rgb(11_18_32/55%)] mt-0.5">
-                {zoom?.connected
-                  ? `Connected as ${zoom.accountEmail || 'Zoom account'}. Meetings created via your account.`
-                  : 'Schedule Zoom meetings directly from action items. Requires a Zoom account.'}
-              </p>
-            </div>
-            {zoom == null ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : zoom.connected ? (
-              <Button variant="outline" size="sm" onClick={disconnectZoom} disabled={disconnecting}>
-                {disconnecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Disconnect'}
-              </Button>
-            ) : zoom.configured ? (
-              <a href="/api/integrations/zoom/connect" className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink border border-ink rounded-md px-3 py-1.5 hover:bg-ink hover:text-white transition-colors">
-                Connect <ExternalLink className="h-3 w-3" />
-              </a>
-            ) : (
-              <span className="text-xs text-[rgb(11_18_32/50%)]">Server not configured</span>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+        </section>
+      </main>
+    </>
   )
 }
 
 export default function ConnectorsPage() {
   return (
-    <Suspense fallback={<div className="text-sm text-[rgb(11_18_32/55%)]">Loading…</div>}>
+    <Suspense fallback={<div className="p-6 text-sm text-[rgb(11_18_32/55%)]">Loading…</div>}>
       <ConnectorsInner />
     </Suspense>
   )

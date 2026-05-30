@@ -13,6 +13,7 @@ import {
   Gift,
   Zap,
   CreditCard,
+  Plug,
 } from 'lucide-react'
 
 const navGroups = [
@@ -27,6 +28,7 @@ const navGroups = [
   {
     label: 'Account',
     items: [
+      { href: '/settings/connectors', label: 'Connectors', icon: Plug },
       { href: '/referral', label: 'Referral', icon: Gift },
       { href: '/payments', label: 'Payments', icon: CreditCard },
       { href: '/upgrade', label: 'Upgrade', icon: Zap },
