@@ -41,6 +41,7 @@ export default function ScanLogsPage() {
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [refreshing, setRefreshing] = useState(false)
+  const [migrationPending, setMigrationPending] = useState(false)
 
   const fetchLogs = useCallback(async () => {
     try {
@@ -48,6 +49,7 @@ export default function ScanLogsPage() {
       if (!r.ok) return
       const d = await r.json()
       setJobs(d.jobs || [])
+      setMigrationPending(!!d.migrationPending)
     } catch {
       /* keep last good data */
     } finally {
@@ -97,6 +99,18 @@ export default function ScanLogsPage() {
             Refresh
           </Button>
         </div>
+
+        {migrationPending && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+            <p className="text-xs font-semibold text-amber-900">Full step-by-step traces are off until one DB column is added</p>
+            <p className="text-xs text-amber-800 mt-0.5">
+              Status and result messages below are live now. To capture the detailed trace, run this in Supabase → SQL Editor:
+            </p>
+            <code className="mt-1.5 block text-[11px] bg-white/70 rounded border border-amber-200 px-2 py-1 font-mono text-amber-900">
+              ALTER TABLE &quot;ScanJob&quot; ADD COLUMN IF NOT EXISTS &quot;debugLog&quot; TEXT;
+            </code>
+          </div>
+        )}
 
         {loading ? (
           <div className="flex items-center gap-2 text-sm text-[rgb(11_18_32/55%)] py-8">
