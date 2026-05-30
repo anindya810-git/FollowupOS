@@ -955,7 +955,7 @@ type AiConfigStatus = {
 // costPerThread: estimated cost in USD per thread that reaches AI classification
 // (~1,500 input tokens + ~200 output tokens per classify call)
 const PROVIDER_META = {
-  gemini:    { label: 'Google Gemini',  model: 'gemini-2.0-flash',      costPerThread: '$0.00018', placeholder: 'AIza...',     docs: 'https://aistudio.google.com/apikey',         note: 'Free tier available — get a key at Google AI Studio.' },
+  gemini:    { label: 'Google Gemini',  model: 'gemini-2.5-flash',      costPerThread: '$0.00018', placeholder: 'AIza...',     docs: 'https://aistudio.google.com/apikey',         note: 'Free tier available — get a key at Google AI Studio.' },
   anthropic: { label: 'Anthropic',      model: 'claude-sonnet-4-6',     costPerThread: '$0.0075',  placeholder: 'sk-ant-...',  docs: 'https://console.anthropic.com/settings/keys', note: 'Frontier-class model. Higher quality, higher cost.' },
   openai:    { label: 'OpenAI',         model: 'gpt-4o-mini',           costPerThread: '$0.00035', placeholder: 'sk-...',      docs: 'https://platform.openai.com/api-keys',        note: 'Fast and cost-effective.' },
 } as const

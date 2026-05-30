@@ -22,7 +22,7 @@ export interface AiConfig {
 const DEFAULT_MODELS: Record<AiProvider, string> = {
   anthropic: 'claude-sonnet-4-6',
   openai: 'gpt-4o-mini',
-  gemini: 'gemini-2.0-flash',
+  gemini: 'gemini-2.5-flash',
 }
 
 // ─── Errors ───────────────────────────────────────────────────────────────────
@@ -238,11 +238,12 @@ async function classifyOpenAI(input: ClassificationInput, config: AiConfig, cust
 // Uses slot-reservation so concurrent callers each get a distinct future slot
 // rather than all reading the same timestamp and firing simultaneously.
 //
-// Free tier (Pendingly default key): 15 RPM hard cap → 4200 ms gap
+// Free tier (Pendingly default key): gemini-2.5-flash free tier is 10 RPM →
+//   6500 ms gap (~9.2 RPM, safely under the cap).
 // Paid BYOK key: typically 1000+ RPM → 500 ms gap (~120 RPM, well within limits)
 
 let geminiNextSlotAt = 0
-const GEMINI_FREE_RPM_GAP_MS = 4200  // ~14.3 RPM, under the 15 RPM free-tier cap
+const GEMINI_FREE_RPM_GAP_MS = 6500  // ~9.2 RPM, under the 10 RPM free-tier cap
 const GEMINI_PAID_RPM_GAP_MS = 500   // ~120 RPM, safe for paid tier
 
 async function geminiRateLimit(isDefaultKey = true) {
