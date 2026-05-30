@@ -71,6 +71,7 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
   const [scheduleOpen, setScheduleOpen] = useState(false)
   const [ignoring, setIgnoring] = useState(false)
   const [connectedAccounts, setConnectedAccounts] = useState<Array<{ provider: string; emailAddress: string }>>([])
+  const [installedConnectors, setInstalledConnectors] = useState<string[]>([])
   const [ignoreFooterOpen, setIgnoreFooterOpen] = useState(false)
   const ignoreFooterRef = useRef<HTMLDivElement>(null)
   const [customWhen, setCustomWhen] = useState(() => {
@@ -101,6 +102,12 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
     ]).then(([settings, integrations, zoom]) => {
       setSignatureHtml(settings?.appSettings?.signatureHtml ?? null)
       setDefaultMeetingProvider(settings?.appSettings?.defaultMeetingProvider ?? 'none')
+      let installed: string[] = []
+      try {
+        const raw = settings?.appSettings?.enabledConnectors
+        if (raw) installed = JSON.parse(raw)
+      } catch { installed = [] }
+      setInstalledConnectors(Array.isArray(installed) ? installed : [])
       const accounts: Array<{ provider: string; emailAddress: string; connectedStatus: string }> =
         integrations?.accounts ?? []
       setConnectedAccounts(accounts.filter(a => a.connectedStatus === 'connected'))
@@ -129,6 +136,15 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
   if (!item) return null
   const active = detail || item
 
+  // Calendars the user can create events in: a connected inbox whose matching
+  // calendar connector has been installed in Connectors. A connected Gmail/Outlook
+  // account alone is not enough — the connector must be explicitly installed.
+  const availableCalendars = connectedAccounts
+    .filter(a =>
+      (a.provider === 'gmail' && installedConnectors.includes('google_calendar')) ||
+      (a.provider === 'outlook' && installedConnectors.includes('outlook_calendar')),
+    ) as Array<{ provider: 'gmail' | 'outlook'; emailAddress: string }>
+
   // The "contact" is whoever sent the email — the most recent inbound
   // (non-user) message. ownerEmail is set by the AI classifier and is often the
   // user's own address when owner_type=user, so it must NEVER be used as a
@@ -152,7 +168,6 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
     const email = contactEmail
     if (!email) return
     const domain = email.split('@')[1] || ''
-    const label = scope === 'email' ? email : `@${domain}`
     setIgnoring(true)
     try {
       const body = scope === 'email' ? { sender_email: email } : { domain }
@@ -375,14 +390,16 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
               actionItemId={item.id}
               defaultTitle={active.title || active.emailThread?.subject || 'Follow-up'}
               defaultDescription={active.suggestedAction || active.reason || ''}
-              availableCalendars={connectedAccounts.filter(a => a.provider === 'gmail' || a.provider === 'outlook') as Array<{ provider: 'gmail' | 'outlook'; emailAddress: string }>}
+              availableCalendars={availableCalendars}
               defaultAccountProvider={active.emailThread?.emailAccount?.provider || ''}
               defaultMeetingProvider={defaultMeetingProvider}
+              meetInstalled={installedConnectors.includes('google_meet')}
+              teamsInstalled={installedConnectors.includes('microsoft_teams')}
               zoomConnected={zoomConnected}
               onCreated={(r) => { setCalendarResult(r); setCalendarOpen(false) }}
               onClose={() => setCalendarOpen(false)}
             />
-          ) : connectedAccounts.some(a => a.provider === 'gmail' || a.provider === 'outlook') ? (
+          ) : availableCalendars.length > 0 ? (
             <button
               onClick={() => setCalendarOpen(true)}
               className="w-full text-xs text-ink border border-rule rounded-lg px-4 py-2.5 hover:bg-paper-2 transition-colors flex items-center justify-center gap-2"

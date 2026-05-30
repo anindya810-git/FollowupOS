@@ -24,6 +24,8 @@ const inputClass = 'h-9 w-full rounded-md border border-rule bg-white px-3 text-
 
 type ConnectorState =
   | { kind: 'available' }
+  | { kind: 'installable'; onInstall: () => void; busy: boolean }
+  | { kind: 'installed'; onRemove: () => void; busy: boolean }
   | { kind: 'needs'; label: string }
   | { kind: 'connect'; href: string }
   | { kind: 'connected'; onDisconnect: () => void; busy: boolean }
@@ -37,6 +39,23 @@ function StatusControl({ state }: { state: ConnectorState }) {
         <span className="inline-flex items-center gap-1.5 rounded-full bg-[rgb(26_143_94/10%)] px-3 py-1 text-xs font-semibold text-done">
           <Check className="h-3.5 w-3.5" /> Available
         </span>
+      )
+    case 'installable':
+      return (
+        <Button size="sm" onClick={state.onInstall} disabled={state.busy}>
+          {state.busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Install'}
+        </Button>
+      )
+    case 'installed':
+      return (
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[rgb(26_143_94/10%)] px-3 py-1 text-xs font-semibold text-done">
+            <Check className="h-3.5 w-3.5" /> Installed
+          </span>
+          <Button variant="outline" size="sm" onClick={state.onRemove} disabled={state.busy}>
+            {state.busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Remove'}
+          </Button>
+        </div>
       )
     case 'connected':
       return (
@@ -149,6 +168,8 @@ function ConnectorsInner() {
   const error = params.get('error')
   const [inbox, setInbox] = useState<InboxStatus | null>(null)
   const [zoom, setZoom] = useState<ZoomStatus | null>(null)
+  const [installed, setInstalled] = useState<string[] | null>(null)
+  const [installing, setInstalling] = useState<string | null>(null)
   const [disconnecting, setDisconnecting] = useState(false)
   const [digest, setDigest] = useState<DigestSettings | null>(null)
   const [savingChannel, setSavingChannel] = useState<string | null>(null)
@@ -171,6 +192,13 @@ function ConnectorsInner() {
       hasOutlook: accounts.some(a => a.provider === 'outlook' && a.connectedStatus === 'connected'),
     })
     setZoom(zoomData)
+    // Installed connectors are stored as a JSON array string in appSettings.
+    let installedKeys: string[] = []
+    try {
+      const raw = settingsData?.appSettings?.enabledConnectors
+      if (raw) installedKeys = JSON.parse(raw)
+    } catch { installedKeys = [] }
+    setInstalled(Array.isArray(installedKeys) ? installedKeys : [])
     const d = settingsData?.digestSettings
     setDigest({
       slackWebhookUrl: d?.slackWebhookUrl ?? '',
@@ -179,6 +207,35 @@ function ConnectorsInner() {
       teamsEnabled: d?.teamsEnabled ?? false,
       whatsappEnabled: d?.whatsappEnabled ?? false,
     })
+  }
+
+  // Toggle a connector on/off by PATCHing the full enabledConnectors array.
+  const toggleConnector = async (key: string, install: boolean) => {
+    if (installed == null) return
+    setInstalling(key)
+    const next = install
+      ? Array.from(new Set([...installed, key]))
+      : installed.filter(k => k !== key)
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabledConnectors: next }),
+      })
+      if (res.ok) setInstalled(next)
+    } finally {
+      setInstalling(null)
+    }
+  }
+
+  // Build the install/needs/loading state for an account-backed connector.
+  const connectorState = (key: string, hasAccount: boolean | undefined, needsLabel: string): ConnectorState => {
+    if (inbox == null || installed == null) return { kind: 'loading' }
+    if (!hasAccount) return { kind: 'needs', label: needsLabel }
+    if (installed.includes(key)) {
+      return { kind: 'installed', onRemove: () => toggleConnector(key, false), busy: installing === key }
+    }
+    return { kind: 'installable', onInstall: () => toggleConnector(key, true), busy: installing === key }
   }
 
   useEffect(() => { loadStatus() }, [])
@@ -232,13 +289,10 @@ function ConnectorsInner() {
     }
   }
 
-  const meetState: ConnectorState = inbox == null
-    ? { kind: 'loading' }
-    : inbox.hasGmail ? { kind: 'available' } : { kind: 'needs', label: 'Connect Gmail first' }
-
-  const teamsState: ConnectorState = inbox == null
-    ? { kind: 'loading' }
-    : inbox.hasOutlook ? { kind: 'available' } : { kind: 'needs', label: 'Connect Outlook first' }
+  const meetState = connectorState('google_meet', inbox?.hasGmail, 'Connect Gmail first')
+  const teamsState = connectorState('microsoft_teams', inbox?.hasOutlook, 'Connect Outlook first')
+  const googleCalState = connectorState('google_calendar', inbox?.hasGmail, 'Connect Gmail first')
+  const outlookCalState = connectorState('outlook_calendar', inbox?.hasOutlook, 'Connect Outlook first')
 
   const zoomState: ConnectorState = zoom == null
     ? { kind: 'loading' }
@@ -311,13 +365,13 @@ function ConnectorsInner() {
               logo={<GoogleCalendarLogo className="h-7 w-7" />}
               name="Google Calendar"
               description="Create calendar events and set reminders directly from action items. Uses your connected Gmail account."
-              state={inbox == null ? { kind: 'loading' } : inbox.hasGmail ? { kind: 'available' } : { kind: 'needs', label: 'Connect Gmail first' }}
+              state={googleCalState}
             />
             <ConnectorRow
               logo={<OutlookCalendarLogo className="h-7 w-7" />}
               name="Outlook Calendar"
               description="Create calendar events from action items using your connected Outlook account."
-              state={inbox == null ? { kind: 'loading' } : inbox.hasOutlook ? { kind: 'available' } : { kind: 'needs', label: 'Connect Outlook first' }}
+              state={outlookCalState}
             />
             <ConnectorRow
               logo={<AppleCalendarLogo className="h-7 w-7" />}

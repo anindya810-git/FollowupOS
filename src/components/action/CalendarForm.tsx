@@ -20,6 +20,8 @@ interface CalendarFormProps {
   availableCalendars: Array<{ provider: 'gmail' | 'outlook'; emailAddress: string }>
   defaultAccountProvider: string
   defaultMeetingProvider: 'none' | 'meet' | 'teams' | 'zoom'
+  meetInstalled: boolean
+  teamsInstalled: boolean
   zoomConnected: boolean
   onCreated: (result: { kind: 'event' | 'task'; link?: string; meetingLink?: string }) => void
   onClose: () => void
@@ -36,6 +38,8 @@ export function CalendarForm({
   availableCalendars,
   defaultAccountProvider,
   defaultMeetingProvider,
+  meetInstalled,
+  teamsInstalled,
   zoomConnected,
   onCreated,
   onClose,
@@ -57,9 +61,9 @@ export function CalendarForm({
   const [durationMin, setDurationMin] = useState(30)
   const [reminderMin, setReminderMin] = useState(10)
   const [meetingProvider, setMeetingProvider] = useState<'none' | 'meet' | 'teams' | 'zoom'>(() => {
-    // Only keep default if it's valid for the initial calendar
-    if (defaultMeetingProvider === 'meet' && initialProvider === 'gmail') return 'meet'
-    if (defaultMeetingProvider === 'teams' && initialProvider === 'outlook') return 'teams'
+    // Only keep default if it's valid for the initial calendar AND installed
+    if (defaultMeetingProvider === 'meet' && initialProvider === 'gmail' && meetInstalled) return 'meet'
+    if (defaultMeetingProvider === 'teams' && initialProvider === 'outlook' && teamsInstalled) return 'teams'
     if (defaultMeetingProvider === 'zoom' && zoomConnected) return 'zoom'
     return 'none'
   })
@@ -106,11 +110,12 @@ export function CalendarForm({
     }
   }
 
-  // Only show meeting options that are valid for the selected calendar
+  // Only show meeting options that are valid for the selected calendar AND
+  // whose connector has been installed in Connectors.
   const meetingOptions: Array<{ value: string; label: string }> = [
     { value: 'none', label: 'No meeting link' },
-    ...(selectedProvider === 'gmail' ? [{ value: 'meet', label: 'Google Meet' }] : []),
-    ...(selectedProvider === 'outlook' ? [{ value: 'teams', label: 'Microsoft Teams' }] : []),
+    ...(selectedProvider === 'gmail' && meetInstalled ? [{ value: 'meet', label: 'Google Meet' }] : []),
+    ...(selectedProvider === 'outlook' && teamsInstalled ? [{ value: 'teams', label: 'Microsoft Teams' }] : []),
     ...(zoomConnected ? [{ value: 'zoom', label: 'Zoom' }] : []),
   ]
 

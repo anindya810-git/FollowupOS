@@ -350,6 +350,11 @@ model AppSettings {
   noiseFilterLevel       Int     @default(3)
   // User-supplied free-text instructions injected into AI classification prompt.
   scanInstructions       String?
+  // JSON array of installed connector keys, e.g. ["google_calendar","google_meet"].
+  // A connector being "available" (its underlying account is synced) is distinct
+  // from it being installed/enabled here. Only installed connectors surface as
+  // options when creating calendar events / meetings from action items.
+  enabledConnectors      String?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 

@@ -39,6 +39,7 @@ export async function PATCH(request: NextRequest) {
     signatureHtml, emailSignatureEnabled,
     noiseFilterLevel,
     scanInstructions,
+    enabledConnectors,
     isEnabled, digestTime, timezone, slackWebhookUrl, slackEnabled,
     teamsWebhookUrl, teamsEnabled,
     whatsappEnabled,
@@ -89,6 +90,15 @@ export async function PATCH(request: NextRequest) {
   if (scanInstructions !== undefined) {
     const trimmed = typeof scanInstructions === 'string' ? scanInstructions.trim() : ''
     appData.scanInstructions = trimmed.slice(0, 2000) || null
+  }
+  if (enabledConnectors !== undefined) {
+    // Accept an array of known connector keys; store as JSON string.
+    const ALLOWED = ['google_calendar', 'google_meet', 'outlook_calendar', 'microsoft_teams']
+    if (!Array.isArray(enabledConnectors) || !enabledConnectors.every(k => ALLOWED.includes(String(k)))) {
+      return NextResponse.json({ error: 'Invalid enabledConnectors' }, { status: 400 })
+    }
+    const unique = Array.from(new Set(enabledConnectors.map(String)))
+    appData.enabledConnectors = unique.length ? JSON.stringify(unique) : null
   }
   if (signatureHtml !== undefined) {
     // Sanitise on save so we never store anything dangerous that would later
