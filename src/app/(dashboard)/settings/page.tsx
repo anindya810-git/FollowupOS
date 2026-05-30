@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Trash2, Plus, AlertTriangle, LogOut, RefreshCw, Loader2, Check, ChevronDown, RotateCcw, Sparkles, Camera, RotateCw } from 'lucide-react'
+import { Trash2, Plus, AlertTriangle, LogOut, RefreshCw, Loader2, Check, ChevronDown, RotateCcw, Sparkles, Camera, RotateCw, Plug } from 'lucide-react'
 import { PushNotificationToggle } from '@/components/PushNotificationToggle'
 import { DEFAULT_FOLLOWUP_TEMPLATE } from '@/lib/templates'
 import { RichTextEditor } from '@/components/editor/RichTextEditor'
@@ -84,12 +84,6 @@ export default function SettingsPage() {
   const [openErrorLogs, setOpenErrorLogs] = useState<Set<string>>(new Set())
   const [syncingContacts, setSyncingContacts] = useState(false)
   const [contactsSynced, setContactsSynced] = useState<number | null>(null)
-  const [slackTesting, setSlackTesting] = useState(false)
-  const [slackTestResult, setSlackTestResult] = useState<string | null>(null)
-  const [teamsTesting, setTeamsTesting] = useState(false)
-  const [teamsTestResult, setTeamsTestResult] = useState<string | null>(null)
-  const [whatsappTesting, setWhatsappTesting] = useState(false)
-  const [whatsappTestResult, setWhatsappTestResult] = useState<string | null>(null)
   const [generatingSig, setGeneratingSig] = useState(false)
   const [sigGenError, setSigGenError] = useState<string | null>(null)
 
@@ -536,177 +530,19 @@ export default function SettingsPage() {
               </Card>
 
               <Card>
-                <CardHeader><CardTitle>Slack Integration</CardTitle></CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      id="slackEnabled"
-                      checked={settings.digestSettings?.slackEnabled ?? false}
-                      onChange={e => setSettings(s => ({ ...s, digestSettings: { ...(s.digestSettings ?? { isEnabled: true, digestTime: '09:00', timezone: 'Asia/Kolkata' }), slackEnabled: e.target.checked } }))}
-                      className="h-4 w-4 accent-action"
-                    />
-                    <label htmlFor="slackEnabled" className="text-sm font-medium text-ink">
-                      Send daily digest to Slack
-                    </label>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-ink mb-1">Webhook URL</label>
-                    <Input
-                      type="url"
-                      placeholder="https://hooks.slack.com/services/..."
-                      value={settings.digestSettings?.slackWebhookUrl ?? ''}
-                      onChange={e => setSettings(s => ({ ...s, digestSettings: { ...(s.digestSettings ?? { isEnabled: true, digestTime: '09:00', timezone: 'Asia/Kolkata' }), slackWebhookUrl: e.target.value } }))}
-                    />
-                    <p className="text-xs text-[rgb(11_18_32/55%)] mt-1">
-                      Get a webhook URL from{' '}
-                      <a href="https://api.slack.com/messaging/webhooks" target="_blank" rel="noreferrer" className="underline">
-                        https://api.slack.com/messaging/webhooks
-                      </a>
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={slackTesting || !settings.digestSettings?.slackWebhookUrl}
-                      onClick={async () => {
-                        setSlackTesting(true)
-                        setSlackTestResult(null)
-                        try {
-                          const res = await fetch('/api/integrations/slack/test', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ webhookUrl: settings.digestSettings?.slackWebhookUrl }),
-                          })
-                          const data = await res.json()
-                          setSlackTestResult(res.ok ? 'Test message sent!' : (data.error || 'Failed'))
-                        } catch {
-                          setSlackTestResult('Failed')
-                        } finally {
-                          setSlackTesting(false)
-                        }
-                      }}
-                    >
-                      {slackTesting ? 'Sending...' : 'Send Test'}
-                    </Button>
-                    {slackTestResult && (
-                      <span className="text-xs text-[rgb(11_18_32/55%)]">{slackTestResult}</span>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader><CardTitle>Microsoft Teams Integration</CardTitle></CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      id="teamsEnabled"
-                      checked={settings.digestSettings?.teamsEnabled ?? false}
-                      onChange={e => setSettings(s => ({ ...s, digestSettings: { ...(s.digestSettings ?? { isEnabled: true, digestTime: '09:00', timezone: 'Asia/Kolkata' }), teamsEnabled: e.target.checked } }))}
-                      className="h-4 w-4 accent-action"
-                    />
-                    <label htmlFor="teamsEnabled" className="text-sm font-medium text-ink">
-                      Send daily digest to Microsoft Teams
-                    </label>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-ink mb-1">Webhook URL</label>
-                    <Input
-                      type="url"
-                      placeholder="https://xxx.webhook.office.com/webhookb2/..."
-                      value={settings.digestSettings?.teamsWebhookUrl ?? ''}
-                      onChange={e => setSettings(s => ({ ...s, digestSettings: { ...(s.digestSettings ?? { isEnabled: true, digestTime: '09:00', timezone: 'Asia/Kolkata' }), teamsWebhookUrl: e.target.value } }))}
-                    />
-                    <p className="text-xs text-[rgb(11_18_32/55%)] mt-1">
-                      Create an incoming webhook in your Teams channel settings
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={teamsTesting || !settings.digestSettings?.teamsWebhookUrl}
-                      onClick={async () => {
-                        setTeamsTesting(true)
-                        setTeamsTestResult(null)
-                        try {
-                          const res = await fetch('/api/integrations/teams/test', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ webhookUrl: settings.digestSettings?.teamsWebhookUrl }),
-                          })
-                          const data = await res.json()
-                          setTeamsTestResult(res.ok ? 'Test message sent!' : (data.error || 'Failed'))
-                        } catch {
-                          setTeamsTestResult('Failed')
-                        } finally {
-                          setTeamsTesting(false)
-                        }
-                      }}
-                    >
-                      {teamsTesting ? 'Sending...' : 'Send Test'}
-                    </Button>
-                    {teamsTestResult && (
-                      <span className="text-xs text-[rgb(11_18_32/55%)]">{teamsTestResult}</span>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader><CardTitle>WhatsApp Digest</CardTitle></CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      id="whatsappEnabled"
-                      checked={settings.digestSettings?.whatsappEnabled ?? false}
-                      onChange={e => setSettings(s => ({ ...s, digestSettings: { ...(s.digestSettings ?? { isEnabled: true, digestTime: '09:00', timezone: 'Asia/Kolkata' }), whatsappEnabled: e.target.checked } }))}
-                      className="h-4 w-4 rounded border-rule accent-ink"
-                    />
-                    <label htmlFor="whatsappEnabled" className="text-sm font-medium text-ink">
-                      Send daily digest via WhatsApp
-                    </label>
-                  </div>
-                  <p className="text-xs text-[rgb(11_18_32/55%)]">
-                    Digest will be sent to the phone number saved in your{' '}
-                    <button
-                      type="button"
-                      onClick={() => setActiveSection('account')}
-                      className="underline text-ink hover:text-action"
-                    >
-                      Account settings
-                    </button>
-                    . Requires Twilio credentials to be configured.
+                <CardHeader><CardTitle>Chat &amp; messaging channels</CardTitle></CardHeader>
+                <CardContent>
+                  <p className="text-sm text-[rgb(11_18_32/55%)]">
+                    Slack, Microsoft Teams, and WhatsApp digest delivery now live in one place.
                   </p>
-                  <div className="flex items-center gap-3">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={whatsappTesting || !(settings.digestSettings?.whatsappEnabled)}
-                      onClick={async () => {
-                        setWhatsappTesting(true)
-                        setWhatsappTestResult(null)
-                        try {
-                          const res = await fetch('/api/integrations/whatsapp/test', { method: 'POST' })
-                          const data = await res.json()
-                          setWhatsappTestResult(res.ok ? 'Test message sent!' : (data.error || 'Failed'))
-                        } catch {
-                          setWhatsappTestResult('Failed')
-                        } finally {
-                          setWhatsappTesting(false)
-                        }
-                      }}
-                    >
-                      {whatsappTesting ? 'Sending...' : 'Send Test'}
-                    </Button>
-                    {whatsappTestResult && (
-                      <span className="text-xs text-[rgb(11_18_32/55%)]">{whatsappTestResult}</span>
-                    )}
-                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-3 gap-1.5"
+                    onClick={() => { window.location.href = '/settings/connectors' }}
+                  >
+                    <Plug className="h-3.5 w-3.5" /> Manage in Connectors
+                  </Button>
                 </CardContent>
               </Card>
 

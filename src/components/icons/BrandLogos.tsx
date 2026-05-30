@@ -38,3 +38,28 @@ export function ZoomLogo({ className }: { className?: string }) {
     </svg>
   )
 }
+
+export function SlackLogo({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 48 48" className={className} xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path fill="#36C5F0" d="M19.7 10.5a3.6 3.6 0 10-7.2 0 3.6 3.6 0 003.6 3.6h3.6v-3.6z" />
+      <path fill="#36C5F0" d="M21.5 10.5a3.6 3.6 0 017.2 0v9a3.6 3.6 0 01-7.2 0v-9z" transform="translate(-1.8 0)" />
+      <path fill="#2EB67D" d="M23.5 19.7a3.6 3.6 0 100-7.2 3.6 3.6 0 00-3.6 3.6v3.6h3.6z" transform="translate(14 -2) rotate(90 23.5 16.1)" />
+      <path fill="#2EB67D" d="M37.5 19.7a3.6 3.6 0 100-7.2h-9a3.6 3.6 0 100 7.2h9z" />
+      <path fill="#ECB22E" d="M28.3 23.5a3.6 3.6 0 107.2 0 3.6 3.6 0 00-3.6-3.6h-3.6v3.6z" transform="translate(0 14)" />
+      <path fill="#ECB22E" d="M26.5 37.5a3.6 3.6 0 11-7.2 0v-9a3.6 3.6 0 117.2 0v9z" />
+      <path fill="#E01E5A" d="M24.5 28.3a3.6 3.6 0 100 7.2 3.6 3.6 0 003.6-3.6v-3.6h-3.6z" transform="translate(-14 2)" />
+      <path fill="#E01E5A" d="M10.5 28.3a3.6 3.6 0 100 7.2h9a3.6 3.6 0 100-7.2h-9z" />
+    </svg>
+  )
+}
+
+export function WhatsAppLogo({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 48 48" className={className} xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect width="48" height="48" rx="11" fill="#25D366" />
+      <path fill="#fff" d="M24 11c-7.2 0-13 5.8-13 13 0 2.3.6 4.5 1.7 6.4L11 37l6.8-1.8c1.8 1 3.9 1.5 6.2 1.5 7.2 0 13-5.8 13-13S31.2 11 24 11zm0 23.6c-2 0-3.9-.5-5.6-1.5l-.4-.2-4 1.1 1.1-3.9-.3-.4a10.5 10.5 0 01-1.6-5.6c0-5.8 4.7-10.6 10.6-10.6 5.8 0 10.6 4.7 10.6 10.6S29.8 34.6 24 34.6z" />
+      <path fill="#fff" d="M30 27.2c-.3-.2-1.9-.9-2.2-1-.3-.1-.5-.2-.7.2-.2.3-.8 1-1 1.2-.2.2-.4.2-.7.1-.3-.2-1.4-.5-2.6-1.6-1-.9-1.6-1.9-1.8-2.2-.2-.3 0-.5.1-.7l.5-.6c.2-.2.2-.3.4-.6.1-.2 0-.4 0-.6l-1-2.4c-.3-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.2.2 2.2 3.3 5.2 4.6 2.5 1.1 3 .9 3.6.8.5-.1 1.7-.7 2-1.4.2-.7.2-1.2.2-1.4-.1-.1-.3-.2-.6-.3z" />
+    </svg>
+  )
+}
