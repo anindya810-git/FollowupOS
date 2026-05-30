@@ -60,6 +60,7 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
       default_followup_days: appSettings?.defaultFollowupDays ?? 3,
       conservative_mode: false,
     }
+    const noiseFilterLevel: number = (appSettings as { noiseFilterLevel?: number } | null)?.noiseFilterLevel ?? 3
 
     if (account.provider === 'outlook') {
       await scanOutlookAccount({
@@ -72,6 +73,7 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
         scanWindowDays: scanWindowDays!,
         maxThreads,
         aiConfig,
+        noiseFilterLevel,
       })
       return
     }
@@ -87,6 +89,7 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
         scanWindowDays: scanWindowDays!,
         maxThreads,
         aiConfig,
+        noiseFilterLevel,
       })
       return
     }
@@ -215,6 +218,7 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
           userPreferences,
           provider: account.provider,
           aiConfig,
+          noiseFilterLevel,
         }))
       )
 
@@ -299,8 +303,9 @@ async function scanOutlookAccount(params: {
   scanWindowDays: number
   maxThreads?: number
   aiConfig: AiConfig
+  noiseFilterLevel?: number
 }) {
-  const { jobId, userId, emailAccountId, userEmail, userTimezone, userPreferences, scanWindowDays, maxThreads, aiConfig } = params
+  const { jobId, userId, emailAccountId, userEmail, userTimezone, userPreferences, scanWindowDays, maxThreads, aiConfig, noiseFilterLevel } = params
 
   let accessToken: string
   let threads
@@ -354,7 +359,7 @@ async function scanOutlookAccount(params: {
       }
 
       // Noise filter using categories from the raw message (categories not in OutlookThread, so pass empty)
-      if (isNoisyOutlookMessage(senderEmail, [], thread.subject || '')) {
+      if (isNoisyOutlookMessage(senderEmail, [], thread.subject || '', noiseFilterLevel)) {
         processed++
         continue
       }
@@ -606,8 +611,9 @@ async function scanImapAccount(params: {
   scanWindowDays: number
   maxThreads?: number
   aiConfig: AiConfig
+  noiseFilterLevel?: number
 }) {
-  const { jobId, userId, emailAccountId, userEmail, userTimezone, userPreferences, scanWindowDays, maxThreads, aiConfig } = params
+  const { jobId, userId, emailAccountId, userEmail, userTimezone, userPreferences, scanWindowDays, maxThreads, aiConfig, noiseFilterLevel } = params
 
   const account = await prisma.emailAccount.findUnique({ where: { id: emailAccountId } })
   if (!account) throw new Error('Email account not found')
@@ -649,7 +655,7 @@ async function scanImapAccount(params: {
       }
 
       // Noise filter
-      if (isNoisyImapSender(senderEmail, thread.subject)) {
+      if (isNoisyImapSender(senderEmail, thread.subject, noiseFilterLevel)) {
         processed++
         continue
       }
@@ -895,8 +901,9 @@ async function processThread(params: {
   userPreferences: { default_followup_days: number; conservative_mode: boolean }
   provider?: string
   aiConfig: AiConfig
+  noiseFilterLevel?: number
 }): Promise<'created' | 'skipped' | 'noise' | 'ai_failed'> {
-  const { gmail, threadId, userId, emailAccountId, userEmail, userTimezone, userPreferences, provider = 'gmail', aiConfig } = params
+  const { gmail, threadId, userId, emailAccountId, userEmail, userTimezone, userPreferences, provider = 'gmail', aiConfig, noiseFilterLevel } = params
 
   let threadRes: Awaited<ReturnType<typeof gmail.users.threads.get>>
   try {
@@ -936,7 +943,7 @@ async function processThread(params: {
   })
   if (ignoredSender) return 'noise'
 
-  if (isNoisyThread(labels, senderEmail, subject)) return 'noise'
+  if (isNoisyThread(labels, senderEmail, subject, noiseFilterLevel)) return 'noise'
 
   // Compute thread hash
   const lastMessage = messages[messages.length - 1]

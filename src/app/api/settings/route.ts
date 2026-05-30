@@ -37,6 +37,7 @@ export async function PATCH(request: NextRequest) {
     followupSequenceJson,
     calendarAutoCreate, defaultMeetingProvider, reminderPushEnabled,
     signatureHtml, emailSignatureEnabled,
+    noiseFilterLevel,
     isEnabled, digestTime, timezone, slackWebhookUrl, slackEnabled,
     teamsWebhookUrl, teamsEnabled,
     whatsappEnabled,
@@ -46,6 +47,13 @@ export async function PATCH(request: NextRequest) {
   if (defaultFollowupDays !== undefined) appData.defaultFollowupDays = defaultFollowupDays
   if (scanWindowDays !== undefined) appData.scanWindowDays = scanWindowDays
   if (conservativeMode !== undefined) appData.conservativeMode = conservativeMode
+  if (noiseFilterLevel !== undefined) {
+    const lvl = Number(noiseFilterLevel)
+    if (!Number.isInteger(lvl) || lvl < 1 || lvl > 5) {
+      return NextResponse.json({ error: 'noiseFilterLevel must be 1–5' }, { status: 400 })
+    }
+    appData.noiseFilterLevel = lvl
+  }
   if (autoFollowupEnabled !== undefined) appData.autoFollowupEnabled = autoFollowupEnabled
   if (autoFollowupDays !== undefined) appData.autoFollowupDays = autoFollowupDays
   if (autoFollowupTemplate !== undefined) appData.autoFollowupTemplate = autoFollowupTemplate

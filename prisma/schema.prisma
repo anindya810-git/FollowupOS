@@ -333,6 +333,9 @@ model AppSettings {
   reminderPushEnabled    Boolean @default(true)
   // Email footer: "Sent via Pendingly". Free users always have it on.
   emailSignatureEnabled  Boolean @default(true)
+  // 1=Minimal … 5=Maximum. Controls how aggressively emails are pre-filtered
+  // before reaching AI classification. Default 3 (Balanced).
+  noiseFilterLevel       Int     @default(3)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 

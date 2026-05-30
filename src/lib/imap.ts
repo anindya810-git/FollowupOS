@@ -213,8 +213,8 @@ export async function getImapThreads(emailAccountId: string, daysBack: number = 
   return threads
 }
 
-export function isNoisyImapSender(fromEmail: string, subject: string): boolean {
-  return isNoisyEmail(fromEmail, subject)
+export function isNoisyImapSender(fromEmail: string, subject: string, noiseLevel?: number): boolean {
+  return isNoisyEmail(fromEmail, subject, noiseLevel)
 }
 
 // Re-export encrypt so imap connect route can use it

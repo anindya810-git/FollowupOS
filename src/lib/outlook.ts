@@ -298,9 +298,9 @@ export async function sendOutlookReply(
 
 const NOISE_CATEGORIES = ['Junk Email', 'Newsletters', 'Promotional', 'Social Updates']
 
-export function isNoisyOutlookMessage(senderEmail: string, categories: string[] = [], subject = ''): boolean {
+export function isNoisyOutlookMessage(senderEmail: string, categories: string[] = [], subject = '', noiseLevel?: number): boolean {
   if (categories.some(c => NOISE_CATEGORIES.includes(c))) return true
-  return isNoisyEmail(senderEmail, subject)
+  return isNoisyEmail(senderEmail, subject, noiseLevel)
 }
 
 export async function getUpcomingOutlookEvents(emailAccountId: string, hoursAhead = 48) {

@@ -10,6 +10,7 @@ import { Trash2, Plus, AlertTriangle, LogOut, RefreshCw, Loader2, Check } from '
 import { PushNotificationToggle } from '@/components/PushNotificationToggle'
 import { DEFAULT_FOLLOWUP_TEMPLATE } from '@/lib/templates'
 import { RichTextEditor } from '@/components/editor/RichTextEditor'
+import { NOISE_LEVEL_LABELS } from '@/lib/noise-filter'
 
 const COMMON_TIMEZONES = [
   'Asia/Kolkata', 'Asia/Singapore', 'Asia/Tokyo', 'Asia/Dubai', 'Asia/Hong_Kong',
@@ -62,6 +63,7 @@ export default function SettingsPage() {
       defaultMeetingProvider?: 'none' | 'meet' | 'teams' | 'zoom';
       reminderPushEnabled?: boolean;
       emailSignatureEnabled?: boolean;
+      noiseFilterLevel?: number;
     } | null
     digestSettings: { isEnabled: boolean; digestTime: string; timezone: string; slackWebhookUrl?: string | null; slackEnabled?: boolean; teamsWebhookUrl?: string | null; teamsEnabled?: boolean; whatsappEnabled?: boolean } | null
     ignoredSenders: Array<{ id: string; senderEmail?: string; domain?: string; reason?: string }>
@@ -137,6 +139,7 @@ export default function SettingsPage() {
         defaultMeetingProvider: settings.appSettings?.defaultMeetingProvider ?? 'none',
         reminderPushEnabled: settings.appSettings?.reminderPushEnabled ?? true,
         emailSignatureEnabled: settings.appSettings?.emailSignatureEnabled ?? true,
+        noiseFilterLevel: settings.appSettings?.noiseFilterLevel ?? 3,
       }),
     })
     setSaving(false)
@@ -381,6 +384,58 @@ export default function SettingsPage() {
                   </span>
                 )}
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Noise Filter Level */}
+          <Card>
+            <CardHeader><CardTitle>Scan Aggressiveness</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-[rgb(11_18_32/55%)]">
+                Controls how many automated emails are discarded before the AI sees them. Lower = more emails scanned, higher = faster scans with fewer false positives.
+              </p>
+              {(() => {
+                const level = settings.appSettings?.noiseFilterLevel ?? 3
+                const meta = NOISE_LEVEL_LABELS[level]
+                return (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold text-ink">
+                        Level {level} — {meta?.name}
+                      </span>
+                      <span className="text-xs text-[rgb(11_18_32/40%)] font-mono">
+                        {level === 1 ? 'least filtered' : level === 5 ? 'most filtered' : ''}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={1}
+                      max={5}
+                      step={1}
+                      value={level}
+                      onChange={e => setSettings(s => ({
+                        ...s,
+                        appSettings: { ...s.appSettings!, noiseFilterLevel: Number(e.target.value) },
+                      }))}
+                      className="w-full accent-action"
+                    />
+                    <div className="flex justify-between text-[10px] text-[rgb(11_18_32/35%)] px-0.5">
+                      {[1,2,3,4,5].map(n => (
+                        <span key={n} className={n === level ? 'text-action font-semibold' : ''}>
+                          {NOISE_LEVEL_LABELS[n]?.name}
+                        </span>
+                      ))}
+                    </div>
+                    <p className="text-xs text-[rgb(11_18_32/55%)] bg-paper-2 rounded-md px-3 py-2 border border-[rgb(11_18_32/8%)]">
+                      {meta?.description}
+                    </p>
+                  </div>
+                )
+              })()}
+              <p className="text-xs text-[rgb(11_18_32/40%)]">
+                Takes effect on the next sync. Changes to this setting do not affect existing action items.
+              </p>
+              {saveButton}
             </CardContent>
           </Card>
 
