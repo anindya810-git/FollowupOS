@@ -2,7 +2,7 @@
 import { signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { LogOut, RefreshCw, ChevronDown, RotateCcw, Loader2, Check, Mail } from 'lucide-react'
+import { LogOut, RefreshCw, ChevronDown, RotateCcw, Loader2, Check, Settings } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 
 interface ConnectedAccount {
@@ -10,6 +10,12 @@ interface ConnectedAccount {
   emailAddress: string
   provider: string
   connectedStatus: string
+}
+
+interface UserProfile {
+  name: string | null
+  email: string
+  image: string | null
 }
 
 interface HeaderProps {
@@ -38,17 +44,23 @@ export function Header({ title, onSync }: HeaderProps) {
   const router = useRouter()
   const [syncing, setSyncing] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [avatarMenuOpen, setAvatarMenuOpen] = useState(false)
   const [scanBusy, setScanBusy] = useState(false)
   const [scanDone, setScanDone] = useState(false)
   const [scanStarted, setScanStarted] = useState(false)
   const [accounts, setAccounts] = useState<ConnectedAccount[]>([])
+  const [profile, setProfile] = useState<UserProfile | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const avatarMenuRef = useRef<HTMLDivElement>(null)
 
-  // Fetch connected inboxes once on mount
   useEffect(() => {
     fetch('/api/integrations')
       .then(r => r.ok ? r.json() : { accounts: [] })
       .then(d => setAccounts((d.accounts ?? []).filter((a: ConnectedAccount) => a.connectedStatus === 'connected')))
+      .catch(() => {})
+    fetch('/api/user/profile')
+      .then(r => r.ok ? r.json() : null)
+      .then((d: UserProfile | null) => { if (d) setProfile(d) })
       .catch(() => {})
   }, [])
 
@@ -60,6 +72,15 @@ export function Header({ title, onSync }: HeaderProps) {
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [menuOpen])
+
+  useEffect(() => {
+    if (!avatarMenuOpen) return
+    const handler = (e: MouseEvent) => {
+      if (avatarMenuRef.current && !avatarMenuRef.current.contains(e.target as Node)) setAvatarMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [avatarMenuOpen])
 
   const handleRefresh = async () => {
     if (!onSync) return
@@ -98,6 +119,10 @@ export function Header({ title, onSync }: HeaderProps) {
     )) return
     triggerScan(true)
   }
+
+  const initials = profile
+    ? (profile.name || profile.email).slice(0, 1).toUpperCase()
+    : '?'
 
   return (
     <div className="flex h-14 items-center justify-between border-b border-rule bg-paper-2 px-6">
@@ -196,9 +221,66 @@ export function Header({ title, onSync }: HeaderProps) {
           </div>
         )}
 
-        <Button variant="ghost" size="icon" onClick={() => signOut({ callbackUrl: '/' })} title="Sign out">
-          <LogOut className="h-3.5 w-3.5" />
-        </Button>
+        {/* Avatar with dropdown */}
+        <div ref={avatarMenuRef} className="relative">
+          <button
+            onClick={() => setAvatarMenuOpen(o => !o)}
+            className="flex items-center justify-center h-8 w-8 rounded-full overflow-hidden ring-2 ring-transparent hover:ring-[rgb(11_18_32/15%)] transition-all focus:outline-none"
+            title={profile?.name ?? profile?.email ?? 'Account'}
+          >
+            {profile?.image ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={profile.image} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <span className="h-full w-full flex items-center justify-center bg-[rgb(11_18_32/10%)] text-xs font-semibold text-ink">
+                {initials}
+              </span>
+            )}
+          </button>
+
+          {avatarMenuOpen && (
+            <div className="absolute right-0 top-full mt-2 z-50 bg-white border border-[rgb(11_18_32/12%)] rounded-lg shadow-lg w-56 overflow-hidden">
+              {/* User info */}
+              <div className="px-3 py-3 border-b border-[rgb(11_18_32/8%)]">
+                <div className="flex items-center gap-2.5">
+                  <div className="h-8 w-8 rounded-full overflow-hidden shrink-0">
+                    {profile?.image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={profile.image} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="h-full w-full flex items-center justify-center bg-[rgb(11_18_32/10%)] text-xs font-semibold text-ink">
+                        {initials}
+                      </span>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    {profile?.name && <p className="text-sm font-medium text-ink truncate">{profile.name}</p>}
+                    <p className="text-[11px] text-[rgb(11_18_32/50%)] truncate">{profile?.email}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Menu items */}
+              <button
+                onClick={() => { setAvatarMenuOpen(false); router.push('/settings?section=account') }}
+                className="w-full text-left px-3 py-2 hover:bg-paper-2 transition-colors flex items-center gap-2"
+              >
+                <Settings className="h-3.5 w-3.5 text-[rgb(11_18_32/45%)]" />
+                <span className="text-sm text-ink">Account settings</span>
+              </button>
+
+              <div className="border-t border-[rgb(11_18_32/8%)]" />
+
+              <button
+                onClick={() => signOut({ callbackUrl: '/' })}
+                className="w-full text-left px-3 py-2 hover:bg-red-50 transition-colors flex items-center gap-2"
+              >
+                <LogOut className="h-3.5 w-3.5 text-red-500" />
+                <span className="text-sm text-red-600">Sign out</span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
