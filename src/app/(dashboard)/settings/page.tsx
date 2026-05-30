@@ -431,7 +431,7 @@ export default function SettingsPage() {
                   + Add Outlook
                 </Button>
               </div>
-              <div className="mt-4 flex items-center gap-3">
+              <div className="mt-4 flex items-center gap-3 flex-wrap">
                 <Button
                   variant="outline"
                   size="sm"
@@ -445,6 +445,12 @@ export default function SettingsPage() {
                     Synced {contactsSynced} contact{contactsSynced !== 1 ? 's' : ''}
                   </span>
                 )}
+                <a
+                  href="/settings/scan-logs"
+                  className="ml-auto text-xs text-[rgb(11_18_32/55%)] hover:text-ink underline transition-colors"
+                >
+                  View scan logs →
+                </a>
               </div>
             </CardContent>
           </Card>

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { safeLog } from '@/lib/safe-log'
@@ -96,33 +96,24 @@ export async function POST(request: NextRequest) {
     })
   }
 
-  // Run the scan inline (awaited) rather than via `after()`.
+  // Run the scan in the BACKGROUND via `after()` and return 200 immediately.
   //
-  // `after()` schedules work to run *after the response is flushed*, but on
-  // serverless platforms the function instance can be frozen/reclaimed the
-  // moment the response returns — so the background callback may never execute
-  // and the job sits at "queued" forever. Running inline guarantees the scan
-  // actually runs and the response carries the final status.
+  // We deliberately do NOT await the scan inline: a full scan with the
+  // free-tier Gemini key spaces calls ~4.2 s apart, so even a dozen threads
+  // can exceed Vercel's function timeout (60 s on Hobby). Blocking the HTTP
+  // response on the scan caused the request to be killed mid-flight, which the
+  // client saw as "Sync failed" even though the scan was progressing fine.
   //
-  // The scan job row was already committed above, and the scanner updates its
-  // progress counters in the DB per batch, so the client's 2 s polling shows
-  // live progress (from concurrent /api/integrations requests) while this
-  // request is still in flight. maxDuration=300 gives the scan room to finish.
-  await triggerScan(scanJob.id, session.user.id, account.id, scan_window_days, max_threads)
-
-  // Re-read the job so the caller gets the real terminal status/diagnostics.
-  const finished = await prisma.scanJob.findUnique({
-    where: { id: scanJob.id },
-    select: { status: true, threadsFound: true, threadsProcessed: true, actionItemsCreated: true, errorMessage: true },
-  })
+  // `after()` lets Vercel flush the 200 response first, then keep the instance
+  // alive to run the scan (subject to maxDuration). The scan job row is already
+  // committed and the scanner writes progress + step logs to the DB per batch,
+  // so the client's 2 s polling of /api/integrations shows live progress and
+  // the Scan Logs page shows the full trace — without ever erroring the button.
+  after(triggerScan(scanJob.id, session.user.id, account.id, scan_window_days, max_threads))
 
   return NextResponse.json({
     job_id: scanJob.id,
-    status: finished?.status ?? 'queued',
-    threads_found: finished?.threadsFound ?? 0,
-    threads_processed: finished?.threadsProcessed ?? 0,
-    action_items_created: finished?.actionItemsCreated ?? 0,
-    error_message: finished?.errorMessage ?? null,
+    status: 'queued',
     scan_window_days,
     max_threads: max_threads ?? null,
     is_first_scan: isFirstScan,

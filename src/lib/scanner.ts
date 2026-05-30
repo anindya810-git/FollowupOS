@@ -20,7 +20,45 @@ function countRepeatedAsks(messages: Array<{ is_from_user: boolean; from: string
   return count
 }
 
+// Crude secret redaction for anything that lands in the user-visible debug log.
+const LOG_REDACT = [
+  /sk-ant-[A-Za-z0-9_-]+/g, /sk-proj-[A-Za-z0-9_-]+/g, /sk-[A-Za-z0-9_-]{20,}/g,
+  /AIza[A-Za-z0-9_-]{20,}/g, /ya29\.[A-Za-z0-9_-]+/g, /Bearer\s+[A-Za-z0-9._-]{16,}/gi,
+]
+function redactLog(s: string): string {
+  let out = s
+  for (const p of LOG_REDACT) out = out.replace(p, '[REDACTED]')
+  return out
+}
+
+// Accumulates a human-readable, timestamped trace of a scan and flushes it to
+// ScanJob.debugLog so the user can inspect exactly what happened on the
+// Scan Logs page — no Vercel log access required.
+class ScanLogger {
+  private lines: string[] = []
+  constructor(private jobId: string) {}
+  add(msg: string) {
+    const ts = new Date().toISOString().slice(11, 23) // HH:MM:SS.mmm UTC
+    this.lines.push(`[${ts}] ${redactLog(msg)}`)
+  }
+  async flush() {
+    try {
+      // Keep the last ~12k chars so a huge scan can't blow up the row.
+      const text = this.lines.join('\n')
+      await prisma.scanJob.update({
+        where: { id: this.jobId },
+        data: { debugLog: text.length > 12000 ? text.slice(-12000) : text },
+      })
+    } catch {
+      /* logging must never break a scan */
+    }
+  }
+}
+
 export async function runInitialScan(jobId: string, userId: string, emailAccountId: string, scanWindowDays?: number, maxThreads?: number) {
+  const log = new ScanLogger(jobId)
+  log.add(`Scan started · job=${jobId} window=${scanWindowDays ?? 'auto'}d maxThreads=${maxThreads ?? '∞'}`)
+  await log.flush()
   try {
     await prisma.scanJob.update({ where: { id: jobId }, data: { status: 'running' } })
 
@@ -29,6 +67,7 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
 
     const user = await prisma.user.findUnique({ where: { id: userId } })
     if (!user) throw new Error('User not found')
+    log.add(`Account resolved · provider=${account.provider} email=${account.emailAddress} historyId=${account.gmailHistoryId ? 'present' : 'none'}`)
 
     // Derive plan-based defaults when caller didn't specify (e.g. direct callback invocation).
     // This ensures the Gmail OAuth callback uses the same limits as the /api/scan/start route.
@@ -41,12 +80,17 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
 
     const aiConfig = await resolveAiConfig(userId)
     if (!aiConfig) {
+      log.add('FAILED: no AI provider configured (no user key and no server fallback).')
+      await log.flush()
       throw new MissingAiConfigError()
     }
+    log.add(`AI config · provider=${aiConfig.provider} model=${aiConfig.model} key=${aiConfig.isDefaultKey ? 'Pendingly server' : 'BYOK'}`)
 
     // Quota gate — only applies when using Pendingly's default key.
     const quota = await canMakeAiCall(userId, aiConfig.isDefaultKey)
     if (!quota.ok) {
+      log.add(`FAILED: AI quota gate · ${quota.reason || 'quota exceeded'}`)
+      await log.flush()
       await prisma.scanJob.update({
         where: { id: jobId },
         data: { status: 'failed', errorMessage: quota.reason || 'AI quota exceeded' },
@@ -73,6 +117,9 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
       .map(s => s?.trim())
       .filter(Boolean)
       .join('\n\n') || null
+
+    log.add(`Noise level=${noiseFilterLevel} · custom instructions=${scanInstructions ? 'yes' : 'no'} · routing to ${account.provider} scanner`)
+    await log.flush()
 
     if (account.provider === 'outlook') {
       await scanOutlookAccount({
@@ -118,8 +165,11 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
     try {
       const profile = await gmail.users.getProfile({ userId: 'me' })
       profileHistoryId = profile.data.historyId ?? undefined
+      log.add(`Gmail token OK · profileHistoryId=${profileHistoryId ?? 'none'}`)
     } catch (e) {
       const code = (e as { code?: number }).code
+      log.add(`Gmail pre-flight failed · code=${code ?? 'unknown'}`)
+      await log.flush()
       if (code === 401 || code === 403) {
         await prisma.emailAccount.update({
           where: { id: emailAccountId },
@@ -203,6 +253,14 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
       allThreadIds = allThreadIds.slice(0, maxThreads)
     }
 
+    log.add(`Discovery done · mode=${usedIncremental ? 'incremental (History API)' : 'full date-range'} threadsToProcess=${allThreadIds.length}`)
+    if (allThreadIds.length === 0) {
+      log.add(usedIncremental
+        ? 'No new threads since last sync. Use Reset & rescan to re-evaluate everything.'
+        : 'No threads matched the scan window.')
+    }
+    await log.flush()
+
     await prisma.scanJob.update({
       where: { id: jobId },
       data: { threadsFound: allThreadIds.length },
@@ -264,6 +322,8 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
           ...(runningDiagnostic !== null ? { errorMessage: runningDiagnostic } : {}),
         },
       })
+      log.add(`Batch ${Math.floor(i / BATCH_SIZE) + 1} · processed=${processed}/${allThreadIds.length} created=${created} noise=${noiseFiltered} aiFailed=${aiFailures}${aiErrorSamples[0] ? ` lastErr="${aiErrorSamples[0].slice(0, 120)}"` : ''}`)
+      await log.flush()
     }
 
     await prisma.emailAccount.update({
@@ -288,6 +348,11 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
     } else if (noiseFiltered > 0) {
       scanDiagnostic = `${noiseFiltered} noise-filtered · ${aiClassified} AI-classified`
     }
+    log.add(`COMPLETED · processed=${processed} created=${created} noiseFiltered=${noiseFiltered} aiFailed=${aiFailures} aiClassified=${aiClassified}`)
+    if (profileHistoryId && aiFailures === 0) log.add('historyId advanced — next sync will be incremental.')
+    else if (aiFailures > 0) log.add('historyId NOT advanced (had AI failures) — failed threads retry next sync.')
+    await log.flush()
+
     // Only mark completed if the job hasn't already been cancelled by the user.
     await prisma.scanJob.updateMany({
       where: { id: jobId, status: { not: 'failed' } },
@@ -302,6 +367,9 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
     const friendly = error instanceof MissingAiConfigError
       ? 'AI is not configured. Add an API key in Settings → AI Provider, or the admin can set GEMINI_API_KEY for a free-tier default. Then re-run the scan.'
       : error instanceof Error ? error.message : 'Unknown error'
+    log.add(`ERROR: ${friendly}`)
+    if (error instanceof Error && error.stack) log.add(`stack: ${error.stack.split('\n').slice(0, 4).join(' | ')}`)
+    await log.flush()
     await prisma.scanJob.update({
       where: { id: jobId },
       data: {
