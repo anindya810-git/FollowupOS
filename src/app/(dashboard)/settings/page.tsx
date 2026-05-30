@@ -1,12 +1,12 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { signOut } from 'next-auth/react'
 import { Header } from '@/components/layout/Header'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Trash2, Plus, AlertTriangle, LogOut, RefreshCw, Loader2, Check } from 'lucide-react'
+import { Trash2, Plus, AlertTriangle, LogOut, RefreshCw, Loader2, Check, ChevronDown, RotateCcw } from 'lucide-react'
 import { PushNotificationToggle } from '@/components/PushNotificationToggle'
 import { DEFAULT_FOLLOWUP_TEMPLATE } from '@/lib/templates'
 import { RichTextEditor } from '@/components/editor/RichTextEditor'
@@ -1730,10 +1730,20 @@ function InboxSyncButton({ accountId, scanning, onCancelled, onStarted }: { acco
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [resetting, setResetting] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [menuOpen])
 
   const sync = async (forceFullRescan = false) => {
-    setBusy(true); setError(null); setDone(false)
+    setBusy(true); setError(null); setDone(false); setMenuOpen(false)
     try {
       const res = await fetch('/api/scan/start', {
         method: 'POST',
@@ -1750,17 +1760,16 @@ function InboxSyncButton({ accountId, scanning, onCancelled, onStarted }: { acco
       setTimeout(() => setError(null), 4000)
     } finally {
       setBusy(false)
-      setResetting(false)
     }
   }
 
   const handleReset = () => {
+    setMenuOpen(false)
     if (!confirm(
       'Reset scan history for this inbox?\n\n' +
-      'This clears all previously seen thread records so every email in the scan window is re-evaluated from scratch — including ones that were skipped on the previous scan.\n\n' +
+      'Clears all previously seen thread records so every email in the scan window is re-evaluated from scratch — including ones skipped on previous scans.\n\n' +
       'Existing action items are NOT deleted.'
     )) return
-    setResetting(true)
     sync(true)
   }
 
@@ -1787,30 +1796,74 @@ function InboxSyncButton({ accountId, scanning, onCancelled, onStarted }: { acco
   }
 
   return (
-    <div className="flex items-center gap-1.5">
+    <div ref={menuRef} className="relative flex items-center">
+      {/* Main sync button */}
       <Button
         variant="outline"
         size="sm"
         onClick={() => sync(false)}
         disabled={busy}
-        title={error || (done ? 'Sync queued' : 'Run an incremental scan now (only new emails)')}
+        className="rounded-r-none border-r-0 pr-2.5"
+        title={error || 'Run an incremental scan now (only new emails)'}
       >
-        {busy && !resetting ? (
+        {busy ? (
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        ) : done && !resetting ? (
+        ) : done ? (
           <><Check className="h-3.5 w-3.5 mr-1 text-done" /> Queued</>
         ) : (
           <><RefreshCw className="h-3.5 w-3.5 mr-1" /> Sync now</>
         )}
       </Button>
-      <button
-        onClick={handleReset}
+      {/* Dropdown trigger */}
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setMenuOpen(o => !o)}
         disabled={busy}
-        className="text-[11px] text-[rgb(11_18_32/40%)] hover:text-action disabled:opacity-40 underline underline-offset-2 decoration-dotted transition-colors"
-        title="Clear scan history and re-evaluate all emails in the scan window from scratch"
+        className="rounded-l-none px-1.5 border-l border-[rgb(11_18_32/15%)]"
+        title="More scan options"
       >
-        {resetting ? <Loader2 className="h-3 w-3 animate-spin inline" /> : 'Reset scan'}
-      </button>
+        <ChevronDown className="h-3.5 w-3.5" />
+      </Button>
+      {/* Dropdown menu */}
+      {menuOpen && (
+        <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-[rgb(11_18_32/12%)] rounded-lg shadow-lg w-64 overflow-hidden">
+          <div className="px-3 pt-2.5 pb-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/35%)]">Scan options</p>
+          </div>
+          <button
+            onClick={() => { setMenuOpen(false); sync(false) }}
+            className="w-full text-left px-3 py-2 hover:bg-paper-2 transition-colors group"
+          >
+            <div className="flex items-center gap-2">
+              <RefreshCw className="h-3.5 w-3.5 text-[rgb(11_18_32/45%)]" />
+              <div>
+                <p className="text-sm font-medium text-ink">Sync now</p>
+                <p className="text-[11px] text-[rgb(11_18_32/45%)]">Fetch only new emails since last scan</p>
+              </div>
+            </div>
+          </button>
+          <div className="mx-3 border-t border-[rgb(11_18_32/8%)]" />
+          <button
+            onClick={handleReset}
+            className="w-full text-left px-3 py-2 hover:bg-amber-50 transition-colors group"
+          >
+            <div className="flex items-center gap-2">
+              <RotateCcw className="h-3.5 w-3.5 text-amber-600" />
+              <div>
+                <p className="text-sm font-medium text-amber-700">Reset &amp; rescan</p>
+                <p className="text-[11px] text-amber-600/70">Re-evaluate all emails in the scan window from scratch</p>
+              </div>
+            </div>
+          </button>
+          <div className="px-3 pb-2.5 pt-1">
+            <p className="text-[10px] text-[rgb(11_18_32/35%)]">Existing action items are not deleted</p>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
     </div>
   )
 }
