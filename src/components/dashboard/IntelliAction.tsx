@@ -15,6 +15,8 @@ export interface SerializedItem {
   dueDate: string | null
   lastActivityAt: string | null
   providerUrl: string | null
+  inboxEmail: string | null
+  inboxProvider: string | null
 }
 
 interface IntelliActionData {
@@ -60,6 +62,17 @@ function formatMeetingTime(iso: string): string {
   return `Meeting ${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${time}`
 }
 
+function InboxChip({ email }: { email: string }) {
+  return (
+    <span
+      className="text-[10px] text-[rgb(11_18_32/40%)] bg-[rgb(11_18_32/4%)] border border-[rgb(11_18_32/8%)] px-1.5 py-0.5 rounded font-mono truncate max-w-[150px]"
+      title={`Inbox: ${email}`}
+    >
+      {email}
+    </span>
+  )
+}
+
 function IntelliItem({
   item,
   meeting,
@@ -88,9 +101,12 @@ function IntelliItem({
       <div className="flex items-center justify-between py-2 px-3 hover:bg-paper-2 rounded transition-colors group">
         <div className="flex-1 min-w-0 cursor-pointer" onClick={onOpen}>
           <p className="text-sm text-ink truncate">{item.title}</p>
-          {item.ownerName && (
-            <p className="text-xs text-mute truncate">{item.ownerName}</p>
-          )}
+          <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+            {item.ownerName && (
+              <span className="text-xs text-mute truncate">{item.ownerName}</span>
+            )}
+            {item.inboxEmail && <InboxChip email={item.inboxEmail} />}
+          </div>
         </div>
         <button
           onClick={() => {
@@ -115,8 +131,11 @@ function IntelliItem({
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-ink truncate leading-snug">{item.title}</p>
-            {item.ownerName && (
-              <p className="text-xs text-mute mt-0.5">{item.ownerName}</p>
+            {(item.ownerName || item.inboxEmail) && (
+              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                {item.ownerName && <span className="text-xs text-mute">{item.ownerName}</span>}
+                {item.inboxEmail && <InboxChip email={item.inboxEmail} />}
+              </div>
             )}
             {item.reason && (
               <p className="text-xs text-mute mt-1 line-clamp-2">{item.reason}</p>

@@ -25,6 +25,8 @@ export async function GET() {
           providerUrl: true,
           lastMessageAt: true,
           participants: true,
+          // Which inbox this came from — shown as a chip on the card.
+          emailAccount: { select: { provider: true, emailAddress: true } },
           // Last inbound message so ActionCard can show sender name/email
           // and populate the ignore-sender/ignore-domain dropdown correctly.
           messages: {

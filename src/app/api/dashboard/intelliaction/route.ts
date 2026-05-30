@@ -2,7 +2,22 @@ import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
-type ActionItemWithThread = any
+interface SerializableItem {
+  id: string
+  title: string | null
+  reason: string | null
+  ownerName: string | null
+  ownerEmail: string | null
+  category: string
+  priority: string
+  dueDate: string | null
+  lastActivityAt: Date | null
+  emailThread: {
+    subject: string | null
+    providerUrl: string | null
+    emailAccount: { provider: string; emailAddress: string } | null
+  } | null
+}
 
 export async function GET() {
   const session = await auth()
@@ -21,7 +36,10 @@ export async function GET() {
       orderBy: [{ priority: 'asc' }, { lastActivityAt: 'desc' }],
       include: {
         emailThread: {
-          select: { subject: true, providerUrl: true, lastMessageAt: true, participants: true },
+          select: {
+            subject: true, providerUrl: true, lastMessageAt: true, participants: true,
+            emailAccount: { select: { provider: true, emailAddress: true } },
+          },
         },
       },
       take: 200,
@@ -118,7 +136,7 @@ export async function GET() {
   })
 }
 
-function serializeItem(item: ActionItemWithThread) {
+function serializeItem(item: SerializableItem) {
   return {
     id: item.id,
     title: item.title || item.emailThread?.subject || 'No subject',
@@ -130,5 +148,7 @@ function serializeItem(item: ActionItemWithThread) {
     dueDate: item.dueDate,
     lastActivityAt: item.lastActivityAt,
     providerUrl: item.emailThread?.providerUrl ?? null,
+    inboxEmail: item.emailThread?.emailAccount?.emailAddress ?? null,
+    inboxProvider: item.emailThread?.emailAccount?.provider ?? null,
   }
 }
