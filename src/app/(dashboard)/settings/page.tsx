@@ -95,6 +95,27 @@ export default function SettingsPage() {
       return accounts
     })
 
+  // Optimistically flip the given inboxes into a "queued" scan state the instant
+  // the user clicks Sync. This makes the progress bar appear immediately (instead
+  // of waiting for the first poll) and reliably starts the 4 s polling loop even
+  // when the scan finishes or fails before the first server round-trip lands.
+  const markScanStarting = (accountIds: string[]) =>
+    setIntegrations(prev => prev.map(a =>
+      accountIds.includes(a.id)
+        ? {
+            ...a,
+            lastScan: {
+              status: 'queued',
+              threadsFound: 0,
+              threadsProcessed: 0,
+              actionItemsCreated: 0,
+              errorMessage: null,
+              createdAt: new Date().toISOString(),
+            },
+          }
+        : a
+    ))
+
   useEffect(() => {
     Promise.all([
       fetch('/api/settings').then(r => r.json()),
@@ -265,7 +286,7 @@ export default function SettingsPage() {
               <div className="flex items-center justify-between">
                 <CardTitle>Connected Inboxes</CardTitle>
                 {integrations.length > 0 && (
-                  <SyncAllButton integrations={integrations} onStarted={fetchIntegrations} />
+                  <SyncAllButton integrations={integrations} onStarted={fetchIntegrations} onSyncStart={() => markScanStarting(integrations.map(a => a.id))} />
                 )}
               </div>
             </CardHeader>
@@ -291,7 +312,7 @@ export default function SettingsPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <InboxSyncButton accountId={account.id} scanning={account.lastScan?.status === 'running' || account.lastScan?.status === 'queued'} onCancelled={fetchIntegrations} onStarted={fetchIntegrations} />
+                          <InboxSyncButton accountId={account.id} scanning={account.lastScan?.status === 'running' || account.lastScan?.status === 'queued'} onCancelled={fetchIntegrations} onStarted={fetchIntegrations} onSyncStart={() => markScanStarting([account.id])} />
                           <Button variant="outline" size="sm" onClick={() => disconnectAccount(account)}>
                             Disconnect
                           </Button>
@@ -332,7 +353,11 @@ export default function SettingsPage() {
                             {isRunning ? (
                               <div className="flex justify-between">
                                 <span className="font-medium text-ink">Scanning…</span>
-                                <span>{scan.threadsProcessed}/{scan.threadsFound} threads · {pct}%</span>
+                                {scan.threadsFound > 0 ? (
+                                  <span>{scan.threadsProcessed}/{scan.threadsFound} threads · {pct}%</span>
+                                ) : (
+                                  <span className="text-[rgb(11_18_32/55%)]">Starting…</span>
+                                )}
                               </div>
                             ) : hasFailed ? (
                               <div>
@@ -2142,7 +2167,7 @@ function ProfileCard() {
   )
 }
 
-function SyncAllButton({ integrations, onStarted }: { integrations: EmailAccount[]; onStarted?: () => void }) {
+function SyncAllButton({ integrations, onStarted, onSyncStart }: { integrations: EmailAccount[]; onStarted?: () => void; onSyncStart?: () => void }) {
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -2163,6 +2188,7 @@ function SyncAllButton({ integrations, onStarted }: { integrations: EmailAccount
       `Reset scan history for all ${integrations.length} inboxes?\n\nRe-evaluates every email in the scan window from scratch.\n\nExisting action items are NOT deleted.`
     )) return
     setBusy(true); setDone(false)
+    onSyncStart?.()
     try {
       await Promise.all(integrations.map(a =>
         fetch('/api/scan/start', {
@@ -2221,7 +2247,7 @@ function SyncAllButton({ integrations, onStarted }: { integrations: EmailAccount
   )
 }
 
-function InboxSyncButton({ accountId, scanning, onCancelled, onStarted }: { accountId: string; scanning?: boolean; onCancelled?: () => void; onStarted?: () => void }) {
+function InboxSyncButton({ accountId, scanning, onCancelled, onStarted, onSyncStart }: { accountId: string; scanning?: boolean; onCancelled?: () => void; onStarted?: () => void; onSyncStart?: () => void }) {
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -2239,6 +2265,7 @@ function InboxSyncButton({ accountId, scanning, onCancelled, onStarted }: { acco
 
   const sync = async (forceFullRescan = false) => {
     setBusy(true); setError(null); setDone(false); setMenuOpen(false)
+    onSyncStart?.()
     try {
       const res = await fetch('/api/scan/start', {
         method: 'POST',
