@@ -2366,8 +2366,8 @@ function InboxSyncButton({ accountId, scanning, onCancelled, onStarted, onSyncSt
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ account_id: accountId, ...(forceFullRescan ? { force_full_rescan: true } : {}) }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Sync failed')
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error((data as { error?: string }).error || 'Sync failed')
       onStarted?.()
       setDone(true)
       setTimeout(() => setDone(false), 4000)
