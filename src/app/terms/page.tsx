@@ -16,96 +16,124 @@ export default function TermsPage() {
 
       <main className="max-w-3xl mx-auto px-6 py-16">
         <h1 className="text-4xl font-bold text-ink mb-2">Terms of Service</h1>
-        <p className="text-sm text-[rgb(11_18_32/45%)] mb-12">Last updated: May 18, 2026</p>
+        <p className="text-sm text-[rgb(11_18_32/45%)] mb-12">Last updated: May 30, 2026</p>
 
         <div className="prose-legal">
 
           <Section title="1. Acceptance of Terms">
-            <p>By creating an account or using Pendingly ("Service"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree, do not use the Service. These Terms apply to all users, including free-trial users and paid subscribers.</p>
+            <p>By creating an account or using Pendingly (the &ldquo;Service&rdquo;), you agree to be bound by these Terms of Service (&ldquo;Terms&rdquo;). If you do not agree, do not use the Service. These Terms apply to all users, including free-trial users, paid subscribers, and members of a team or organisation account.</p>
           </Section>
 
           <Section title="2. Description of Service">
-            <p>Pendingly is an AI-powered email follow-up tool that connects to your email inbox, reads your messages to identify threads that require follow-up action, and surfaces actionable reminders through a dashboard and daily digest. The Service requires you to connect at least one supported email account (Gmail or Microsoft Outlook).</p>
+            <p>Pendingly is an AI-assisted email follow-up and relationship-management tool. When you connect one or more email accounts, Pendingly:</p>
+            <ul>
+              <li>reads your recent messages to classify which threads need a reply, which you are waiting on, which are follow-up due, and which contain commitments;</li>
+              <li>surfaces these as an action queue, a daily digest, and push notifications;</li>
+              <li>generates optional AI drafts, thread summaries, and relationship insights (e.g. typical reply time, &ldquo;cooling&rdquo; and VIP signals) derived from your message history;</li>
+              <li>can, at your direction, send replies and multi-step follow-up sequences, schedule sends, create calendar events or tasks, and post notifications to channels you configure.</li>
+            </ul>
+            <p>Supported inboxes include Gmail, Microsoft Outlook, Zoho Mail, Apple Mail, and other IMAP providers.</p>
           </Section>
 
           <Section title="3. Eligibility">
-            <p>You must be at least 16 years old and capable of forming a binding contract to use the Service. By using Pendingly you represent and warrant that you meet these requirements.</p>
+            <p>You must be at least 16 years old and capable of forming a binding contract to use the Service. By using Pendingly you represent and warrant that you meet these requirements and that any account you connect is one you are authorised to access.</p>
           </Section>
 
           <Section title="4. Account Registration">
-            <p>You must sign in using a supported identity provider (currently Google). You are responsible for maintaining the security of your account and for all activity that occurs under it. Notify us immediately at <a href="mailto:support@pendingly.com" className="text-action underline">support@pendingly.com</a> if you suspect unauthorized access.</p>
+            <p>You sign in using a supported identity provider (currently Google). You are responsible for maintaining the security of your account and for all activity under it. Notify us immediately at <a href="mailto:support@pendingly.com">support@pendingly.com</a> if you suspect unauthorised access.</p>
           </Section>
 
           <Section title="5. Free Trial and Paid Plans">
             <ul>
               <li>New accounts receive a <strong>3-month free trial</strong> with no credit card required.</li>
-              <li>After the trial period, continued access requires a paid subscription ("Lite" or "Pro") billed monthly or annually.</li>
-              <li>Prices are displayed at the time of purchase and may change with 30 days' notice.</li>
-              <li>All payments are non-refundable except where required by law or as stated in our refund policy.</li>
+              <li>After the trial, continued access to paid features requires a subscription (&ldquo;Lite&rdquo; or &ldquo;Pro&rdquo;), billed monthly or annually.</li>
+              <li>Prices are shown at the time of purchase and may change with at least 30 days&rsquo; notice.</li>
+              <li>Payments are non-refundable except where required by law.</li>
               <li>You may cancel at any time; access continues until the end of the current billing period.</li>
+              <li>Team and volume arrangements are available by contacting <a href="mailto:sales@pendingly.com">sales@pendingly.com</a>.</li>
             </ul>
           </Section>
 
-          <Section title="6. Email Access and Permissions">
-            <p>To provide the Service, Pendingly requests read-only access to your connected email account(s). Specifically:</p>
+          <Section title="6. Connected Accounts, Permissions & Scopes">
+            <p>To provide the Service, Pendingly requests only the access it needs, and only for the connectors you enable:</p>
             <ul>
-              <li>We read email metadata (sender, recipient, subject, timestamp) and message bodies solely to classify follow-up needs.</li>
-              <li>We do <strong>not</strong> send emails on your behalf unless you explicitly enable the Auto Follow-up feature and review the template.</li>
-              <li>We do <strong>not</strong> store full email bodies beyond what is necessary to generate action items.</li>
-              <li>You may disconnect any inbox at any time from Settings, which immediately revokes our access.</li>
+              <li><strong>Email (read):</strong> the classification scan is <strong>read-only</strong>. We read metadata (sender, recipient, subject, timestamp) and message text solely to classify follow-up needs and generate summaries.</li>
+              <li><strong>Email (send):</strong> we send a message only when you explicitly send it, or when you have enabled an automated sequence (see Section 7).</li>
+              <li><strong>Calendar &amp; tasks (write):</strong> only if you install a calendar connector, and only to create the events or tasks you ask for.</li>
+              <li><strong>Conferencing &amp; notifications:</strong> if you connect Zoom, Slack, Microsoft Teams, or WhatsApp, we use them only to create the meeting links or send the digests you configure.</li>
             </ul>
+            <p>You may disconnect any inbox or integration at any time from Settings, which immediately revokes the associated access.</p>
           </Section>
 
-          <Section title="7. Bring Your Own AI Key (BYOK)">
-            <p>You may optionally provide your own API key for supported AI providers (Google Gemini, Anthropic, OpenAI). When you do, email classification calls are routed to your account and billed directly by that provider. Pendingly does not store your API key in plain text.</p>
+          <Section title="7. Automated Sending & Your Control">
+            <p>Pendingly is designed so that nothing leaves your mailbox without your control:</p>
+            <ul>
+              <li><strong>Approval mode</strong> holds every automated follow-up as a draft until you approve it with a single tap.</li>
+              <li><strong>Undo window:</strong> sends you initiate include a short cancellation window.</li>
+              <li><strong>Pause everything</strong> halts all automated sending, sequences, and notifications until you resume.</li>
+            </ul>
+            <p>You are solely responsible for the content of messages sent through the Service and for ensuring your use complies with applicable anti-spam and electronic-communications laws (e.g. CAN-SPAM, GDPR/ePrivacy, India&rsquo;s DPDP Act). Do not use the Service to send unsolicited bulk email.</p>
           </Section>
 
-          <Section title="8. Acceptable Use">
+          <Section title="8. Relationship Insights">
+            <p>Pendingly derives signals such as typical reply time, VIP status, and &ldquo;cooling&rdquo; relationships from the timing and pattern of messages already in your connected accounts. These insights are generated for your own use within your account. They are estimates and may be incomplete or inaccurate; you should not rely on them as the sole basis for any decision.</p>
+          </Section>
+
+          <Section title="9. Bring Your Own AI Key (BYOK)">
+            <p>You may optionally provide your own API key for a supported AI provider (Google Gemini, Anthropic, or OpenAI). When you do, classification and drafting calls are routed to your account and billed directly by that provider under their terms. Your key is encrypted at rest and never returned to the browser or logged in plain text. Without a BYOK key, calls use a Pendingly-managed provider subject to your plan&rsquo;s quota.</p>
+          </Section>
+
+          <Section title="10. Acceptable Use">
             <p>You agree not to:</p>
             <ul>
-              <li>Use the Service for any unlawful purpose or in violation of any applicable laws</li>
-              <li>Attempt to reverse-engineer, scrape, or extract data from the Service</li>
-              <li>Use the Service to send spam or harassing communications</li>
-              <li>Share account credentials or allow unauthorized third parties to access your account</li>
-              <li>Interfere with or disrupt the integrity or performance of the Service</li>
+              <li>use the Service for any unlawful purpose or in violation of applicable laws;</li>
+              <li>send spam, harassing, deceptive, or unsolicited bulk communications;</li>
+              <li>connect an account you are not authorised to access;</li>
+              <li>attempt to reverse-engineer, scrape, probe, or circumvent the security of the Service;</li>
+              <li>share credentials or let unauthorised parties use your account;</li>
+              <li>interfere with or disrupt the integrity or performance of the Service.</li>
             </ul>
-            <p>We reserve the right to suspend or terminate accounts that violate these rules.</p>
+            <p>We may suspend or terminate accounts that violate these rules.</p>
           </Section>
 
-          <Section title="9. Intellectual Property">
-            <p>All content, features, and functionality of the Service — including software, design, and branding — are the exclusive property of Pendingly and its licensors. These Terms do not grant you any intellectual property rights in the Service. Your email data remains yours.</p>
+          <Section title="11. Third-Party Services">
+            <p>The Service interoperates with third parties including Google, Microsoft, your chosen AI provider, and any conferencing or notification channels you connect. Your use of those services is governed by their own terms and privacy policies. Pendingly&rsquo;s use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noreferrer">Google API Services User Data Policy</a>, including its Limited Use requirements.</p>
           </Section>
 
-          <Section title="10. Privacy">
-            <p>Your use of the Service is governed by our <Link href="/privacy" className="text-action underline">Privacy Policy</Link>, which is incorporated into these Terms by reference.</p>
+          <Section title="12. Intellectual Property">
+            <p>All software, design, and branding of the Service are the exclusive property of Pendingly and its licensors. These Terms grant you no intellectual-property rights in the Service. Your email data and the content you create remain yours.</p>
           </Section>
 
-          <Section title="11. Disclaimer of Warranties">
-            <p>The Service is provided "as is" and "as available" without warranties of any kind, express or implied. We do not warrant that the Service will be uninterrupted, error-free, or that follow-up detection will be complete or accurate. AI classification may miss threads or produce false positives.</p>
+          <Section title="13. Privacy">
+            <p>Your use of the Service is governed by our <Link href="/privacy" className="text-action underline">Privacy Policy</Link>, incorporated into these Terms by reference.</p>
           </Section>
 
-          <Section title="12. Limitation of Liability">
-            <p>To the maximum extent permitted by law, Pendingly shall not be liable for any indirect, incidental, special, consequential, or punitive damages arising from your use of the Service. Our total liability for any claim shall not exceed the amount you paid us in the 12 months preceding the claim.</p>
+          <Section title="14. Disclaimer of Warranties">
+            <p>The Service is provided &ldquo;as is&rdquo; and &ldquo;as available&rdquo; without warranties of any kind. We do not warrant that it will be uninterrupted or error-free, or that classification, summaries, or relationship insights will be complete or accurate. AI output may miss threads or produce false positives; review before acting.</p>
           </Section>
 
-          <Section title="13. Indemnification">
-            <p>You agree to indemnify and hold harmless Pendingly, its officers, directors, and employees from any claims, damages, or expenses arising from your use of the Service or violation of these Terms.</p>
+          <Section title="15. Limitation of Liability">
+            <p>To the maximum extent permitted by law, Pendingly is not liable for any indirect, incidental, special, consequential, or punitive damages, or for any messages sent, missed, or delayed through the Service. Our total liability for any claim shall not exceed the amount you paid us in the 12 months preceding the claim.</p>
           </Section>
 
-          <Section title="14. Changes to Terms">
-            <p>We may update these Terms from time to time. Material changes will be communicated via email or a prominent notice on the Service at least 14 days before taking effect. Continued use after changes take effect constitutes acceptance.</p>
+          <Section title="16. Indemnification">
+            <p>You agree to indemnify and hold harmless Pendingly, its officers, directors, and employees from any claims, damages, or expenses arising from your use of the Service, the content you send through it, or your violation of these Terms.</p>
           </Section>
 
-          <Section title="15. Termination">
-            <p>You may delete your account at any time from Settings → Account → Danger Zone. Upon deletion, your data is permanently removed. We may suspend or terminate your account immediately if you violate these Terms.</p>
+          <Section title="17. Changes to Terms">
+            <p>We may update these Terms from time to time. Material changes will be communicated by email or a prominent notice on the Service at least 14 days before taking effect. Continued use after changes take effect constitutes acceptance.</p>
           </Section>
 
-          <Section title="16. Governing Law">
-            <p>These Terms are governed by the laws of India, without regard to conflict of law principles. Any disputes shall be resolved exclusively in the courts located in Bengaluru, Karnataka, India.</p>
+          <Section title="18. Termination & Data Deletion">
+            <p>You may delete your account at any time from Settings &rarr; Account &rarr; Danger Zone. Upon deletion, your stored data is permanently removed. We may suspend or terminate accounts that violate these Terms.</p>
           </Section>
 
-          <Section title="17. Contact">
-            <p>Questions about these Terms? Contact us at <a href="mailto:support@pendingly.com" className="text-action underline">support@pendingly.com</a>.</p>
+          <Section title="19. Governing Law">
+            <p>These Terms are governed by the laws of India, without regard to conflict-of-law principles. Disputes shall be resolved exclusively in the courts of Bengaluru, Karnataka, India.</p>
+          </Section>
+
+          <Section title="20. Contact">
+            <p>Questions about these Terms? Contact <a href="mailto:support@pendingly.com">support@pendingly.com</a>.</p>
           </Section>
 
         </div>
