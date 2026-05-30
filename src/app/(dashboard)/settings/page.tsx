@@ -367,11 +367,6 @@ export default function SettingsPage() {
                           onSaved={(url, template) => setIntegrations(prev => prev.map(a => a.id === account.id ? { ...a, webmailBaseUrl: url, webmailSearchUrlTemplate: template ?? a.webmailSearchUrlTemplate } : a))}
                         />
                       )}
-                      <InboxScanSettings
-                        account={account}
-                        globalLevel={settings.appSettings?.noiseFilterLevel ?? 3}
-                        onSaved={(level, instr) => setIntegrations(prev => prev.map(a => a.id === account.id ? { ...a, noiseFilterLevel: level, scanInstructions: instr } : a))}
-                      />
                     </div>
                     )
                   })}
@@ -411,65 +406,26 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          {/* Noise Filter Level */}
-          <Card>
-            <CardHeader><CardTitle>Scan Aggressiveness <span className="text-xs font-normal text-[rgb(11_18_32/45%)]">· default for all inboxes</span></CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-[rgb(11_18_32/55%)]">
-                Controls how many automated emails are discarded before Pendingly AI sees them. Lower = more emails scanned, higher = faster scans with fewer false positives. You can override this per inbox under each connected account above.
-              </p>
-              {(() => {
-                const level = settings.appSettings?.noiseFilterLevel ?? 3
-                const meta = NOISE_LEVEL_LABELS[level]
-                return (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold text-ink">
-                        Level {level} — {meta?.name}
-                      </span>
-                      <span className="text-xs text-[rgb(11_18_32/40%)] font-mono">
-                        {level === 1 ? 'least filtered' : level === 5 ? 'most filtered' : ''}
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min={1}
-                      max={5}
-                      step={1}
-                      value={level}
-                      onChange={e => setSettings(s => ({
-                        ...s,
-                        appSettings: { ...s.appSettings!, noiseFilterLevel: Number(e.target.value) },
-                      }))}
-                      className="w-full accent-action"
-                    />
-                    <div className="flex justify-between text-[10px] text-[rgb(11_18_32/35%)] px-0.5">
-                      {[1,2,3,4,5].map(n => (
-                        <span key={n} className={n === level ? 'text-action font-semibold' : ''}>
-                          {NOISE_LEVEL_LABELS[n]?.name}
-                        </span>
-                      ))}
-                    </div>
-                    <p className="text-xs text-[rgb(11_18_32/55%)] bg-paper-2 rounded-md px-3 py-2 border border-[rgb(11_18_32/8%)]">
-                      {meta?.description}
-                    </p>
-                  </div>
-                )
-              })()}
-              <p className="text-xs text-[rgb(11_18_32/40%)]">
-                Takes effect on the next sync. Changes to this setting do not affect existing action items.
-              </p>
-              {saveButton}
-            </CardContent>
-          </Card>
+          {/* Scan Aggressiveness — global default + per-inbox override via scope dropdown */}
+          <ScanAggressivenessCard
+            globalLevel={settings.appSettings?.noiseFilterLevel ?? 3}
+            onGlobalLevelChange={n => setSettings(s => ({ ...s, appSettings: { ...s.appSettings!, noiseFilterLevel: n } }))}
+            onSaveGlobal={save}
+            savingGlobal={saving}
+            savedGlobal={saved}
+            inboxes={integrations}
+            onInboxSaved={(id, level) => setIntegrations(prev => prev.map(a => a.id === id ? { ...a, noiseFilterLevel: level } : a))}
+          />
 
-          {/* Teach Pendingly — free-text scan instructions */}
-          <AiTrainingCard
-            value={settings.appSettings?.scanInstructions ?? ''}
-            onChange={v => setSettings(s => ({ ...s, appSettings: s.appSettings ? { ...s.appSettings, scanInstructions: v } : { defaultFollowupDays: 3, scanWindowDays: 30, conservativeMode: true, scanInstructions: v } }))}
-            onSave={save}
-            saving={saving}
-            saved={saved}
+          {/* Teach Pendingly — global default + per-inbox override via scope dropdown */}
+          <TeachPendinglyCard
+            globalValue={settings.appSettings?.scanInstructions ?? ''}
+            onGlobalChange={v => setSettings(s => ({ ...s, appSettings: s.appSettings ? { ...s.appSettings, scanInstructions: v } : { defaultFollowupDays: 3, scanWindowDays: 30, conservativeMode: true, scanInstructions: v } }))}
+            onSaveGlobal={save}
+            savingGlobal={saving}
+            savedGlobal={saved}
+            inboxes={integrations}
+            onInboxSaved={(id, instr) => setIntegrations(prev => prev.map(a => a.id === id ? { ...a, scanInstructions: instr } : a))}
           />
 
           {/* Ignored Senders */}
@@ -1191,101 +1147,81 @@ function AiProviderCard() {
   )
 }
 
-function AiTrainingCard({
-  value,
-  onChange,
-  onSave,
-  saving,
-  saved,
+// Scope selector shared by the Scan Aggressiveness and Teach Pendingly cards.
+// "all" edits the global default; an inbox id edits that inbox's override.
+function ScopeSelect({
+  scope,
+  setScope,
+  inboxes,
 }: {
-  value: string
-  onChange: (v: string) => void
-  onSave: () => void
-  saving: boolean
-  saved: boolean
+  scope: string
+  setScope: (v: string) => void
+  inboxes: EmailAccount[]
 }) {
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <CardTitle>Teach Pendingly <span className="text-xs font-normal text-[rgb(11_18_32/45%)]">· default for all inboxes</span></CardTitle>
-            <p className="text-xs text-[rgb(11_18_32/55%)] mt-1">
-              Tell Pendingly AI how to classify emails for your specific context. These instructions are injected into every scan on top of the built-in rules and the Scan Aggressiveness setting above. You can add inbox-specific instructions under each connected account above.
-            </p>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <textarea
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          maxLength={2000}
-          rows={7}
-          placeholder={`Examples of what you can write:
-
-• I work in B2B sales. Always flag emails from prospects and clients asking about pricing or demos as high priority.
-• Ignore all internal HR emails except interview scheduling.
-• I'm a freelancer. "Waiting on them" should be set when I've sent a proposal and haven't heard back for 2+ days.
-• Flag any email where someone mentions a deadline or says "by EOD" or "by Friday".
-• Don't flag emails from noreply@notion.so — those are auto-generated.`}
-          className="w-full rounded-lg border border-rule bg-paper px-3.5 py-3 text-sm text-ink placeholder:text-[rgb(11_18_32/30%)] focus:outline-none focus:ring-1 focus:ring-action resize-y font-[inherit] leading-relaxed"
-        />
-        <div className="flex items-center justify-between">
-          <p className="text-[11px] text-[rgb(11_18_32/40%)]">{value.length}/2000 characters</p>
-          <Button onClick={onSave} disabled={saving} size="sm">
-            {saved ? 'Saved!' : saving ? 'Saving…' : 'Save instructions'}
-          </Button>
-        </div>
-
-        <div className="rounded-lg border border-[rgb(11_18_32/8%)] bg-paper p-3.5 space-y-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/45%)]">How it works</p>
-          <ul className="text-xs text-[rgb(11_18_32/60%)] space-y-1 list-disc list-inside">
-            <li>Instructions are appended to Pendingly AI&apos;s classification prompt on every scan.</li>
-            <li>Built-in rules (spam detection, category logic) are preserved — instructions add nuance, not override.</li>
-            <li>Changes take effect on the next scan run.</li>
-            <li>Pendingly AI cannot be instructed by content embedded inside emails — only prompts in this box apply.</li>
-          </ul>
-        </div>
-      </CardContent>
-    </Card>
+    <div>
+      <label className="block text-[11px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/45%)] mb-1.5">
+        Applies to
+      </label>
+      <select
+        value={scope}
+        onChange={e => setScope(e.target.value)}
+        className="h-9 w-full max-w-sm rounded-md border border-rule bg-white px-2.5 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-action"
+        aria-label="Apply settings to"
+      >
+        <option value="all">All inboxes (default)</option>
+        {inboxes.map(i => (
+          <option key={i.id} value={i.id}>{i.emailAddress}</option>
+        ))}
+      </select>
+    </div>
   )
 }
 
-function InboxScanSettings({
-  account,
+function ScanAggressivenessCard({
   globalLevel,
-  onSaved,
+  onGlobalLevelChange,
+  onSaveGlobal,
+  savingGlobal,
+  savedGlobal,
+  inboxes,
+  onInboxSaved,
 }: {
-  account: EmailAccount
   globalLevel: number
-  onSaved: (level: number | null, instructions: string | null) => void
+  onGlobalLevelChange: (n: number) => void
+  onSaveGlobal: () => void
+  savingGlobal: boolean
+  savedGlobal: boolean
+  inboxes: EmailAccount[]
+  onInboxSaved: (id: string, level: number | null) => void
 }) {
-  const [open, setOpen] = useState(false)
-  // 0 represents "use default" (inherit global). 1–5 are explicit overrides.
-  const [level, setLevel] = useState<number>(account.noiseFilterLevel ?? 0)
-  const [instructions, setInstructions] = useState(account.scanInstructions ?? '')
+  const [scope, setScope] = useState<string>('all')
+  const selectedInbox = inboxes.find(i => i.id === scope) ?? null
+
+  // Per-inbox local state. 0 = "use default" (inherit global), 1–5 = override.
+  const [level, setLevel] = useState<number>(0)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
-  const dirty =
-    (level === 0 ? null : level) !== (account.noiseFilterLevel ?? null) ||
-    (instructions.trim() || null) !== (account.scanInstructions ?? null)
+  useEffect(() => {
+    if (selectedInbox) setLevel(selectedInbox.noiseFilterLevel ?? 0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scope])
 
-  const save = async () => {
+  const dirty = (level === 0 ? null : level) !== (selectedInbox?.noiseFilterLevel ?? null)
+
+  const saveInbox = async () => {
+    if (!selectedInbox) return
     setSaving(true)
     try {
-      const payload = {
-        noiseFilterLevel: level === 0 ? null : level,
-        scanInstructions: instructions.trim() || null,
-      }
-      const res = await fetch(`/api/integrations/${account.id}`, {
+      const payload = { noiseFilterLevel: level === 0 ? null : level }
+      const res = await fetch(`/api/integrations/${selectedInbox.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
       if (res.ok) {
-        onSaved(payload.noiseFilterLevel, payload.scanInstructions)
+        onInboxSaved(selectedInbox.id, payload.noiseFilterLevel)
         setSaved(true)
         setTimeout(() => setSaved(false), 2000)
       }
@@ -1294,69 +1230,207 @@ function InboxScanSettings({
     }
   }
 
-  const hasOverride = (account.noiseFilterLevel != null) || !!account.scanInstructions
+  return (
+    <Card>
+      <CardHeader><CardTitle>Scan Aggressiveness</CardTitle></CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm text-[rgb(11_18_32/55%)]">
+          Controls how many automated emails are discarded before Pendingly AI sees them. Lower = more emails scanned, higher = faster scans with fewer false positives.
+        </p>
+
+        {inboxes.length > 0 && <ScopeSelect scope={scope} setScope={setScope} inboxes={inboxes} />}
+
+        {scope === 'all' ? (
+          <>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-ink">
+                  Level {globalLevel} — {NOISE_LEVEL_LABELS[globalLevel]?.name}
+                </span>
+                <span className="text-xs text-[rgb(11_18_32/40%)] font-mono">
+                  {globalLevel === 1 ? 'least filtered' : globalLevel === 5 ? 'most filtered' : ''}
+                </span>
+              </div>
+              <input
+                type="range"
+                min={1}
+                max={5}
+                step={1}
+                value={globalLevel}
+                onChange={e => onGlobalLevelChange(Number(e.target.value))}
+                className="w-full accent-action"
+              />
+              <div className="flex justify-between text-[10px] text-[rgb(11_18_32/35%)] px-0.5">
+                {[1,2,3,4,5].map(n => (
+                  <span key={n} className={n === globalLevel ? 'text-action font-semibold' : ''}>
+                    {NOISE_LEVEL_LABELS[n]?.name}
+                  </span>
+                ))}
+              </div>
+              <p className="text-xs text-[rgb(11_18_32/55%)] bg-paper-2 rounded-md px-3 py-2 border border-[rgb(11_18_32/8%)]">
+                {NOISE_LEVEL_LABELS[globalLevel]?.description}
+              </p>
+            </div>
+            <p className="text-xs text-[rgb(11_18_32/40%)]">
+              Takes effect on the next sync. Changes to this setting do not affect existing action items.
+            </p>
+            <Button onClick={onSaveGlobal} disabled={savingGlobal} size="sm">
+              {savedGlobal ? 'Saved!' : savingGlobal ? 'Saving…' : 'Save Settings'}
+            </Button>
+          </>
+        ) : (
+          <>
+            <div>
+              <select
+                value={level}
+                onChange={e => setLevel(Number(e.target.value))}
+                className="h-9 w-full rounded-md border border-rule bg-white px-2.5 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-action"
+                aria-label="Per-inbox scan aggressiveness"
+              >
+                <option value={0}>Use default (Level {globalLevel} — {NOISE_LEVEL_LABELS[globalLevel]?.name})</option>
+                {[1,2,3,4,5].map(n => (
+                  <option key={n} value={n}>Level {n} — {NOISE_LEVEL_LABELS[n]?.name}</option>
+                ))}
+              </select>
+              <p className="text-xs text-[rgb(11_18_32/55%)] bg-paper-2 rounded-md px-3 py-2 border border-[rgb(11_18_32/8%)] mt-2">
+                {level === 0
+                  ? `Inheriting the global default — ${NOISE_LEVEL_LABELS[globalLevel]?.description}`
+                  : NOISE_LEVEL_LABELS[level]?.description}
+              </p>
+            </div>
+            <p className="text-xs text-[rgb(11_18_32/40%)]">
+              Overrides the global default for <span className="font-medium text-ink">{selectedInbox?.emailAddress}</span> only. Takes effect on the next sync.
+            </p>
+            <Button onClick={saveInbox} disabled={saving || !dirty} size="sm">
+              {saved ? 'Saved!' : saving ? 'Saving…' : 'Save inbox settings'}
+            </Button>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function TeachPendinglyCard({
+  globalValue,
+  onGlobalChange,
+  onSaveGlobal,
+  savingGlobal,
+  savedGlobal,
+  inboxes,
+  onInboxSaved,
+}: {
+  globalValue: string
+  onGlobalChange: (v: string) => void
+  onSaveGlobal: () => void
+  savingGlobal: boolean
+  savedGlobal: boolean
+  inboxes: EmailAccount[]
+  onInboxSaved: (id: string, instructions: string | null) => void
+}) {
+  const [scope, setScope] = useState<string>('all')
+  const selectedInbox = inboxes.find(i => i.id === scope) ?? null
+
+  const [instructions, setInstructions] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    if (selectedInbox) setInstructions(selectedInbox.scanInstructions ?? '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scope])
+
+  const dirty = (instructions.trim() || null) !== (selectedInbox?.scanInstructions ?? null)
+
+  const saveInbox = async () => {
+    if (!selectedInbox) return
+    setSaving(true)
+    try {
+      const payload = { scanInstructions: instructions.trim() || null }
+      const res = await fetch(`/api/integrations/${selectedInbox.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (res.ok) {
+        onInboxSaved(selectedInbox.id, payload.scanInstructions)
+        setSaved(true)
+        setTimeout(() => setSaved(false), 2000)
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const globalPlaceholder = `Examples of what you can write:
+
+• I work in B2B sales. Always flag emails from prospects and clients asking about pricing or demos as high priority.
+• Ignore all internal HR emails except interview scheduling.
+• I'm a freelancer. "Waiting on them" should be set when I've sent a proposal and haven't heard back for 2+ days.
+• Flag any email where someone mentions a deadline or says "by EOD" or "by Friday".
+• Don't flag emails from noreply@notion.so — those are auto-generated.`
 
   return (
-    <div className="mt-2 border-t border-[rgb(11_18_32/8%)] pt-2">
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-1.5 text-xs font-medium text-[rgb(11_18_32/60%)] hover:text-ink transition-colors"
-      >
-        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
-        Scan settings for this inbox
-        {hasOverride && (
-          <span className="ml-1 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-action/10 text-action">
-            Custom
-          </span>
-        )}
-      </button>
+    <Card>
+      <CardHeader>
+        <CardTitle>Teach Pendingly</CardTitle>
+        <p className="text-xs text-[rgb(11_18_32/55%)] mt-1">
+          Tell Pendingly AI how to classify emails for your specific context. These instructions are injected into every scan on top of the built-in rules and the Scan Aggressiveness setting above.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {inboxes.length > 0 && <ScopeSelect scope={scope} setScope={setScope} inboxes={inboxes} />}
 
-      {open && (
-        <div className="mt-3 space-y-4 pl-1">
-          {/* Per-inbox scan aggressiveness */}
-          <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/45%)] mb-1.5">
-              Scan aggressiveness
-            </label>
-            <select
-              value={level}
-              onChange={e => setLevel(Number(e.target.value))}
-              className="h-9 w-full rounded-md border border-rule bg-white px-2.5 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-action"
-            >
-              <option value={0}>Use default (Level {globalLevel} — {NOISE_LEVEL_LABELS[globalLevel]?.name})</option>
-              {[1,2,3,4,5].map(n => (
-                <option key={n} value={n}>Level {n} — {NOISE_LEVEL_LABELS[n]?.name}</option>
-              ))}
-            </select>
-            {level !== 0 && (
-              <p className="text-[11px] text-[rgb(11_18_32/50%)] mt-1.5">{NOISE_LEVEL_LABELS[level]?.description}</p>
-            )}
-          </div>
-
-          {/* Per-inbox Teach Pendingly */}
-          <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/45%)] mb-1.5">
-              Inbox-specific instructions
-            </label>
+        {scope === 'all' ? (
+          <>
+            <textarea
+              value={globalValue}
+              onChange={e => onGlobalChange(e.target.value)}
+              maxLength={2000}
+              rows={7}
+              placeholder={globalPlaceholder}
+              className="w-full rounded-lg border border-rule bg-paper px-3.5 py-3 text-sm text-ink placeholder:text-[rgb(11_18_32/30%)] focus:outline-none focus:ring-1 focus:ring-action resize-y font-[inherit] leading-relaxed"
+            />
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] text-[rgb(11_18_32/40%)]">{globalValue.length}/2000 characters</p>
+              <Button onClick={onSaveGlobal} disabled={savingGlobal} size="sm">
+                {savedGlobal ? 'Saved!' : savingGlobal ? 'Saving…' : 'Save instructions'}
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
             <textarea
               value={instructions}
               onChange={e => setInstructions(e.target.value)}
               maxLength={2000}
-              rows={4}
+              rows={6}
               placeholder="Extra instructions for this inbox only — added on top of the global Teach Pendingly instructions. e.g. 'This is my work account, prioritise client emails' or 'Ignore newsletters here.'"
-              className="w-full rounded-lg border border-rule bg-white px-3 py-2 text-sm text-ink placeholder:text-[rgb(11_18_32/30%)] focus:outline-none focus:ring-1 focus:ring-action resize-y leading-relaxed"
+              className="w-full rounded-lg border border-rule bg-white px-3.5 py-3 text-sm text-ink placeholder:text-[rgb(11_18_32/30%)] focus:outline-none focus:ring-1 focus:ring-action resize-y leading-relaxed"
             />
-            <p className="text-[10px] text-[rgb(11_18_32/40%)] mt-1">{instructions.length}/2000 characters</p>
-          </div>
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] text-[rgb(11_18_32/40%)]">
+                {instructions.length}/2000 characters · applies to <span className="font-medium text-ink">{selectedInbox?.emailAddress}</span> only
+              </p>
+              <Button onClick={saveInbox} disabled={saving || !dirty} size="sm">
+                {saved ? 'Saved!' : saving ? 'Saving…' : 'Save inbox settings'}
+              </Button>
+            </div>
+          </>
+        )}
 
-          <div className="flex items-center gap-3">
-            <Button onClick={save} disabled={saving || !dirty} size="sm">
-              {saved ? 'Saved!' : saving ? 'Saving…' : 'Save inbox settings'}
-            </Button>
-          </div>
+        <div className="rounded-lg border border-[rgb(11_18_32/8%)] bg-paper p-3.5 space-y-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/45%)]">How it works</p>
+          <ul className="text-xs text-[rgb(11_18_32/60%)] space-y-1 list-disc list-inside">
+            <li>Instructions are appended to Pendingly AI&apos;s classification prompt on every scan.</li>
+            <li>Inbox-specific instructions are added on top of the global ones for that inbox.</li>
+            <li>Built-in rules (spam detection, category logic) are preserved — instructions add nuance, not override.</li>
+            <li>Changes take effect on the next scan run.</li>
+            <li>Pendingly AI cannot be instructed by content embedded inside emails — only prompts in this box apply.</li>
+          </ul>
         </div>
-      )}
-    </div>
+      </CardContent>
+    </Card>
   )
 }
 
