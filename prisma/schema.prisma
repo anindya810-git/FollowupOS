@@ -146,6 +146,12 @@ model EmailAccount {
   lastSyncedAt          DateTime?
   initialScanCompleted  Boolean   @default(false)
   gmailHistoryId        String?
+  // Per-inbox overrides. null = inherit the account-wide AppSettings value.
+  // noiseFilterLevel overrides the global level for this inbox only.
+  noiseFilterLevel      Int?
+  // scanInstructions is appended to the global "Teach Pendingly" instructions
+  // for this inbox only (additive, not a replacement).
+  scanInstructions      String?
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 

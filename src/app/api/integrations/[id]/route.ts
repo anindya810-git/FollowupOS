@@ -13,7 +13,12 @@ export async function PATCH(
   }
   const { id } = await params
 
-  let body: { webmailBaseUrl?: string | null; webmailSearchUrlTemplate?: string | null }
+  let body: {
+    webmailBaseUrl?: string | null
+    webmailSearchUrlTemplate?: string | null
+    noiseFilterLevel?: number | null
+    scanInstructions?: string | null
+  }
   try {
     body = await request.json()
   } catch {
@@ -28,7 +33,26 @@ export async function PATCH(
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  const data: { webmailBaseUrl?: string | null; webmailSearchUrlTemplate?: string | null } = {}
+  const data: Record<string, unknown> = {}
+
+  // Per-inbox scan aggressiveness override. null = inherit global setting.
+  if (body.noiseFilterLevel !== undefined) {
+    if (body.noiseFilterLevel === null) {
+      data.noiseFilterLevel = null
+    } else {
+      const lvl = Number(body.noiseFilterLevel)
+      if (!Number.isInteger(lvl) || lvl < 1 || lvl > 5) {
+        return NextResponse.json({ error: 'noiseFilterLevel must be 1–5 or null' }, { status: 400 })
+      }
+      data.noiseFilterLevel = lvl
+    }
+  }
+
+  // Per-inbox "Teach Pendingly" instructions, appended to the global ones.
+  if (body.scanInstructions !== undefined) {
+    const trimmed = typeof body.scanInstructions === 'string' ? body.scanInstructions.trim() : ''
+    data.scanInstructions = trimmed.slice(0, 2000) || null
+  }
 
   if (body.webmailBaseUrl !== undefined) {
     let normalisedUrl: string | null = null
@@ -83,7 +107,7 @@ export async function PATCH(
   const updated = await prisma.emailAccount.update({
     where: { id },
     data,
-    select: { webmailBaseUrl: true, webmailSearchUrlTemplate: true },
+    select: { webmailBaseUrl: true, webmailSearchUrlTemplate: true, noiseFilterLevel: true, scanInstructions: true },
   })
 
   return NextResponse.json({ ok: true, ...updated })

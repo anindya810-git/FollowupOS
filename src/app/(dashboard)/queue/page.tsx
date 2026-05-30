@@ -17,20 +17,22 @@ function tomorrow(): string {
   return d.toISOString().split('T')[0]
 }
 
-interface Tab {
-  id: string
-  label: string
-  status: string
-  category?: string
-}
+// Statuses = lifecycle "actions" an item moves through.
+const STATUS_TABS = [
+  { value: 'open',     label: 'Active' },
+  { value: 'snoozed',  label: 'Snoozed' },
+  { value: 'ignored',  label: 'Ignored' },
+  { value: 'done',     label: 'Completed' },
+  { value: 'all',      label: 'All' },
+]
 
-const TABS: Tab[] = [
-  { id: 'all',            label: 'All',           status: 'all' },
-  { id: 'reply_needed',   label: 'Reply Needed',  status: 'open',    category: 'reply_needed' },
-  { id: 'waiting',        label: 'Waiting',       status: 'open',    category: 'waiting_on_them' },
-  { id: 'overdue',        label: 'Overdue',       status: 'open',    category: 'overdue_commitment' },
-  { id: 'snoozed',        label: 'Snoozed',       status: 'snoozed' },
-  { id: 'completed',      label: 'Completed',     status: 'done' },
+// Categories = what kind of follow-up the item represents.
+const CATEGORY_TABS = [
+  { value: '',                   label: 'All' },
+  { value: 'reply_needed',       label: 'Reply Needed' },
+  { value: 'waiting_on_them',    label: 'Waiting on Them' },
+  { value: 'followup_due',       label: 'Follow-up Due' },
+  { value: 'overdue_commitment', label: 'Overdue' },
 ]
 
 const PRIORITY_OPTIONS = [
@@ -48,16 +50,6 @@ interface EmailAccount {
   provider: string
 }
 
-function tabFromParams(status: string | null, category: string | null): string {
-  if (status === 'snoozed') return 'snoozed'
-  if (status === 'done') return 'completed'
-  if (status === 'all') return 'all'
-  if (category === 'reply_needed') return 'reply_needed'
-  if (category === 'waiting_on_them') return 'waiting'
-  if (category === 'overdue_commitment') return 'overdue'
-  return 'all'
-}
-
 function QueueContent() {
   const searchParams = useSearchParams()
   const [items, setItems] = useState<ActionItemWithThread[]>([])
@@ -69,9 +61,9 @@ function QueueContent() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [showAdvanced, setShowAdvanced] = useState(false)
 
-  const [activeTab, setActiveTab] = useState(() =>
-    tabFromParams(searchParams.get('status'), searchParams.get('category'))
-  )
+  // Status (action) and category are independent filters.
+  const [status, setStatus] = useState(searchParams.get('status') || 'open')
+  const [category, setCategory] = useState(searchParams.get('category') || '')
   const [priority, setPriority] = useState(searchParams.get('priority') || '')
   const [emailFrom, setEmailFrom] = useState('')
   const [emailTo, setEmailTo] = useState('')
@@ -87,12 +79,10 @@ function QueueContent() {
       .catch(() => {})
   }, [])
 
-  const currentTab = TABS.find(t => t.id === activeTab) ?? TABS[0]
-
   const fetchItems = useCallback(async () => {
     setLoading(true)
-    const params = new URLSearchParams({ status: currentTab.status, page: String(page), limit: '20' })
-    if (currentTab.category) params.set('category', currentTab.category)
+    const params = new URLSearchParams({ status, page: String(page), limit: '20' })
+    if (category) params.set('category', category)
     if (priority) params.set('priority', priority)
     if (search) params.set('search', search)
     if (emailFrom) params.set('email_from', emailFrom)
@@ -106,11 +96,11 @@ function QueueContent() {
     setItems(data.items || [])
     setTotal(data.total || 0)
     setLoading(false)
-  }, [currentTab, priority, search, emailFrom, emailTo, actionFrom, actionTo, inboxId, page])
+  }, [status, category, priority, search, emailFrom, emailTo, actionFrom, actionTo, inboxId, page])
 
   useEffect(() => { fetchItems() }, [fetchItems])
-  useEffect(() => { setPage(1) }, [activeTab, priority, search, emailFrom, emailTo, actionFrom, actionTo, inboxId])
-  useEffect(() => { setSelectedIds(new Set()) }, [activeTab, priority, search, emailFrom, emailTo, actionFrom, actionTo, inboxId, page])
+  useEffect(() => { setPage(1) }, [status, category, priority, search, emailFrom, emailTo, actionFrom, actionTo, inboxId])
+  useEffect(() => { setSelectedIds(new Set()) }, [status, category, priority, search, emailFrom, emailTo, actionFrom, actionTo, inboxId, page])
 
   const hasAdvancedFilters = !!(priority || emailFrom || emailTo || actionFrom || actionTo || inboxId)
   const clearAdvanced = () => {
@@ -157,15 +147,15 @@ function QueueContent() {
       <Header title="All Items" onSync={fetchItems} />
       <main className="p-6">
 
-        {/* SmartViews Tab Bar */}
-        <div className="flex items-center justify-between gap-3 mb-4">
+        {/* ── Status (action) tabs + search/filters ── */}
+        <div className="flex items-center justify-between gap-3 mb-3">
           <div className="flex items-center gap-0.5 p-1 bg-[rgb(11_18_32/5%)] rounded-xl border border-rule">
-            {TABS.map(tab => (
+            {STATUS_TABS.map(tab => (
               <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                key={tab.value}
+                onClick={() => setStatus(tab.value)}
                 className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
-                  activeTab === tab.id
+                  status === tab.value
                     ? 'bg-white text-ink shadow-sm border border-rule'
                     : 'text-[rgb(11_18_32/55%)] hover:text-ink hover:bg-white/60'
                 }`}
@@ -206,11 +196,28 @@ function QueueContent() {
           </div>
         </div>
 
-        {/* Advanced Filters Panel */}
+        {/* ── Category filter pills ── */}
+        <div className="flex items-center gap-2 mb-5 flex-wrap">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)] mr-1">Category</span>
+          {CATEGORY_TABS.map(cat => (
+            <button
+              key={cat.value}
+              onClick={() => setCategory(cat.value)}
+              className={`px-3 py-1 rounded-full text-[13px] font-medium border transition-all ${
+                category === cat.value
+                  ? 'bg-ink text-white border-ink'
+                  : 'bg-white text-[rgb(11_18_32/55%)] border-rule hover:text-ink hover:border-[rgb(11_18_32/25%)]'
+              }`}
+            >
+              {cat.label}
+            </button>
+          ))}
+        </div>
+
+        {/* ── Advanced filters panel ── */}
         {showAdvanced && (
           <div className="mb-5 p-4 rounded-xl bg-[rgb(11_18_32/3%)] border border-rule space-y-4">
             <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
-              {/* Priority */}
               <div className="col-span-2 sm:col-span-1">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)] mb-1.5">Priority</p>
                 <select
@@ -223,7 +230,6 @@ function QueueContent() {
                 </select>
               </div>
 
-              {/* Inbox */}
               <div className="col-span-2 sm:col-span-1">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)] mb-1.5">Inbox</p>
                 <select
@@ -239,7 +245,6 @@ function QueueContent() {
                 </select>
               </div>
 
-              {/* Email Date */}
               <div className="col-span-2">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)] mb-1.5">Email date</p>
                 <div className="flex items-center gap-1.5">
@@ -249,7 +254,6 @@ function QueueContent() {
                 </div>
               </div>
 
-              {/* Action Date */}
               <div className="col-span-2">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)] mb-1.5">Action due date</p>
                 <div className="flex items-center gap-1.5">
@@ -281,10 +285,10 @@ function QueueContent() {
           <div className="rounded-xl bg-white border border-[rgb(11_18_32/8%)] p-12 text-center">
             <p className="text-[rgb(11_18_32/55%)] text-lg">No items found.</p>
             <p className="text-[rgb(11_18_32/30%)] text-sm mt-1">
-              {activeTab === 'completed' ? 'Nothing completed yet.' :
-               activeTab === 'snoozed' ? 'No snoozed items.' :
-               activeTab === 'all' ? 'Your inbox is clear — no follow-ups needed.' :
-               `No ${currentTab.label.toLowerCase()} items.`}
+              {status === 'done' ? 'Nothing completed yet.' :
+               status === 'snoozed' ? 'No snoozed items.' :
+               status === 'ignored' ? 'No ignored items.' :
+               'Your inbox is clear — no follow-ups needed.'}
             </p>
           </div>
         ) : (

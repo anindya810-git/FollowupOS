@@ -60,8 +60,19 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
       default_followup_days: appSettings?.defaultFollowupDays ?? 3,
       conservative_mode: false,
     }
-    const noiseFilterLevel: number = (appSettings as { noiseFilterLevel?: number } | null)?.noiseFilterLevel ?? 3
-    const scanInstructions: string | null = (appSettings as { scanInstructions?: string | null } | null)?.scanInstructions ?? null
+    // Resolve per-inbox overrides on top of the account-wide defaults.
+    // noiseFilterLevel: inbox override wins; else global; else 3.
+    // scanInstructions: global + per-inbox are combined (additive).
+    const globalNoiseLevel = (appSettings as { noiseFilterLevel?: number } | null)?.noiseFilterLevel ?? 3
+    const inboxNoiseLevel = (account as { noiseFilterLevel?: number | null }).noiseFilterLevel
+    const noiseFilterLevel: number = (inboxNoiseLevel ?? globalNoiseLevel)
+
+    const globalInstructions = (appSettings as { scanInstructions?: string | null } | null)?.scanInstructions ?? null
+    const inboxInstructions = (account as { scanInstructions?: string | null }).scanInstructions ?? null
+    const scanInstructions: string | null = [globalInstructions, inboxInstructions]
+      .map(s => s?.trim())
+      .filter(Boolean)
+      .join('\n\n') || null
 
     if (account.provider === 'outlook') {
       await scanOutlookAccount({

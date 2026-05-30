@@ -35,6 +35,8 @@ interface EmailAccount {
   connectedStatus: string
   webmailBaseUrl?: string | null
   webmailSearchUrlTemplate?: string | null
+  noiseFilterLevel?: number | null
+  scanInstructions?: string | null
   lastScan?: LastScan | null
 }
 
@@ -371,6 +373,11 @@ export default function SettingsPage() {
                           onSaved={(url, template) => setIntegrations(prev => prev.map(a => a.id === account.id ? { ...a, webmailBaseUrl: url, webmailSearchUrlTemplate: template ?? a.webmailSearchUrlTemplate } : a))}
                         />
                       )}
+                      <InboxScanSettings
+                        account={account}
+                        globalLevel={settings.appSettings?.noiseFilterLevel ?? 3}
+                        onSaved={(level, instr) => setIntegrations(prev => prev.map(a => a.id === account.id ? { ...a, noiseFilterLevel: level, scanInstructions: instr } : a))}
+                      />
                     </div>
                     )
                   })}
@@ -412,10 +419,10 @@ export default function SettingsPage() {
 
           {/* Noise Filter Level */}
           <Card>
-            <CardHeader><CardTitle>Scan Aggressiveness</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Scan Aggressiveness <span className="text-xs font-normal text-[rgb(11_18_32/45%)]">· default for all inboxes</span></CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-[rgb(11_18_32/55%)]">
-                Controls how many automated emails are discarded before Pendingly AI sees them. Lower = more emails scanned, higher = faster scans with fewer false positives.
+                Controls how many automated emails are discarded before Pendingly AI sees them. Lower = more emails scanned, higher = faster scans with fewer false positives. You can override this per inbox under each connected account above.
               </p>
               {(() => {
                 const level = settings.appSettings?.noiseFilterLevel ?? 3
@@ -1365,9 +1372,9 @@ function AiTrainingCard({
       <CardHeader>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <CardTitle>Teach Pendingly</CardTitle>
+            <CardTitle>Teach Pendingly <span className="text-xs font-normal text-[rgb(11_18_32/45%)]">· default for all inboxes</span></CardTitle>
             <p className="text-xs text-[rgb(11_18_32/55%)] mt-1">
-              Tell Pendingly AI how to classify emails for your specific context. These instructions are injected into every scan on top of the built-in rules and the Scan Aggressiveness setting above.
+              Tell Pendingly AI how to classify emails for your specific context. These instructions are injected into every scan on top of the built-in rules and the Scan Aggressiveness setting above. You can add inbox-specific instructions under each connected account above.
             </p>
           </div>
         </div>
@@ -1405,6 +1412,114 @@ function AiTrainingCard({
         </div>
       </CardContent>
     </Card>
+  )
+}
+
+function InboxScanSettings({
+  account,
+  globalLevel,
+  onSaved,
+}: {
+  account: EmailAccount
+  globalLevel: number
+  onSaved: (level: number | null, instructions: string | null) => void
+}) {
+  const [open, setOpen] = useState(false)
+  // 0 represents "use default" (inherit global). 1–5 are explicit overrides.
+  const [level, setLevel] = useState<number>(account.noiseFilterLevel ?? 0)
+  const [instructions, setInstructions] = useState(account.scanInstructions ?? '')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  const dirty =
+    (level === 0 ? null : level) !== (account.noiseFilterLevel ?? null) ||
+    (instructions.trim() || null) !== (account.scanInstructions ?? null)
+
+  const save = async () => {
+    setSaving(true)
+    try {
+      const payload = {
+        noiseFilterLevel: level === 0 ? null : level,
+        scanInstructions: instructions.trim() || null,
+      }
+      const res = await fetch(`/api/integrations/${account.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (res.ok) {
+        onSaved(payload.noiseFilterLevel, payload.scanInstructions)
+        setSaved(true)
+        setTimeout(() => setSaved(false), 2000)
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const hasOverride = (account.noiseFilterLevel != null) || !!account.scanInstructions
+
+  return (
+    <div className="mt-2 border-t border-[rgb(11_18_32/8%)] pt-2">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center gap-1.5 text-xs font-medium text-[rgb(11_18_32/60%)] hover:text-ink transition-colors"
+      >
+        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
+        Scan settings for this inbox
+        {hasOverride && (
+          <span className="ml-1 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-action/10 text-action">
+            Custom
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="mt-3 space-y-4 pl-1">
+          {/* Per-inbox scan aggressiveness */}
+          <div>
+            <label className="block text-[11px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/45%)] mb-1.5">
+              Scan aggressiveness
+            </label>
+            <select
+              value={level}
+              onChange={e => setLevel(Number(e.target.value))}
+              className="h-9 w-full rounded-md border border-rule bg-white px-2.5 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-action"
+            >
+              <option value={0}>Use default (Level {globalLevel} — {NOISE_LEVEL_LABELS[globalLevel]?.name})</option>
+              {[1,2,3,4,5].map(n => (
+                <option key={n} value={n}>Level {n} — {NOISE_LEVEL_LABELS[n]?.name}</option>
+              ))}
+            </select>
+            {level !== 0 && (
+              <p className="text-[11px] text-[rgb(11_18_32/50%)] mt-1.5">{NOISE_LEVEL_LABELS[level]?.description}</p>
+            )}
+          </div>
+
+          {/* Per-inbox Teach Pendingly */}
+          <div>
+            <label className="block text-[11px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/45%)] mb-1.5">
+              Inbox-specific instructions
+            </label>
+            <textarea
+              value={instructions}
+              onChange={e => setInstructions(e.target.value)}
+              maxLength={2000}
+              rows={4}
+              placeholder="Extra instructions for this inbox only — added on top of the global Teach Pendingly instructions. e.g. 'This is my work account, prioritise client emails' or 'Ignore newsletters here.'"
+              className="w-full rounded-lg border border-rule bg-white px-3 py-2 text-sm text-ink placeholder:text-[rgb(11_18_32/30%)] focus:outline-none focus:ring-1 focus:ring-action resize-y leading-relaxed"
+            />
+            <p className="text-[10px] text-[rgb(11_18_32/40%)] mt-1">{instructions.length}/2000 characters</p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Button onClick={save} disabled={saving || !dirty} size="sm">
+              {saved ? 'Saved!' : saving ? 'Saving…' : 'Save inbox settings'}
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 
