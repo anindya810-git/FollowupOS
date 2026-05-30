@@ -53,9 +53,13 @@ export async function POST(request: NextRequest) {
   const scan_window_days = isFirstScan ? limits.scanWindowDays : 7
   const max_threads = limits.maxThreadsPerScan === -1 ? undefined : limits.maxThreadsPerScan
 
-  // Idempotency: if a scan is already queued or running for this account,
-  // return that job — UNLESS it's been stuck for >15 minutes (Vercel killed it),
-  // in which case mark it failed and let a new one start.
+  // Idempotency + auto-resume: if a scan is already queued/running for this
+  // account, decide based on how recently it made progress (updatedAt bumps
+  // every batch via the debug log). A large first scan on the shared key can't
+  // finish in one serverless execution, so when the function dies the job is
+  // left RUNNING. Rather than getting stuck, we RESUME the same job — the
+  // scanner skips already-processed threads (thread hash), so it picks up where
+  // it left off and finishes across a few executions driven by the poller.
   const existing = await prisma.scanJob.findFirst({
     where: {
       userId: session.user.id,
@@ -63,19 +67,22 @@ export async function POST(request: NextRequest) {
       status: { in: ['queued', 'running'] },
     },
     orderBy: { createdAt: 'desc' },
-    select: { id: true, status: true, createdAt: true },
+    select: { id: true, status: true, updatedAt: true },
   })
   if (existing) {
-    const ageMs = Date.now() - existing.createdAt.getTime()
-    const stale = ageMs > 15 * 60 * 1000
-    if (!stale) {
+    const sinceProgressMs = Date.now() - existing.updatedAt.getTime()
+    // Fresh progress within the last 90s → genuinely alive; don't double-run.
+    if (sinceProgressMs < 90_000) {
       return NextResponse.json({ job_id: existing.id, status: existing.status, reused: true })
     }
-    // Mark stale job failed so we can start a fresh scan
+    // Stalled → claim it (bump updatedAt so concurrent polls don't also resume)
+    // and re-trigger the scan on the SAME job to continue.
     await prisma.scanJob.update({
       where: { id: existing.id },
-      data: { status: 'failed', errorMessage: 'Scan timed out — restarting.' },
+      data: { status: 'running', updatedAt: new Date() },
     })
+    after(triggerScan(existing.id, session.user.id, account.id, scan_window_days, max_threads))
+    return NextResponse.json({ job_id: existing.id, status: 'running', resumed: true })
   }
 
   const scanJob = await prisma.scanJob.create({

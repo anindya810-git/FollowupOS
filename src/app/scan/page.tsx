@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { CheckCircle, Loader2 } from 'lucide-react'
+import { Check, Loader2 } from 'lucide-react'
 import { Suspense } from 'react'
 import { LogoLockup } from '@/components/ui/Logo'
 import { PendinglyLoader, PendinglyLoaderPage } from '@/components/ui/PendinglyLoader'
@@ -20,6 +20,12 @@ interface ScanInfo {
   planType: string
 }
 
+// A large first scan on the shared key can outlast a single serverless
+// execution. If progress stalls this long, nudge a resume (the scanner skips
+// already-processed threads, so it continues where it left off).
+const STALL_MS = 90_000
+const MAX_STALLED_RESUMES = 8
+
 function ScanProgress() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -32,6 +38,9 @@ function ScanProgress() {
   const prevStepRef = useRef(0)
   const completedRef = useRef(false)
   const scanTriggeredRef = useRef(false)
+  const processedRef = useRef(0)
+  const lastProgressAtRef = useRef(0)
+  const stalledResumesRef = useRef(0)
 
   const triggerScan = useCallback(async () => {
     if (!jobId) return
@@ -53,7 +62,7 @@ function ScanProgress() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ account_id: account.id, scan_window_days: windowDays }),
-      })
+      }).catch(() => {})
     }
   }, [jobId])
 
@@ -63,9 +72,9 @@ function ScanProgress() {
       return
     }
 
-    // Trigger scan once (plan fetch + scan start)
     if (!scanTriggeredRef.current) {
       scanTriggeredRef.current = true
+      lastProgressAtRef.current = Date.now()
       triggerScan()
     }
 
@@ -74,21 +83,37 @@ function ScanProgress() {
         const res = await fetch(`/api/scan/status/${jobId}`)
         const data = await res.json()
         setStatus(data.status)
-        setProgress({
-          found: data.threads_found || 0,
-          processed: data.threads_processed || 0,
-          created: data.action_items_created || 0,
-        })
+        const processed = data.threads_processed || 0
+        setProgress({ found: data.threads_found || 0, processed, created: data.action_items_created || 0 })
 
-        if (data.status === 'running') {
+        // Track liveness for stall detection.
+        if (processed > processedRef.current) {
+          processedRef.current = processed
+          lastProgressAtRef.current = Date.now()
+          stalledResumesRef.current = 0
+        }
+
+        if (data.status === 'running' || data.status === 'queued') {
           const pct = data.threads_found > 0 ? data.threads_processed / data.threads_found : 0
           setCurrentStep(Math.min(Math.floor(pct * 3) + 1, 4))
+
+          // Auto-resume if the background job died mid-scan (no progress for a while).
+          if (Date.now() - lastProgressAtRef.current > STALL_MS) {
+            if (stalledResumesRef.current < MAX_STALLED_RESUMES) {
+              stalledResumesRef.current++
+              lastProgressAtRef.current = Date.now()
+              triggerScan()
+            } else {
+              setError('The scan stalled. You can resume it any time from Settings → Connected Inboxes.')
+              clearInterval(interval)
+            }
+          }
         }
 
         if (data.status === 'completed') {
           setCurrentStep(5)
           clearInterval(interval)
-          setTimeout(() => router.push('/dashboard'), 2000)
+          setTimeout(() => router.push('/dashboard'), 1800)
         }
 
         if (data.status === 'failed') {
@@ -103,7 +128,7 @@ function ScanProgress() {
     return () => clearInterval(interval)
   }, [jobId, router, triggerScan])
 
-  // Play chime when a new step completes
+  // Soft chime as steps advance.
   useEffect(() => {
     if (typeof window === 'undefined') return
     if (currentStep > prevStepRef.current && currentStep < STEPS.length) {
@@ -112,7 +137,6 @@ function ScanProgress() {
     prevStepRef.current = currentStep
   }, [currentStep])
 
-  // Play done chime when all steps complete
   useEffect(() => {
     if (typeof window === 'undefined') return
     if (status === 'completed' && !completedRef.current) {
@@ -123,31 +147,20 @@ function ScanProgress() {
 
   const isPaid = scanInfo && scanInfo.planType !== 'free'
 
-  // Per-step fill percentage. Completed steps are full; steps after the current
-  // one are empty; the active step shows real progress where we have it
-  // (the "Detecting follow-ups" step is driven by processed/found threads) and
-  // an indeterminate sliding bar otherwise.
-  const stepFill = (i: number): number | null => {
-    if (status === 'completed') return 100
-    if (i < currentStep) return 100
-    if (i > currentStep) return 0
-    // Active step. The detection step (index 3) maps to real thread progress.
-    if (i === 3 && progress.found > 0) {
-      return Math.min(100, Math.round((progress.processed / progress.found) * 100))
-    }
-    return null // indeterminate
-  }
-
-  // Overall progress across all 5 steps. An indeterminate active step counts
-  // as half-done so the top bar always advances smoothly.
+  // Smooth overall percentage. Completed steps count fully; the active step
+  // contributes its real thread progress (or ~50% while indeterminate).
   const overallPct = status === 'completed'
     ? 100
-    : Math.round(
-        STEPS.reduce((sum, _, i) => {
-          const f = stepFill(i)
-          return sum + (f === null ? 50 : f)
-        }, 0) / STEPS.length,
-      )
+    : (() => {
+        const per = 100 / STEPS.length
+        let pct = currentStep * per
+        if (currentStep === 3 && progress.found > 0) {
+          pct += (progress.processed / progress.found) * per
+        } else {
+          pct += per * 0.5
+        }
+        return Math.min(99, Math.round(pct))
+      })()
 
   return (
     <div className="min-h-screen bg-paper flex items-center justify-center p-4">
@@ -157,101 +170,80 @@ function ScanProgress() {
             <LogoLockup size="lg" />
           ) : (
             <>
-              <PendinglyLoader size={64} variant="light" />
-              <span className="text-xl font-semibold tracking-[-0.02em] text-ink">Pendingly</span>
+              <PendinglyLoader size={56} variant="light" />
+              <span className="text-lg font-semibold tracking-[-0.02em] text-ink">Pendingly</span>
             </>
           )}
         </div>
 
         <h1 className="text-2xl font-bold text-ink mb-2">Building your action queue</h1>
 
-        {/* Scan scope badge — shown once we know the plan */}
         {scanInfo && status !== 'completed' && (
-          <div className="inline-flex items-center gap-1.5 mb-3 px-3 py-1 rounded-full bg-[rgb(11_18_32/6%)] border border-[rgb(11_18_32/8%)]">
+          <div className="inline-flex items-center gap-1.5 mb-4 px-3 py-1 rounded-full bg-[rgb(11_18_32/5%)] border border-[rgb(11_18_32/8%)]">
             <span className="text-[11px] font-medium text-[rgb(11_18_32/55%)]" style={{ fontFamily: 'var(--font-mono)' }}>
               {scanInfo.windowDays}-day scan · up to {scanInfo.maxThreads} threads
             </span>
             {isPaid && (
-              <span className="text-[10px] font-semibold text-action uppercase tracking-wide" style={{ fontFamily: 'var(--font-mono)' }}>
+              <span className="text-[10px] font-semibold text-[rgb(11_18_32/45%)] uppercase tracking-wide" style={{ fontFamily: 'var(--font-mono)' }}>
                 {scanInfo.planType}
               </span>
             )}
           </div>
         )}
 
-        <p className="text-[rgb(11_18_32/55%)] mb-8">
+        <p className="text-sm text-[rgb(11_18_32/55%)] mb-7">
           {status === 'completed'
-            ? `Done! Found ${progress.created} action item${progress.created !== 1 ? 's' : ''} — heading to your dashboard…`
+            ? `Done — found ${progress.created} action item${progress.created !== 1 ? 's' : ''}. Heading to your dashboard…`
             : progress.found > 0 && progress.created > 0
-            ? `Analyzed ${progress.processed} of ${progress.found} threads — ${progress.created} action item${progress.created !== 1 ? 's' : ''} found so far...`
+            ? `Analyzed ${progress.processed} of ${progress.found} threads · ${progress.created} found so far`
             : progress.found > 0
-            ? `Analyzing ${progress.found} threads for follow-ups...`
+            ? `Analyzing ${progress.found} threads for follow-ups`
             : scanInfo
-            ? `Scanning your last ${scanInfo.windowDays} days of email...`
-            : 'Scanning your email...'}
+            ? `Scanning your last ${scanInfo.windowDays} days of email`
+            : 'Scanning your email'}
         </p>
 
-        {/* Overall progress bar */}
-        {!error && (
-          <div className="mb-5">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[11px] font-medium text-[rgb(11_18_32/45%)]" style={{ fontFamily: 'var(--font-mono)' }}>
-                {status === 'completed' ? 'Complete' : STEPS[Math.min(currentStep, STEPS.length - 1)]}
-              </span>
-              <span className="text-[11px] font-semibold text-action" style={{ fontFamily: 'var(--font-mono)' }}>
-                {overallPct}%
-              </span>
-            </div>
-            <div className="h-2 w-full rounded-full bg-[rgb(11_18_32/8%)] overflow-hidden">
-              <div
-                className="h-full rounded-full bg-action transition-all duration-500 ease-out"
-                style={{ width: `${overallPct}%` }}
-              />
-            </div>
-          </div>
-        )}
-
         {error ? (
-          <div className="text-action bg-[rgb(242_90_60/8%)] rounded-lg p-4 border border-[rgb(242_90_60/20%)]">{error}</div>
+          <div className="text-sm text-action bg-[rgb(242_90_60/6%)] rounded-xl p-4 border border-[rgb(242_90_60/18%)]">{error}</div>
         ) : (
-          <div className="bg-white rounded-xl border border-rule p-6">
-            <div className="space-y-4">
+          <div className="bg-white rounded-2xl border border-rule p-6 shadow-sm text-left">
+            {/* Calm overall progress bar */}
+            <div className="mb-5">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium text-ink">
+                  {status === 'completed' ? 'Complete' : STEPS[Math.min(currentStep, STEPS.length - 1)]}
+                </span>
+                <span className="text-xs font-medium text-[rgb(11_18_32/45%)]" style={{ fontFamily: 'var(--font-mono)' }}>
+                  {overallPct}%
+                </span>
+              </div>
+              <div className="h-1.5 w-full rounded-full bg-[rgb(11_18_32/7%)] overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-ink transition-all duration-700 ease-out"
+                  style={{ width: `${overallPct}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Step checklist — green when done, a quiet spinner when active */}
+            <div className="space-y-3">
               {STEPS.map((step, i) => {
-                const fill = stepFill(i)
                 const isDone = status === 'completed' || i < currentStep
                 const isActive = !isDone && i === currentStep
                 return (
                   <div key={step} className="flex items-center gap-3">
                     {isDone ? (
-                      <CheckCircle className="h-5 w-5 text-action flex-shrink-0" />
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[rgb(26_143_94/12%)]">
+                        <Check className="h-3 w-3 text-done" />
+                      </span>
                     ) : isActive ? (
-                      <Loader2 className="h-5 w-5 text-action animate-spin flex-shrink-0" />
+                      <Loader2 className="h-5 w-5 shrink-0 text-[rgb(11_18_32/45%)] animate-spin" />
                     ) : (
-                      <div className="h-5 w-5 rounded-full border-2 border-rule flex-shrink-0" />
+                      <span className="h-5 w-5 shrink-0 rounded-full border-2 border-[rgb(11_18_32/10%)]" />
                     )}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className={`text-sm ${isDone || isActive ? 'text-ink font-medium' : 'text-[rgb(11_18_32/30%)]'}`}>
-                          {step}
-                        </span>
-                        {isActive && fill !== null && (
-                          <span className="text-[11px] font-semibold text-action" style={{ fontFamily: 'var(--font-mono)' }}>
-                            {fill}%
-                          </span>
-                        )}
-                      </div>
-                      {/* Per-step progress track */}
-                      <div className="relative mt-1.5 h-1 w-full rounded-full bg-[rgb(11_18_32/6%)] overflow-hidden">
-                        {isActive && fill === null ? (
-                          <div className="animate-indeterminate bg-action/70" />
-                        ) : (
-                          <div
-                            className="h-full rounded-full bg-action transition-all duration-500 ease-out"
-                            style={{ width: `${fill ?? 0}%` }}
-                          />
-                        )}
-                      </div>
-                    </div>
+                    <span className={`text-sm ${isDone ? 'text-[rgb(11_18_32/55%)]' : isActive ? 'text-ink font-medium' : 'text-[rgb(11_18_32/30%)]'}`}>
+                      {step}
+                    </span>
                   </div>
                 )
               })}

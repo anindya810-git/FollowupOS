@@ -246,6 +246,21 @@ let geminiNextSlotAt = 0
 const GEMINI_FREE_RPM_GAP_MS = 6500  // ~9.2 RPM, under the 10 RPM free-tier cap
 const GEMINI_PAID_RPM_GAP_MS = 500   // ~120 RPM, safe for paid tier
 
+// Bound an AI call so a hung request can't stall the whole scan for minutes.
+// The underlying fetch isn't truly cancelled, but we stop waiting and let the
+// caller's retry/skip logic take over.
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+    p.then(
+      v => { clearTimeout(t); resolve(v) },
+      e => { clearTimeout(t); reject(e) },
+    )
+  })
+}
+
+const AI_CALL_TIMEOUT_MS = 30_000
+
 async function geminiRateLimit(isDefaultKey = true) {
   const gapMs = isDefaultKey ? GEMINI_FREE_RPM_GAP_MS : GEMINI_PAID_RPM_GAP_MS
   const now = Date.now()
@@ -276,29 +291,43 @@ async function classifyGemini(input: ClassificationInput, config: AiConfig, cust
   for (let attempt = 0; attempt < 3; attempt++) {
     await geminiRateLimit(config.isDefaultKey)
     try {
-      const result = await model.generateContent(
-        `${buildClassificationSystem(customInstructions)}\n\nClassify this thread:\n${JSON.stringify(input)}`
+      const result = await withTimeout(
+        model.generateContent(
+          `${buildClassificationSystem(customInstructions)}\n\nClassify this thread:\n${JSON.stringify(input)}`
+        ),
+        AI_CALL_TIMEOUT_MS,
+        'Gemini classify',
       )
       const text = result.response.text()
       const parsed = JSON.parse(extractJson(text)) as AiClassificationOutput
       return validateClassification(parsed) ? parsed : null
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
-      const is429 = msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED')
-      const is503 = msg.includes('503') || msg.includes('Service Unavailable') || msg.includes('high demand')
-      if (!is429 && !is503) throw e
       if (isGeminiDailyQuota(msg)) {
         throw new Error('Gemini daily quota exhausted — try again tomorrow or add a paid API key in Settings → AI Provider.')
       }
-      // 503 overload: back off 5s, 10s, 20s. 429 rate limit: use suggested delay.
+      const is429 = msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED')
+      const is503 = msg.includes('503') || msg.includes('Service Unavailable') || msg.includes('high demand')
+      // Transient network / availability blips: time-outs, "fetch failed",
+      // dropped connections, and intermittent 404s on preview models. These
+      // are common and should be retried rather than failing the thread.
+      const isTransient =
+        msg.includes('timed out') || msg.includes('fetch failed') || msg.includes('ECONNRESET') ||
+        msg.includes('ETIMEDOUT') || msg.includes('ENOTFOUND') || msg.includes('network') ||
+        msg.includes('404') || msg.includes('Not Found')
+      if (!is429 && !is503 && !isTransient) throw e
+      if (attempt === 2) throw e  // out of retries — let the scanner record it and move on
+      // 503 overload: 5s/10s. 429: honour suggested delay. Transient: quick 2s/4s.
       const retryMatch = msg.match(/retry in (\d+(?:\.\d+)?)s/i)
       const waitMs = is503
         ? (attempt + 1) * 5_000
-        : retryMatch ? Math.ceil(parseFloat(retryMatch[1])) * 1000 : (attempt + 1) * 30_000
+        : is429
+          ? (retryMatch ? Math.ceil(parseFloat(retryMatch[1])) * 1000 : (attempt + 1) * 30_000)
+          : (attempt + 1) * 2_000
       await new Promise(r => setTimeout(r, Math.min(waitMs, 60_000)))
     }
   }
-  throw new Error('Gemini rate limit: too many retries')
+  throw new Error('Gemini classification failed after retries')
 }
 
 async function suggestAnthropic(userContent: string, config: AiConfig): Promise<string | null> {
@@ -332,7 +361,7 @@ async function suggestGemini(userContent: string, config: AiConfig): Promise<str
   const genAI = new GoogleGenerativeAI(config.apiKey)
   // v1beta default — gemini-2.5-flash requires v1beta (preview model)
   const model = genAI.getGenerativeModel({ model: config.model })
-  const result = await model.generateContent(`${SUGGESTION_SYSTEM}\n\n${userContent}`)
+  const result = await withTimeout(model.generateContent(`${SUGGESTION_SYSTEM}\n\n${userContent}`), AI_CALL_TIMEOUT_MS, 'Gemini suggest')
   let text = result.response.text().trim()
   // Gemini sometimes wraps responses in ```text … ``` even when not asked.
   // Strip leading/trailing fences so the user sees clean prose.
@@ -374,7 +403,7 @@ async function draftGemini(userContent: string, config: AiConfig): Promise<{ dra
   const genAI = new GoogleGenerativeAI(config.apiKey)
   // v1beta default — gemini-2.5-flash requires v1beta (preview model)
   const model = genAI.getGenerativeModel({ model: config.model })
-  const result = await model.generateContent(`${DRAFT_SYSTEM}\n\n${userContent}`)
+  const result = await withTimeout(model.generateContent(`${DRAFT_SYSTEM}\n\n${userContent}`), AI_CALL_TIMEOUT_MS, 'Gemini draft')
   return JSON.parse(extractJson(result.response.text()))
 }
 

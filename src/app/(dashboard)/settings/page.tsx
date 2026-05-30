@@ -195,6 +195,33 @@ export default function SettingsPage() {
     return () => clearInterval(id)
   }, [integrations])
 
+  // Auto-resume background scans that stall (the serverless function can die
+  // mid-scan on a large mailbox). If an account's scan hasn't progressed for
+  // ~90s, nudge /api/scan/start, which resumes the same job where it left off.
+  const scanProgressRef = useRef<Map<string, { processed: number; at: number; resumes: number }>>(new Map())
+  useEffect(() => {
+    const now = Date.now()
+    for (const a of integrations) {
+      const s = a.lastScan
+      if (!s || (s.status !== 'running' && s.status !== 'queued')) {
+        scanProgressRef.current.delete(a.id)
+        continue
+      }
+      const processed = s.threadsProcessed || 0
+      const prev = scanProgressRef.current.get(a.id)
+      if (!prev || processed > prev.processed) {
+        scanProgressRef.current.set(a.id, { processed, at: now, resumes: prev?.resumes ?? 0 })
+      } else if (now - prev.at > 90_000 && prev.resumes < 8) {
+        scanProgressRef.current.set(a.id, { processed, at: now, resumes: prev.resumes + 1 })
+        fetch('/api/scan/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ account_id: a.id }),
+        }).catch(() => {})
+      }
+    }
+  }, [integrations])
+
   const save = async () => {
     setSaving(true)
     await fetch('/api/settings', {
