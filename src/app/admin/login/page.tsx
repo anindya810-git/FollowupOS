@@ -4,7 +4,9 @@ import { useRouter } from 'next/navigation'
 
 export default function AdminLoginPage() {
   const router = useRouter()
-  const [email, setEmail] = useState('anindya810@gmail.com')
+  // Don't hardcode the admin address — it would ship in the client bundle and
+  // reveal the admin account to anyone inspecting the page.
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)

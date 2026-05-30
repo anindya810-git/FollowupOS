@@ -30,6 +30,9 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ['@prisma/client', 'prisma', 'better-sqlite3', '@prisma/adapter-better-sqlite3'],
   // Don't leak the framework/version to clients.
   poweredByHeader: false,
+  // Never ship client-side source maps to production — they'd expose readable
+  // source. (Off by default; set explicitly so it can't be flipped on by accident.)
+  productionBrowserSourceMaps: false,
   async headers() {
     return [
       {
