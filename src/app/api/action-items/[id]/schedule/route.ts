@@ -41,7 +41,10 @@ export async function POST(
         emailThread: {
           include: {
             emailAccount: true,
-            messages: { orderBy: { sentAt: 'desc' }, take: 1 },
+            // Fetch all messages (newest first) so we can resolve the last
+            // inbound sender for the recipient AND the newest message for the
+            // In-Reply-To / threading ids.
+            messages: { orderBy: { sentAt: 'desc' } },
           },
         },
       },
@@ -52,7 +55,18 @@ export async function POST(
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
   const account = item.emailThread.emailAccount
-  const toEmail = item.ownerEmail || item.emailThread.messages[0]?.senderEmail
+  const selfEmail = account.emailAddress.trim().toLowerCase()
+  // A reply must go to the person we're replying to — the most recent inbound
+  // (non-user) sender. ownerEmail is the AI's "who acts next" and is frequently
+  // the user's own address, so it must never be the recipient. Self-comparison
+  // is case-insensitive. (Mirrors /api/action-items/[id]/send.)
+  const lastInbound = item.emailThread.messages.find(
+    m => !m.isFromUser && m.senderEmail && m.senderEmail.trim().toLowerCase() !== selfEmail,
+  )
+  let toEmail = lastInbound?.senderEmail ?? null
+  if (!toEmail && item.ownerEmail && item.ownerEmail.trim().toLowerCase() !== selfEmail) {
+    toEmail = item.ownerEmail
+  }
   if (!toEmail) return NextResponse.json({ error: 'No recipient' }, { status: 400 })
 
   const subject = body.subject

@@ -46,11 +46,25 @@ export async function POST(
   }
 
   const account = item.emailThread.emailAccount
-  // Find the last message NOT from the user — that's who we're replying to.
-  const lastInbound = item.emailThread.messages.find(m => !m.isFromUser)
-  const toEmail = item.ownerEmail && item.ownerEmail !== account.emailAddress
-    ? item.ownerEmail
-    : lastInbound?.senderEmail
+  const selfEmail = account.emailAddress.trim().toLowerCase()
+
+  // A reply MUST go to the person we're replying to: the sender of the most
+  // recent message that wasn't from us. The AI's `ownerEmail` field is "who
+  // should act on this next" (a CRM concept) — it is frequently the user
+  // themselves (e.g. "you need to contact X"), so it must NEVER be used as the
+  // reply-to address. Using it here caused replies to be addressed to the
+  // user's own inbox.
+  const lastInbound = item.emailThread.messages.find(
+    m => !m.isFromUser && m.senderEmail && m.senderEmail.trim().toLowerCase() !== selfEmail,
+  )
+  let toEmail = lastInbound?.senderEmail ?? null
+
+  // Fallback only when we genuinely couldn't resolve an inbound sender (rare —
+  // e.g. malformed headers): use ownerEmail, but never our own address. The
+  // self-comparison is case-insensitive so casing differences can't slip past.
+  if (!toEmail && item.ownerEmail && item.ownerEmail.trim().toLowerCase() !== selfEmail) {
+    toEmail = item.ownerEmail
+  }
   if (!toEmail) {
     return NextResponse.json({ error: 'No recipient' }, { status: 400 })
   }
