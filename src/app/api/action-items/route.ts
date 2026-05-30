@@ -22,6 +22,14 @@ export async function GET(request: NextRequest) {
   const actionTo = searchParams.get('action_to')
   // Inbox filter → filters on the related email thread's emailAccountId
   const inboxId = searchParams.get('inbox_id')
+  // Sender filter → partial match on sender name or email
+  const senderEmail = searchParams.get('sender_email')
+  // Domain filter → suffix match on sender email domain
+  const senderDomain = searchParams.get('sender_domain')
+  // Keyword search → checks thread subject
+  const keywords = searchParams.get('keywords')
+  // Attachment filter → thread has at least one message with attachments
+  const hasAttachment = searchParams.get('has_attachment') === '1'
   const page = parseInt(searchParams.get('page') || '1')
   const limit = parseInt(searchParams.get('limit') || '20')
 
@@ -45,8 +53,8 @@ export async function GET(request: NextRequest) {
     where.dueDate = dueDate
   }
 
-  // Email date range and/or inbox filters on the related thread.
-  if (emailFrom || emailTo || inboxId) {
+  // Thread-level filters (inbox, dates, sender, domain, keywords, attachments).
+  if (emailFrom || emailTo || inboxId || senderEmail || senderDomain || keywords || hasAttachment) {
     const threadFilter: Record<string, unknown> = {}
     if (inboxId) threadFilter.emailAccountId = inboxId
     if (emailFrom || emailTo) {
@@ -54,6 +62,21 @@ export async function GET(request: NextRequest) {
       if (emailFrom) lastMessageAt.gte = new Date(emailFrom)
       if (emailTo) lastMessageAt.lte = new Date(`${emailTo}T23:59:59.999`)
       threadFilter.lastMessageAt = lastMessageAt
+    }
+    if (keywords) threadFilter.subject = { contains: keywords, mode: 'insensitive' }
+    if (senderEmail || senderDomain || hasAttachment) {
+      const msgFilter: Record<string, unknown> = { isFromUser: false }
+      if (senderEmail) {
+        msgFilter.OR = [
+          { senderEmail: { contains: senderEmail, mode: 'insensitive' } },
+          { senderName: { contains: senderEmail, mode: 'insensitive' } },
+        ]
+      }
+      if (senderDomain) {
+        msgFilter.senderEmail = { endsWith: `@${senderDomain.replace(/^@/, '')}`, mode: 'insensitive' }
+      }
+      if (hasAttachment) msgFilter.attachmentsJson = { not: null }
+      threadFilter.messages = { some: msgFilter }
     }
     where.emailThread = { is: threadFilter }
   }

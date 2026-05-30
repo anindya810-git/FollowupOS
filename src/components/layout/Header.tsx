@@ -239,45 +239,54 @@ export function Header({ title, onSync }: HeaderProps) {
           </button>
 
           {avatarMenuOpen && (
-            <div className="absolute right-0 top-full mt-2 z-50 bg-white border border-[rgb(11_18_32/12%)] rounded-lg shadow-lg w-56 overflow-hidden">
+            <div className="absolute right-0 top-full mt-2 z-50 bg-ink rounded-xl shadow-2xl w-60 overflow-hidden border border-[rgb(255_255_255/8%)]">
               {/* User info */}
-              <div className="px-3 py-3 border-b border-[rgb(11_18_32/8%)]">
-                <div className="flex items-center gap-2.5">
-                  <div className="h-8 w-8 rounded-full overflow-hidden shrink-0">
+              <div className="px-4 py-3.5 border-b border-[rgb(255_255_255/8%)]">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-full overflow-hidden shrink-0 ring-2 ring-[rgb(255_255_255/12%)]">
                     {profile?.image ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={profile.image} alt="" className="h-full w-full object-cover" />
                     ) : (
-                      <span className="h-full w-full flex items-center justify-center bg-[rgb(11_18_32/10%)] text-xs font-semibold text-ink">
+                      <span className="h-full w-full flex items-center justify-center bg-[rgb(255_255_255/12%)] text-xs font-bold text-white">
                         {initials}
                       </span>
                     )}
                   </div>
                   <div className="min-w-0">
-                    {profile?.name && <p className="text-sm font-medium text-ink truncate">{profile.name}</p>}
-                    <p className="text-[11px] text-[rgb(11_18_32/50%)] truncate">{profile?.email}</p>
+                    {profile?.name && <p className="text-sm font-semibold text-white truncate">{profile.name}</p>}
+                    <p className="text-[11px] text-[rgb(255_255_255/45%)] truncate mt-0.5">{profile?.email}</p>
                   </div>
                 </div>
               </div>
 
               {/* Menu items */}
-              <button
-                onClick={() => { setAvatarMenuOpen(false); router.push('/settings?section=account') }}
-                className="w-full text-left px-3 py-2 hover:bg-paper-2 transition-colors flex items-center gap-2"
-              >
-                <Settings className="h-3.5 w-3.5 text-[rgb(11_18_32/45%)]" />
-                <span className="text-sm text-ink">Account settings</span>
-              </button>
+              <div className="py-1.5">
+                <button
+                  onClick={() => { setAvatarMenuOpen(false); router.push('/settings?section=account') }}
+                  className="w-full text-left px-4 py-2 hover:bg-[rgb(255_255_255/6%)] transition-colors flex items-center gap-3 group"
+                >
+                  <Settings className="h-3.5 w-3.5 text-[rgb(255_255_255/40%)] group-hover:text-[rgb(255_255_255/70%)] transition-colors" />
+                  <span className="text-sm text-[rgb(255_255_255/70%)] group-hover:text-white transition-colors">Account settings</span>
+                </button>
+                <button
+                  onClick={() => { setAvatarMenuOpen(false); router.push('/settings') }}
+                  className="w-full text-left px-4 py-2 hover:bg-[rgb(255_255_255/6%)] transition-colors flex items-center gap-3 group"
+                >
+                  <Settings className="h-3.5 w-3.5 text-[rgb(255_255_255/40%)] group-hover:text-[rgb(255_255_255/70%)] transition-colors" />
+                  <span className="text-sm text-[rgb(255_255_255/70%)] group-hover:text-white transition-colors">Settings</span>
+                </button>
+              </div>
 
-              <div className="border-t border-[rgb(11_18_32/8%)]" />
-
-              <button
-                onClick={() => signOut({ callbackUrl: '/' })}
-                className="w-full text-left px-3 py-2 hover:bg-red-50 transition-colors flex items-center gap-2"
-              >
-                <LogOut className="h-3.5 w-3.5 text-red-500" />
-                <span className="text-sm text-red-600">Sign out</span>
-              </button>
+              <div className="border-t border-[rgb(255_255_255/8%)] py-1.5">
+                <button
+                  onClick={() => signOut({ callbackUrl: '/' })}
+                  className="w-full text-left px-4 py-2 hover:bg-[rgb(255_255_255/6%)] transition-colors flex items-center gap-3 group"
+                >
+                  <LogOut className="h-3.5 w-3.5 text-[rgb(255_100_80/60%)] group-hover:text-[rgb(255_100_80/90%)] transition-colors" />
+                  <span className="text-sm text-[rgb(255_100_80/70%)] group-hover:text-[rgb(255_100_80/95%)] transition-colors">Sign out</span>
+                </button>
+              </div>
             </div>
           )}
         </div>

@@ -19,11 +19,11 @@ function tomorrow(): string {
 
 // Statuses = lifecycle "actions" an item moves through.
 const STATUS_TABS = [
-  { value: 'open',     label: 'Active' },
+  { value: 'all',      label: 'All' },
+  { value: 'open',     label: 'Open' },
   { value: 'snoozed',  label: 'Snoozed' },
   { value: 'ignored',  label: 'Ignored' },
   { value: 'done',     label: 'Completed' },
-  { value: 'all',      label: 'All' },
 ]
 
 // Categories = what kind of follow-up the item represents.
@@ -70,6 +70,10 @@ function QueueContent() {
   const [actionFrom, setActionFrom] = useState('')
   const [actionTo, setActionTo] = useState('')
   const [inboxId, setInboxId] = useState('')
+  const [senderEmail, setSenderEmail] = useState('')
+  const [senderDomain, setSenderDomain] = useState('')
+  const [keywords, setKeywords] = useState('')
+  const [hasAttachment, setHasAttachment] = useState(false)
   const [inboxes, setInboxes] = useState<EmailAccount[]>([])
 
   useEffect(() => {
@@ -90,19 +94,23 @@ function QueueContent() {
     if (actionFrom) params.set('action_from', actionFrom)
     if (actionTo) params.set('action_to', actionTo)
     if (inboxId) params.set('inbox_id', inboxId)
+    if (senderEmail) params.set('sender_email', senderEmail)
+    if (senderDomain) params.set('sender_domain', senderDomain)
+    if (keywords) params.set('keywords', keywords)
+    if (hasAttachment) params.set('has_attachment', '1')
 
     const res = await fetch(`/api/action-items?${params}`)
     const data = await res.json()
     setItems(data.items || [])
     setTotal(data.total || 0)
     setLoading(false)
-  }, [status, category, priority, search, emailFrom, emailTo, actionFrom, actionTo, inboxId, page])
+  }, [status, category, priority, search, emailFrom, emailTo, actionFrom, actionTo, inboxId, senderEmail, senderDomain, keywords, hasAttachment, page])
 
   useEffect(() => { fetchItems() }, [fetchItems])
-  useEffect(() => { setPage(1) }, [status, category, priority, search, emailFrom, emailTo, actionFrom, actionTo, inboxId])
-  useEffect(() => { setSelectedIds(new Set()) }, [status, category, priority, search, emailFrom, emailTo, actionFrom, actionTo, inboxId, page])
+  useEffect(() => { setPage(1) }, [status, category, priority, search, emailFrom, emailTo, actionFrom, actionTo, inboxId, senderEmail, senderDomain, keywords, hasAttachment])
+  useEffect(() => { setSelectedIds(new Set()) }, [status, category, priority, search, emailFrom, emailTo, actionFrom, actionTo, inboxId, senderEmail, senderDomain, keywords, hasAttachment, page])
 
-  const hasAdvancedFilters = !!(priority || emailFrom || emailTo || actionFrom || actionTo || inboxId)
+  const hasAdvancedFilters = !!(priority || emailFrom || emailTo || actionFrom || actionTo || inboxId || senderEmail || senderDomain || keywords || hasAttachment)
   const clearAdvanced = () => {
     setPriority('')
     setEmailFrom('')
@@ -110,6 +118,10 @@ function QueueContent() {
     setActionFrom('')
     setActionTo('')
     setInboxId('')
+    setSenderEmail('')
+    setSenderDomain('')
+    setKeywords('')
+    setHasAttachment(false)
   }
 
   const handleStatusChange = async (id: string, statusVal: string, extra?: Record<string, string>) => {
@@ -185,10 +197,10 @@ function QueueContent() {
               }`}
             >
               <SlidersHorizontal className="h-3.5 w-3.5" />
-              Filters
+              Advanced Filters
               {hasAdvancedFilters && (
                 <span className="h-4 w-4 rounded-full bg-action text-white text-[10px] font-bold flex items-center justify-center leading-none">
-                  {[priority, emailFrom, emailTo, actionFrom, actionTo, inboxId].filter(Boolean).length}
+                  {[priority, emailFrom, emailTo, actionFrom, actionTo, inboxId, senderEmail, senderDomain, keywords, hasAttachment ? '1' : ''].filter(Boolean).length}
                 </span>
               )}
               {showAdvanced ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
@@ -218,6 +230,8 @@ function QueueContent() {
         {showAdvanced && (
           <div className="mb-5 p-4 rounded-xl bg-[rgb(11_18_32/3%)] border border-rule space-y-4">
             <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+
+              {/* Row 1: Priority + Inbox */}
               <div className="col-span-2 sm:col-span-1">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)] mb-1.5">Priority</p>
                 <select
@@ -245,6 +259,57 @@ function QueueContent() {
                 </select>
               </div>
 
+              {/* Row 2: From User + From Domain */}
+              <div className="col-span-2 sm:col-span-1">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)] mb-1.5">From user</p>
+                <input
+                  type="text"
+                  value={senderEmail}
+                  onChange={e => setSenderEmail(e.target.value)}
+                  placeholder="name or email…"
+                  className={`${inputClass} w-full`}
+                  aria-label="From user filter"
+                />
+              </div>
+
+              <div className="col-span-2 sm:col-span-1">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)] mb-1.5">From domain</p>
+                <input
+                  type="text"
+                  value={senderDomain}
+                  onChange={e => setSenderDomain(e.target.value)}
+                  placeholder="e.g. acme.com"
+                  className={`${inputClass} w-full`}
+                  aria-label="From domain filter"
+                />
+              </div>
+
+              {/* Row 3: Keywords + Has Attachment */}
+              <div className="col-span-2 sm:col-span-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)] mb-1.5">Has keywords</p>
+                <input
+                  type="text"
+                  value={keywords}
+                  onChange={e => setKeywords(e.target.value)}
+                  placeholder="words to search in subject or thread…"
+                  className={`${inputClass} w-full`}
+                  aria-label="Keywords filter"
+                />
+              </div>
+
+              <div className="col-span-2 sm:col-span-1 flex flex-col justify-end">
+                <label className="flex items-center gap-2 cursor-pointer h-8">
+                  <input
+                    type="checkbox"
+                    checked={hasAttachment}
+                    onChange={e => setHasAttachment(e.target.checked)}
+                    className="h-3.5 w-3.5 accent-action"
+                  />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)]">Has attachment</span>
+                </label>
+              </div>
+
+              {/* Row 4: Email date range */}
               <div className="col-span-2">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)] mb-1.5">Email date</p>
                 <div className="flex items-center gap-1.5">
@@ -254,6 +319,7 @@ function QueueContent() {
                 </div>
               </div>
 
+              {/* Row 4: Action due date range */}
               <div className="col-span-2">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)] mb-1.5">Action due date</p>
                 <div className="flex items-center gap-1.5">
@@ -288,7 +354,8 @@ function QueueContent() {
               {status === 'done' ? 'Nothing completed yet.' :
                status === 'snoozed' ? 'No snoozed items.' :
                status === 'ignored' ? 'No ignored items.' :
-               'Your inbox is clear — no follow-ups needed.'}
+               status === 'open' ? 'Your inbox is clear — no follow-ups needed.' :
+               'No items match your filters.'}
             </p>
           </div>
         ) : (

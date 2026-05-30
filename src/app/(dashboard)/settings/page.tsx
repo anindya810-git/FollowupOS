@@ -860,6 +860,23 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
 
+              {saveButton}
+            </>
+          )}
+
+          {/* ── AI ── */}
+          {activeSection === 'ai' && (
+            <>
+              <AiProviderCard />
+              <UsageCard />
+            </>
+          )}
+
+          {/* ── Account ── */}
+          {activeSection === 'account' && (
+            <>
+              <ProfileCard />
+
               <Card>
                 <CardHeader><CardTitle>Email signature</CardTitle></CardHeader>
                 <CardContent>
@@ -911,25 +928,9 @@ export default function SettingsPage() {
                     placeholder="e.g. Best, Aritra — Founder @ Acme"
                     minHeight={120}
                   />
+                  {saveButton}
                 </CardContent>
               </Card>
-
-              {saveButton}
-            </>
-          )}
-
-          {/* ── AI ── */}
-          {activeSection === 'ai' && (
-            <>
-              <AiProviderCard />
-              <UsageCard />
-            </>
-          )}
-
-          {/* ── Account ── */}
-          {activeSection === 'account' && (
-            <>
-              <ProfileCard />
 
               <Card>
                 <CardHeader><CardTitle>Product Tour</CardTitle></CardHeader>
