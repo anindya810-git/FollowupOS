@@ -1,7 +1,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import { categoryLabel, timeAgo } from '@/lib/utils'
-import { ExternalLink, Clock, Check, EyeOff, Calendar as CalendarIcon, AlertCircle, Archive, Link2, Paperclip, ChevronDown } from 'lucide-react'
+import { ExternalLink, Clock, Check, EyeOff, Calendar as CalendarIcon, AlertCircle, Archive, Link2, Paperclip, ChevronDown, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { playChime } from '@/lib/sounds'
 import { SnoozeMenu } from './SnoozeMenu'
@@ -211,6 +211,21 @@ export function ActionCard({ item, onStatusChange, onSelect, selected, onSelectC
             View in Inbox
           </Button>
         )}
+        {item.status !== 'open' ? (
+          // Completed / snoozed / ignored items get a single Undo action that
+          // reopens them (status -> open clears completedAt server-side).
+          <Button
+            variant="ghost"
+            size="sm"
+            className="transition-all duration-150"
+            onClick={() => { playChime('info'); handle('open') }}
+            disabled={loading}
+          >
+            <RotateCcw className="h-3 w-3 mr-1" />
+            {item.status === 'done' ? 'Undo (reopen)' : item.status === 'ignored' ? 'Undo ignore' : 'Unsnooze'}
+          </Button>
+        ) : (
+        <>
         <SnoozeMenu
           onSelect={(d) => { playChime('info'); handle('snoozed', { snoozed_until: d }) }}
         >
@@ -267,6 +282,8 @@ export function ActionCard({ item, onStatusChange, onSelect, selected, onSelectC
             </div>
           )}
         </div>
+        </>
+        )}
       </div>
     </div>
   )
