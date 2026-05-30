@@ -339,6 +339,19 @@ model WatchNotification {
   @@unique([userId, providerMessageId])
 }
 
+// De-dupes proactive nudges (meeting follow-up drafts, deal-anniversary
+// check-ins) so each one fires at most once. refId is the calendar event id
+// or the source action item id depending on kind.
+model ProactiveNudge {
+  id        String   @id @default(cuid())
+  userId    String
+  kind      String   // 'meeting_followup' | 'anniversary'
+  refId     String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, kind, refId])
+}
+
 model DigestSettings {
   id                String   @id @default(cuid())
   userId            String   @unique

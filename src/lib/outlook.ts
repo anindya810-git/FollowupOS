@@ -314,6 +314,34 @@ export async function getUpcomingOutlookEvents(emailAccountId: string, hoursAhea
   return (data.value ?? []) as Array<{ id: string; subject?: string; start: { dateTime: string }; attendees?: Array<{ emailAddress: { address: string; name?: string } }> }>
 }
 
+export interface EndedOutlookEvent {
+  id: string
+  title: string
+  endIso: string | null
+  attendees: Array<{ email: string; name?: string }>
+}
+
+// Events that ENDED within the last `hoursBack` hours — for post-meeting drafts.
+export async function getRecentlyEndedOutlookEvents(emailAccountId: string, hoursBack = 6): Promise<EndedOutlookEvent[]> {
+  const token = await getOutlookAccessToken(emailAccountId)
+  const start = new Date(Date.now() - hoursBack * 3600_000).toISOString()
+  const end = new Date().toISOString()
+  const url = `https://graph.microsoft.com/v1.0/me/calendarView?startDateTime=${start}&endDateTime=${end}&$select=subject,start,end,attendees&$orderby=start/dateTime`
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}`, Prefer: 'outlook.timezone="UTC"' } })
+  if (!res.ok) return []
+  const data = await res.json()
+  const items = (data.value ?? []) as Array<{ id: string; subject?: string; end?: { dateTime: string }; attendees?: Array<{ emailAddress: { address: string; name?: string }; type?: string }> }>
+  const now = Date.now()
+  return items
+    .filter(e => e.end?.dateTime && new Date(e.end.dateTime + 'Z').getTime() <= now)
+    .map(e => ({
+      id: e.id,
+      title: e.subject || 'Meeting',
+      endIso: e.end?.dateTime ?? null,
+      attendees: (e.attendees ?? []).map(a => ({ email: a.emailAddress.address, name: a.emailAddress.name })),
+    }))
+}
+
 // ─── Outlook Calendar: create event ───────────────────────────────────────────
 
 export interface CreateOutlookEventInput {

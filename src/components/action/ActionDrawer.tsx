@@ -99,7 +99,16 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
       setUndoCountdown(null)
       fetch(`/api/action-items/${item.id}`)
         .then(r => r.ok ? r.json() : null)
-        .then(d => { if (d?.item) setDetail(d.item) })
+        .then(d => {
+          if (d?.item) {
+            setDetail(d.item)
+            // Meeting follow-ups (and other thread-less items) arrive with a
+            // pre-generated draft — prefill the compose box so it's ready to edit.
+            if (!d.item.emailThread && d.item.autoReplySuggestion) {
+              setDraft(textToHtml(d.item.autoReplySuggestion))
+            }
+          }
+        })
         .catch(() => {})
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

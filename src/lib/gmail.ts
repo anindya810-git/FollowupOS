@@ -204,6 +204,35 @@ export async function getUpcomingGoogleEvents(emailAccountId: string, hoursAhead
   return (data.items ?? []) as Array<{ id: string; summary?: string; start: { dateTime?: string; date?: string }; attendees?: Array<{ email: string; displayName?: string }> }>
 }
 
+export interface EndedCalendarEvent {
+  id: string
+  title: string
+  endIso: string | null
+  attendees: Array<{ email: string; name?: string }>
+}
+
+// Events that ENDED within the last `hoursBack` hours — used to draft
+// post-meeting follow-ups.
+export async function getRecentlyEndedGoogleEvents(emailAccountId: string, hoursBack = 6): Promise<EndedCalendarEvent[]> {
+  const token = await getGmailAccessToken(emailAccountId)
+  const timeMin = new Date(Date.now() - hoursBack * 3600_000).toISOString()
+  const timeMax = new Date().toISOString()
+  const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&singleEvents=true&orderBy=startTime`
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+  if (!res.ok) return []
+  const data = await res.json()
+  const items = (data.items ?? []) as Array<{ id: string; summary?: string; end?: { dateTime?: string }; attendees?: Array<{ email: string; displayName?: string; self?: boolean; responseStatus?: string }> }>
+  const now = Date.now()
+  return items
+    .filter(e => e.end?.dateTime && new Date(e.end.dateTime).getTime() <= now)
+    .map(e => ({
+      id: e.id,
+      title: e.summary || 'Meeting',
+      endIso: e.end?.dateTime ?? null,
+      attendees: (e.attendees ?? []).filter(a => !a.self).map(a => ({ email: a.email, name: a.displayName })),
+    }))
+}
+
 export function getGmailThreadUrl(threadId: string): string {
   return `https://mail.google.com/mail/u/0/#all/${threadId}`
 }
