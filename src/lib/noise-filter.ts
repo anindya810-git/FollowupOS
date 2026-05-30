@@ -3,15 +3,15 @@
  * Returns true when a message should be silently skipped — no AI call, no action item.
  */
 
-// Sender local-part substrings that are virtually always automated/bulk mail
+// Sender local-part substrings that are virtually always automated/bulk mail.
+// Keep this list tight — broad terms like 'alert', 'notification', 'update'
+// block legitimate action emails (billing overdue, hiring shortlists, fraud
+// warnings) so they are intentionally excluded. Let the AI decide those.
 export const NOISE_SENDER_LOCAL = [
   'no-reply', 'noreply', 'do-not-reply', 'donotreply',
   'newsletter', 'newsletters',
   'marketing', 'promotions', 'promo',
-  'notifications', 'notification',
-  'alerts', 'alert',
   'digest', 'weekly', 'daily', 'monthly',
-  'updates', 'update',
   'mailer', 'mailing',
   'automailer', 'autoresponder', 'auto-responder',
   'bounces', 'bounce',
@@ -20,14 +20,13 @@ export const NOISE_SENDER_LOCAL = [
   'campaigns', 'campaign',
   'offers', 'deals', 'discounts',
   'receipts', 'receipt',
-  'confirm', 'confirmation',
   'security-noreply', 'account-security',
-  'system', 'automated',
   'robot', 'bot',
-  'team@', // team@ of mass-mailer domains is handled below
 ]
 
-// Full sender domains that exclusively produce noise
+// Full sender domains that exclusively produce noise.
+// Only include domains where EVERY email is noise — if even one email type
+// from that domain can require action, do NOT include it here.
 export const NOISE_SENDER_DOMAINS = [
   // Social media notifications
   'linkedin.com',
@@ -52,24 +51,18 @@ export const NOISE_SENDER_DOMAINS = [
   'convertkit.com',
   'mailerlite.com',
   'klaviyo.com',
-  // E-commerce and transactional noise
+  // E-commerce transactional noise
   'amazon.com',
   'amazon.co.uk',
   'amazon.in',
   'ebay.com',
   'etsy.com',
   'shopify.com',
-  'paypal.com',
-  'stripe.com',
-  'netsuite.com',
   // Delivery/tracking
   'fedex.com',
   'ups.com',
   'usps.com',
   'dhl.com',
-  // Ads/marketing
-  'google.com',        // Google Ads, Play Store, surveys — not GSuite
-  'googlemail.com',
 ]
 
 // Subject-line substrings that strongly indicate noise
@@ -102,13 +95,11 @@ export const NOISE_SUBJECT_PATTERNS = [
   'order shipped',
   'shipment tracking',
   'your receipt',
-  'invoice #',
   'payment received',
   'transaction complete',
   'verify your email',
   'confirm your email',
   'confirm your account',
-  'security code',
   'one-time password',
   'one-time code',
   'your otp',
