@@ -62,6 +62,12 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
   const [sending, setSending] = useState(false)
   const [confirmingSend, setConfirmingSend] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
+  // 10-second "undo send" window. undoCountdown !== null means a send is armed
+  // but not yet fired; pendingSendRef/sendPayloadRef let us flush it if the
+  // drawer closes or switches items before the timer elapses.
+  const [undoCountdown, setUndoCountdown] = useState<number | null>(null)
+  const pendingSendRef = useRef(false)
+  const sendPayloadRef = useRef<{ id: string; content: string } | null>(null)
   const [signatureHtml, setSignatureHtml] = useState<string | null>(null)
   const [defaultMeetingProvider, setDefaultMeetingProvider] = useState<'none' | 'meet' | 'teams' | 'zoom'>('none')
   const [zoomConnected, setZoomConnected] = useState(false)
@@ -89,6 +95,8 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
       setDetail(null)
       setDraft('')
       setScheduleOpen(false)
+      setConfirmingSend(false)
+      setUndoCountdown(null)
       fetch(`/api/action-items/${item.id}`)
         .then(r => r.ok ? r.json() : null)
         .then(d => { if (d?.item) setDetail(d.item) })
@@ -146,6 +154,75 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [watchOpen])
+
+  // If the drawer closes or switches items while a send is still armed, flush
+  // it (fire-and-forget) so the email isn't silently dropped.
+  useEffect(() => {
+    return () => {
+      if (pendingSendRef.current && sendPayloadRef.current) {
+        const p = sendPayloadRef.current
+        pendingSendRef.current = false
+        fetch(`/api/action-items/${p.id}/send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: p.content }),
+        }).catch(() => {})
+      }
+    }
+  }, [item?.id])
+
+  // Arm the send: start a 10-second undo window instead of sending immediately.
+  const armSend = () => {
+    if (!item) return
+    sendPayloadRef.current = { id: item.id, content: draft }
+    pendingSendRef.current = true
+    setSendError(null)
+    setUndoCountdown(10)
+  }
+
+  const undoSend = () => {
+    pendingSendRef.current = false
+    sendPayloadRef.current = null
+    setUndoCountdown(null)
+  }
+
+  // Actually fire the send (called when the undo window elapses).
+  const finalizeSend = async () => {
+    if (!pendingSendRef.current || !sendPayloadRef.current) return
+    const payload = sendPayloadRef.current
+    pendingSendRef.current = false
+    setUndoCountdown(null)
+    setSending(true)
+    try {
+      const res = await fetch(`/api/action-items/${payload.id}/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: payload.content }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Send failed')
+      }
+      playChime('done')
+      onStatusChange(payload.id, 'done')
+      onClose()
+    } catch (e) {
+      setSendError(e instanceof Error ? e.message : 'Send failed')
+      setConfirmingSend(false)
+    } finally {
+      setSending(false)
+    }
+  }
+
+  // Undo-send countdown: tick down each second; fire the send at zero. Declared
+  // before the early return to satisfy rules-of-hooks.
+  useEffect(() => {
+    if (undoCountdown === null) return
+    if (undoCountdown <= 0) { void finalizeSend(); return }
+    const t = setTimeout(() => setUndoCountdown(c => (c === null ? null : c - 1)), 1000)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [undoCountdown])
 
   if (!item) return null
   const active = detail || item
@@ -255,31 +332,6 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
       setSendError('Failed to generate draft')
     } finally {
       setGenerating(false)
-    }
-  }
-
-  const sendReply = async () => {
-    if (!item) return
-    setSending(true)
-    setSendError(null)
-    try {
-      const res = await fetch(`/api/action-items/${item.id}/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: draft }),
-      })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error || 'Send failed')
-      }
-      playChime('done')
-      onStatusChange(item.id, 'done')
-      onClose()
-    } catch (e) {
-      setSendError(e instanceof Error ? e.message : 'Send failed')
-    } finally {
-      setSending(false)
-      setConfirmingSend(false)
     }
   }
 
@@ -409,13 +461,22 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
             </div>
           )}
 
-          {/* Needs closure banner */}
-          {active.needsClosure && !(active.repeatedAskCount && active.repeatedAskCount >= 2) && (
+          {/* Needs closure banner — gentle "you can let this go" nudge */}
+          {active.needsClosure && active.status === 'open' && !(active.repeatedAskCount && active.repeatedAskCount >= 2) && (
             <div className="flex items-start gap-2.5 bg-[rgb(11_18_32/4%)] border border-[rgb(11_18_32/10%)] rounded-lg p-3.5">
               <Archive className="h-4 w-4 text-[rgb(11_18_32/40%)] flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-xs font-semibold text-ink">This thread looks resolved</p>
-                <p className="text-xs text-[rgb(11_18_32/55%)] mt-0.5">Consider marking it done or archiving.</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-ink">This thread looks done — you can let it go</p>
+                <p className="text-xs text-[rgb(11_18_32/55%)] mt-0.5">No reply seems needed here. Drop it to clear it from your queue, guilt-free.</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2 gap-1.5"
+                  onClick={() => { playChime('done'); onStatusChange(item.id, 'done'); onClose() }}
+                >
+                  <Archive className="h-3.5 w-3.5" />
+                  Drop it
+                </Button>
               </div>
             </div>
           )}
@@ -587,22 +648,36 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
                   )}
                 </div>
               ) : confirmingSend ? (
-                <div className="flex items-center gap-2 bg-paper-2 border border-rule rounded-md px-3 py-2 flex-wrap">
-                  <span className="text-xs text-ink">
-                    Send to {recipientLabel}?
-                  </span>
-                  <Button size="sm" onClick={sendReply} disabled={sending}>
-                    {sending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Confirm send'}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setConfirmingSend(false)}
-                    disabled={sending}
-                  >
-                    Cancel
-                  </Button>
-                </div>
+                undoCountdown !== null ? (
+                  <div className="flex items-center gap-2 bg-[rgb(26_143_94/8%)] border border-[rgb(26_143_94/25%)] rounded-md px-3 py-2 flex-wrap">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-done" />
+                    <span className="text-xs text-ink">
+                      Sending to {recipientLabel} in {undoCountdown}s…
+                    </span>
+                    <Button size="sm" variant="outline" onClick={undoSend} className="ml-auto">
+                      <RotateCcw className="h-3 w-3 mr-1" />
+                      Undo
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 bg-paper-2 border border-rule rounded-md px-3 py-2 flex-wrap">
+                    <span className="text-xs text-ink">
+                      Send to {recipientLabel}?
+                    </span>
+                    <Button size="sm" onClick={armSend} disabled={sending}>
+                      <Send className="h-3 w-3 mr-1.5" />
+                      Send
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setConfirmingSend(false)}
+                      disabled={sending}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                )
               ) : (
                 <div className="border border-rule rounded-md bg-paper-2 p-3 space-y-2">
                   <p className="text-xs font-semibold text-ink">Schedule send</p>

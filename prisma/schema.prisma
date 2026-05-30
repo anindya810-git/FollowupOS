@@ -380,6 +380,9 @@ model AppSettings {
   noiseFilterLevel       Int     @default(3)
   // User-supplied free-text instructions injected into AI classification prompt.
   scanInstructions       String?
+  // "Pause everything" / vacation mode. When true, all automation (auto
+  // follow-ups, scheduled sends, snooze wake-ups, digests, nudges) is held.
+  automationPaused       Boolean @default(false)
   // JSON array of installed connector keys, e.g. ["google_calendar","google_meet"].
   // A connector being "available" (its underlying account is synced) is distinct
   // from it being installed/enabled here. Only installed connectors surface as

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { DEFAULT_FOLLOWUP_TEMPLATE, renderTemplate } from '@/lib/templates'
 import { isAuthorizedCron } from '@/lib/cron-auth'
+import { getPausedUserIds } from '@/lib/pause'
 import { safeLog } from '@/lib/safe-log'
 
 interface SequenceStep { dayOffset: number; tone: string; template: string }
@@ -21,11 +22,13 @@ async function runAutoFollowup() {
   const enabledUsers = await prisma.appSettings.findMany({
     where: { autoFollowupEnabled: true },
   })
+  const paused = await getPausedUserIds()
 
   let sent = 0
   let failed = 0
 
   for (const settings of enabledUsers) {
+    if (paused.has(settings.userId)) continue  // vacation mode — hold everything
     const sequence = parseSequence(settings.followupSequenceJson)
     // Effective interval: when sequence is configured, the loop below
     // computes step-by-step cutoffs. Otherwise fall back to single-step.

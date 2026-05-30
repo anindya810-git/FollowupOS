@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendPushToUser } from '@/lib/push'
 import { isAuthorizedCron } from '@/lib/cron-auth'
+import { getPausedUserIds } from '@/lib/pause'
 import { safeLog } from '@/lib/safe-log'
 
 async function runPushDigest() {
@@ -10,9 +11,11 @@ async function runPushDigest() {
     select: { userId: true },
     distinct: ['userId'],
   })
+  const paused = await getPausedUserIds()
 
   let sent = 0
   for (const { userId } of subs) {
+    if (paused.has(userId)) continue  // vacation mode — no push digest
     const [openCount, overdueItems] = await Promise.all([
       prisma.actionItem.count({ where: { userId, status: 'open' } }),
       prisma.actionItem.count({

@@ -46,6 +46,7 @@ export async function PATCH(request: NextRequest) {
     noiseFilterLevel,
     scanInstructions,
     enabledConnectors,
+    automationPaused,
     isEnabled, digestTime, timezone, slackWebhookUrl, slackEnabled,
     teamsWebhookUrl, teamsEnabled,
     whatsappEnabled,
@@ -92,6 +93,7 @@ export async function PATCH(request: NextRequest) {
     appData.defaultMeetingProvider = defaultMeetingProvider
   }
   if (reminderPushEnabled !== undefined) appData.reminderPushEnabled = !!reminderPushEnabled
+  if (automationPaused !== undefined) appData.automationPaused = !!automationPaused
   if (emailSignatureEnabled !== undefined) appData.emailSignatureEnabled = !!emailSignatureEnabled
   if (scanInstructions !== undefined) {
     const trimmed = typeof scanInstructions === 'string' ? scanInstructions.trim() : ''

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { isAuthorizedCron } from '@/lib/cron-auth'
+import { getPausedUserIds } from '@/lib/pause'
 import { sendGmailReply } from '@/lib/gmail'
 import { sendOutlookReply } from '@/lib/outlook'
 import { sendSmtpReply } from '@/lib/smtp'
@@ -13,11 +14,15 @@ async function runSendScheduled() {
     orderBy: { scheduledFor: 'asc' },
   })
 
+  const paused = await getPausedUserIds()
+
   let sent = 0
   let failed = 0
   let skipped = 0
 
   for (const msg of due) {
+    // Vacation mode — leave the message pending so it goes out once resumed.
+    if (paused.has(msg.userId)) { skipped++; continue }
     // Claim the row by flipping pending → sending. If another cron instance
     // (or a slower previous run) already claimed it, count is 0 and we skip.
     const claim = await prisma.scheduledMessage.updateMany({

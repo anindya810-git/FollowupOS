@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Trash2, Plus, AlertTriangle, LogOut, RefreshCw, Loader2, Check, ChevronDown, RotateCcw, Sparkles, Camera, RotateCw, Plug, Eye } from 'lucide-react'
+import { Trash2, Plus, AlertTriangle, LogOut, RefreshCw, Loader2, Check, ChevronDown, RotateCcw, Sparkles, Camera, RotateCw, Plug, Eye, Pause, Play } from 'lucide-react'
 import { PushNotificationToggle } from '@/components/PushNotificationToggle'
 import { DEFAULT_FOLLOWUP_TEMPLATE } from '@/lib/templates'
 import { RichTextEditor } from '@/components/editor/RichTextEditor'
@@ -67,6 +67,7 @@ export default function SettingsPage() {
       emailSignatureEnabled?: boolean;
       noiseFilterLevel?: number;
       scanInstructions?: string | null;
+      automationPaused?: boolean;
     } | null
     digestSettings: { isEnabled: boolean; digestTime: string; timezone: string; slackWebhookUrl?: string | null; slackEnabled?: boolean; teamsWebhookUrl?: string | null; teamsEnabled?: boolean; whatsappEnabled?: boolean } | null
     ignoredSenders: Array<{ id: string; senderEmail?: string; domain?: string; reason?: string }>
@@ -297,6 +298,17 @@ export default function SettingsPage() {
   const removeWatch = async (id: string) => {
     await fetch(`/api/settings/watchlist/${id}`, { method: 'DELETE' })
     setSettings(s => ({ ...s, watchList: (s.watchList ?? []).filter(x => x.id !== id) }))
+  }
+
+  // "Pause everything" is a one-tap master switch — it saves immediately
+  // (not via the section's Save button) so it's instantly trustworthy.
+  const togglePause = async (paused: boolean) => {
+    setSettings(s => ({ ...s, appSettings: s.appSettings ? { ...s.appSettings, automationPaused: paused } : s.appSettings }))
+    await fetch('/api/settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ automationPaused: paused }),
+    }).catch(() => {})
   }
 
   const syncContacts = async () => {
@@ -690,6 +702,33 @@ export default function SettingsPage() {
           {/* ── Automation ── */}
           {activeSection === 'automation' && (
             <>
+              {/* Pause everything (vacation mode) */}
+              <Card className={settings.appSettings?.automationPaused ? 'border-action/40 bg-[rgb(242_90_60/4%)]' : ''}>
+                <CardContent className="flex items-center justify-between gap-4 py-4">
+                  <div className="flex items-start gap-3">
+                    <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${settings.appSettings?.automationPaused ? 'bg-action/15 text-action' : 'bg-[rgb(11_18_32/6%)] text-[rgb(11_18_32/55%)]'}`}>
+                      {settings.appSettings?.automationPaused ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-ink">
+                        {settings.appSettings?.automationPaused ? 'Everything is paused' : 'Pause everything'}
+                      </p>
+                      <p className="text-xs text-[rgb(11_18_32/55%)] mt-0.5 max-w-md">
+                        Going on vacation? One tap holds all automation — auto follow-ups, scheduled sends, snooze reminders, and digests. Scans keep running; nothing goes out until you resume.
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant={settings.appSettings?.automationPaused ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => togglePause(!settings.appSettings?.automationPaused)}
+                    className="shrink-0"
+                  >
+                    {settings.appSettings?.automationPaused ? 'Resume' : 'Pause all'}
+                  </Button>
+                </CardContent>
+              </Card>
+
               <Card>
                 <CardHeader><CardTitle>Follow-up Rules</CardTitle></CardHeader>
                 <CardContent className="space-y-4">

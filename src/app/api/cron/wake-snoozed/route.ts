@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { isAuthorizedCron } from '@/lib/cron-auth'
 import { sendPushToUser } from '@/lib/push'
+import { getPausedUserIds } from '@/lib/pause'
 import { safeLog } from '@/lib/safe-log'
 
 async function runWakeSnoozed() {
@@ -38,8 +39,10 @@ async function runWakeSnoozed() {
     list.push(item)
     byUser.set(item.userId, list)
   }
+  const paused = await getPausedUserIds()
   for (const [userId, items] of byUser) {
     try {
+      if (paused.has(userId)) continue  // vacation mode — no nudges
       const settings = await prisma.appSettings.findUnique({
         where: { userId },
         select: { reminderPushEnabled: true },

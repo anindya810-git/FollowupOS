@@ -5,6 +5,7 @@ import { sendTeamsDigest } from '@/lib/teams'
 import { sendEmailDigest } from '@/lib/email-digest'
 import { sendWhatsAppDigest } from '@/lib/whatsapp'
 import { isAuthorizedCron } from '@/lib/cron-auth'
+import { getPausedUserIds } from '@/lib/pause'
 import { safeLog } from '@/lib/safe-log'
 
 async function runDigest() {
@@ -12,6 +13,7 @@ async function runDigest() {
     where: { isEnabled: true },
     include: { user: { select: { name: true, email: true, phone: true } } },
   })
+  const paused = await getPausedUserIds()
 
   const today = new Date().toISOString().split('T')[0]
   let slackSent = 0
@@ -20,6 +22,7 @@ async function runDigest() {
   let whatsappSent = 0
 
   for (const s of settings) {
+    if (paused.has(s.userId)) continue  // vacation mode — no digest
     const [totalOpen, overdueItems, topItems] = await Promise.all([
       prisma.actionItem.count({ where: { userId: s.userId, status: 'open' } }),
       prisma.actionItem.findMany({
