@@ -1,12 +1,13 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { FilterSelect } from '@/components/ui/filter-select'
 import { categoryLabel, timeAgo } from '@/lib/utils'
-import { X, ExternalLink, Loader2, Send, Zap, AlertCircle, Archive, Clock, ChevronDown, UserX } from 'lucide-react'
+import { X, ExternalLink, Loader2, Send, Zap, AlertCircle, Archive, Clock, ChevronDown, UserX, Check, EyeOff, RotateCcw } from 'lucide-react'
 import { playChime } from '@/lib/sounds'
 import { RichTextEditor } from '@/components/editor/RichTextEditor'
 import { CalendarForm } from './CalendarForm'
+import { SnoozeMenu } from './SnoozeMenu'
 import { CalendarPlus, Trash2, Paperclip, Link2 } from 'lucide-react'
 import type { ActionItemWithThread } from '@/types'
 
@@ -70,6 +71,8 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
   const [scheduleOpen, setScheduleOpen] = useState(false)
   const [ignoring, setIgnoring] = useState(false)
   const [ignoredMsg, setIgnoredMsg] = useState<string | null>(null)
+  const [ignoreFooterOpen, setIgnoreFooterOpen] = useState(false)
+  const ignoreFooterRef = useRef<HTMLDivElement>(null)
   const [customWhen, setCustomWhen] = useState(() => {
     const d = new Date()
     d.setHours(d.getHours() + 1, 0, 0, 0)
@@ -108,7 +111,19 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
     // Reset calendar UI when switching items
     setCalendarOpen(false)
     setCalendarResult(null)
+    setIgnoreFooterOpen(false)
   }, [item?.id])
+
+  useEffect(() => {
+    if (!ignoreFooterOpen) return
+    const handler = (e: MouseEvent) => {
+      if (ignoreFooterRef.current && !ignoreFooterRef.current.contains(e.target as Node)) {
+        setIgnoreFooterOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [ignoreFooterOpen])
 
   if (!item) return null
   const active = detail || item
@@ -137,7 +152,6 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
     if (!email) return
     const domain = email.split('@')[1] || ''
     const label = scope === 'email' ? email : `@${domain}`
-    if (!confirm(`Ignore all future emails from ${label}?`)) return
     setIgnoring(true)
     try {
       const body = scope === 'email' ? { sender_email: email } : { domain }
@@ -149,6 +163,7 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
       if (!res.ok) throw new Error('Failed')
       setIgnoredMsg(`Ignoring ${label}`)
       onStatusChange(active.id, 'ignored')
+      onClose()
     } catch {
       setIgnoredMsg('Failed to add to ignore list')
     } finally {
@@ -231,8 +246,6 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
       setScheduleOpen(false)
     }
   }
-
-  const providerLabel = active.emailThread?.providerUrl?.includes('outlook') ? 'Outlook' : 'Gmail'
 
   return (
     <div className="fixed inset-0 z-50">
@@ -565,17 +578,66 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
         {/* Footer actions */}
         <div className="sticky bottom-0 bg-white border-t border-rule px-6 py-4 flex items-center gap-2">
           {active.emailThread?.providerUrl && (
-            <Button variant="outline" size="sm" onClick={() => window.open(active.emailThread!.providerUrl!, '_blank')}>
-              <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
-              Open in {providerLabel}
+            <Button variant="ghost" size="sm" onClick={() => window.open(active.emailThread!.providerUrl!, '_blank')}>
+              <ExternalLink className="h-3.5 w-3.5 mr-1" />
+              View in Inbox
             </Button>
           )}
-          <Button variant="done" size="sm" onClick={() => { playChime('done'); onStatusChange(item.id, 'done'); onClose() }}>
-            Mark Done
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => { onStatusChange(item.id, 'ignored'); onClose() }}>
-            Ignore
-          </Button>
+          {active.status !== 'open' ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => { playChime('info'); onStatusChange(item.id, 'open'); onClose() }}
+            >
+              <RotateCcw className="h-3.5 w-3.5 mr-1" />
+              {active.status === 'done' ? 'Undo (reopen)' : active.status === 'ignored' ? 'Undo ignore' : 'Unsnooze'}
+            </Button>
+          ) : (
+            <>
+              <SnoozeMenu onSelect={(d) => { playChime('info'); onStatusChange(item.id, 'snoozed', { snoozed_until: d }); onClose() }}>
+                <Button variant="ghost" size="sm">
+                  <Clock className="h-3.5 w-3.5 mr-1" />
+                  Snooze
+                </Button>
+              </SnoozeMenu>
+              <Button variant="ghost" size="sm" onClick={() => { playChime('done'); onStatusChange(item.id, 'done'); onClose() }}>
+                <Check className="h-3.5 w-3.5 mr-1" />
+                Done
+              </Button>
+              <div ref={ignoreFooterRef} className="relative">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIgnoreFooterOpen(o => !o)}
+                  disabled={ignoring}
+                >
+                  <EyeOff className="h-3.5 w-3.5 mr-1" />
+                  Ignore
+                  <ChevronDown className="h-3 w-3 ml-0.5" />
+                </Button>
+                {ignoreFooterOpen && (
+                  <div className="absolute bottom-full left-0 mb-1 bg-white border border-rule rounded-lg shadow-lg z-50 min-w-[200px] py-1 text-xs">
+                    <button
+                      className="w-full text-left px-3 py-2 hover:bg-paper-2 text-ink"
+                      onClick={() => { setIgnoreFooterOpen(false); ignoreSender('email') }}
+                    >
+                      <span className="font-medium">Ignore this sender</span>
+                      {contactEmail && <span className="block text-[rgb(11_18_32/40%)] truncate">{contactEmail}</span>}
+                    </button>
+                    {contactEmail.includes('@') && (
+                      <button
+                        className="w-full text-left px-3 py-2 hover:bg-paper-2 text-ink border-t border-rule"
+                        onClick={() => { setIgnoreFooterOpen(false); ignoreSender('domain') }}
+                      >
+                        <span className="font-medium">Ignore all from @{contactEmail.split('@')[1]}</span>
+                        <span className="block text-[rgb(11_18_32/40%)]">Every email from this domain</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
