@@ -74,7 +74,7 @@ function AiKeyStep({ initialHasAnyKey, initialHasServerDefault }: Props) {
           <p className="text-xs font-semibold uppercase tracking-widest text-[rgb(11_18_32/30%)] mb-4">Step 2 of 3</p>
           <h1 className="text-3xl font-bold text-ink mb-2">Choose your AI provider</h1>
           <p className="text-[rgb(11_18_32/55%)] mb-6">
-            Pendingly uses AI to read your threads and decide what needs attention.
+            Pendingly AI reads your threads and decides what needs attention.
             Pick a provider and add your key — you control your own billing.
           </p>
 

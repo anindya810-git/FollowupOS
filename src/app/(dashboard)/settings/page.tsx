@@ -44,7 +44,7 @@ const SECTIONS: Array<{ id: SectionId; label: string }> = [
   { id: 'inboxes', label: 'Inboxes' },
   { id: 'notifications', label: 'Notifications' },
   { id: 'automation', label: 'Automation' },
-  { id: 'ai', label: 'AI' },
+  { id: 'ai', label: 'Pendingly AI Backend' },
   { id: 'account', label: 'Account' },
 ]
 
@@ -415,7 +415,7 @@ export default function SettingsPage() {
             <CardHeader><CardTitle>Scan Aggressiveness</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-[rgb(11_18_32/55%)]">
-                Controls how many automated emails are discarded before the AI sees them. Lower = more emails scanned, higher = faster scans with fewer false positives.
+                Controls how many automated emails are discarded before Pendingly AI sees them. Lower = more emails scanned, higher = faster scans with fewer false positives.
               </p>
               {(() => {
                 const level = settings.appSettings?.noiseFilterLevel ?? 3
@@ -461,6 +461,15 @@ export default function SettingsPage() {
               {saveButton}
             </CardContent>
           </Card>
+
+          {/* Teach Pendingly — free-text scan instructions */}
+          <AiTrainingCard
+            value={settings.appSettings?.scanInstructions ?? ''}
+            onChange={v => setSettings(s => ({ ...s, appSettings: s.appSettings ? { ...s.appSettings, scanInstructions: v } : { defaultFollowupDays: 3, scanWindowDays: 30, conservativeMode: true, scanInstructions: v } }))}
+            onSave={save}
+            saving={saving}
+            saved={saved}
+          />
 
           {/* Ignored Senders */}
           <Card>
@@ -878,7 +887,7 @@ export default function SettingsPage() {
                       title="Generate signature using your profile & social links (Account → Profile)"
                     >
                       {generatingSig ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                      {generatingSig ? 'Generating…' : 'Generate with AI'}
+                      {generatingSig ? 'Generating…' : 'Generate with Pendingly AI'}
                     </Button>
                   </div>
                   {sigGenError && (
@@ -906,13 +915,6 @@ export default function SettingsPage() {
           {activeSection === 'ai' && (
             <>
               <AiProviderCard />
-              <AiTrainingCard
-                value={settings.appSettings?.scanInstructions ?? ''}
-                onChange={v => setSettings(s => ({ ...s, appSettings: s.appSettings ? { ...s.appSettings, scanInstructions: v } : { defaultFollowupDays: 3, scanWindowDays: 30, conservativeMode: true, scanInstructions: v } }))}
-                onSave={save}
-                saving={saving}
-                saved={saved}
-              />
               <UsageCard />
             </>
           )}
@@ -1029,7 +1031,7 @@ function UsageCard() {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-2">
-        <CardTitle>AI usage</CardTitle>
+        <CardTitle>Pendingly AI usage</CardTitle>
         <select
           value={range}
           onChange={e => setRange(e.target.value)}
@@ -1080,7 +1082,7 @@ function UsageCard() {
           <div className="rounded-lg border border-red-200 bg-red-50 p-3">
             <p className="text-xs font-medium text-red-900">Monthly quota reached</p>
             <p className="text-xs text-red-800 mt-0.5">
-              Scans and AI suggestions are paused until {resetLabel}. <a href="/upgrade" className="underline font-medium">Upgrade</a> or add your own API key below.
+              Scans and Pendingly AI suggestions are paused until {resetLabel}. <a href="/upgrade" className="underline font-medium">Upgrade</a> or add your own API key below.
             </p>
           </div>
         )}
@@ -1128,7 +1130,7 @@ function UsageCard() {
               const r = rangeByType[t] || { default: 0, byok: 0 }
               return { t, total: r.default + r.byok }
             }).filter(r => r.total > 0)
-            if (rows.length === 0) return <p className="text-xs text-[rgb(11_18_32/40%)]">No AI calls in this period.</p>
+            if (rows.length === 0) return <p className="text-xs text-[rgb(11_18_32/40%)]">No Pendingly AI calls in this period.</p>
             return rows.map(({ t, total }) => (
               <div key={t} className="flex items-center justify-between text-xs">
                 <span className="text-[rgb(11_18_32/65%)]">
@@ -1229,11 +1231,11 @@ function AiProviderCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>AI Provider</CardTitle>
+        <CardTitle>Pendingly AI Provider</CardTitle>
       </CardHeader>
       <CardContent className="space-y-5">
         <p className="text-xs text-[rgb(11_18_32/55%)]">
-          Pendingly uses AI to classify your threads, detect what needs a reply, and draft responses.
+          Pendingly AI classifies your threads, detects what needs a reply, and drafts responses.
           {byokAllowed
             ? ' Add a key for any provider to use your own quota. Otherwise Pendingly’s server key is used (subject to your plan limit).'
             : ' Bring-your-own API key is available on Lite and Pro plans.'}
@@ -1363,9 +1365,9 @@ function AiTrainingCard({
       <CardHeader>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <CardTitle>AI Scan Instructions</CardTitle>
+            <CardTitle>Teach Pendingly</CardTitle>
             <p className="text-xs text-[rgb(11_18_32/55%)] mt-1">
-              Tell the AI how to classify emails for your specific context. These instructions are injected into every scan on top of the built-in rules.
+              Tell Pendingly AI how to classify emails for your specific context. These instructions are injected into every scan on top of the built-in rules and the Scan Aggressiveness setting above.
             </p>
           </div>
         </div>
@@ -1395,10 +1397,10 @@ function AiTrainingCard({
         <div className="rounded-lg border border-[rgb(11_18_32/8%)] bg-paper p-3.5 space-y-2">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/45%)]">How it works</p>
           <ul className="text-xs text-[rgb(11_18_32/60%)] space-y-1 list-disc list-inside">
-            <li>Instructions are appended to the AI&apos;s classification prompt on every scan.</li>
+            <li>Instructions are appended to Pendingly AI&apos;s classification prompt on every scan.</li>
             <li>Built-in rules (spam detection, category logic) are preserved — instructions add nuance, not override.</li>
             <li>Changes take effect on the next scan run.</li>
-            <li>The AI cannot be instructed to show or classify email content as instructions embedded in emails — only prompts in this box apply.</li>
+            <li>Pendingly AI cannot be instructed by content embedded inside emails — only prompts in this box apply.</li>
           </ul>
         </div>
       </CardContent>

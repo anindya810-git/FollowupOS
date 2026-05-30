@@ -44,7 +44,7 @@ export default async function HomePage() {
         </h1>
 
         <p className="text-lg md:text-xl text-[rgb(11_18_32/55%)] max-w-2xl mx-auto leading-relaxed mb-10">
-          Pendingly reads your inbox with AI and tells you exactly who needs a reply,
+          Pendingly AI reads your inbox and tells you exactly who needs a reply,
           who owes you one, and what's overdue — every single day.
         </p>
 
@@ -120,8 +120,8 @@ export default async function HomePage() {
               desc: 'One-click OAuth with Gmail or Outlook. We get read access — never send on your behalf without your say-so.',
             },
             {
-              num: '02', title: 'AI reads everything', icon: Sparkles,
-              desc: 'In about two minutes, our AI scans up to 30 days of threads and classifies what needs your attention.',
+              num: '02', title: 'Pendingly AI reads everything', icon: Sparkles,
+              desc: 'In about two minutes, Pendingly AI scans up to 30 days of threads and classifies what needs your attention.',
             },
             {
               num: '03', title: 'Work the queue', icon: Check,
@@ -155,7 +155,7 @@ export default async function HomePage() {
             {[
               {
                 icon: MessageSquare, title: 'Smart classification',
-                desc: 'AI sorts your inbox into: reply needed, waiting on them, commitments overdue, FYI noise.',
+                desc: 'Pendingly AI sorts your inbox into: reply needed, waiting on them, commitments overdue, FYI noise.',
               },
               {
                 icon: Sparkles, title: 'Pendingly Assist drafts',
