@@ -245,6 +245,9 @@ model ActionItem {
   // when the thread genuinely looks resolved). Drives the "you can let this go"
   // nudge — null means don't show it.
   closureReason       String?
+  // AI-generated neutral summary of the whole thread, shown in the detail view.
+  // Generated on first view (cached here) — null until then.
+  threadSummary       String?
   autoReplySuggestion String?
   // The specific commitment text the AI extracted (e.g. "I'll send the deck by
   // Friday") — used for reply-deadline reminders so we can remind the user

@@ -78,6 +78,8 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
   const [ignoring, setIgnoring] = useState(false)
   const [connectedAccounts, setConnectedAccounts] = useState<Array<{ provider: string; emailAddress: string }>>([])
   const [installedConnectors, setInstalledConnectors] = useState<string[]>([])
+  const [summary, setSummary] = useState<string | null>(null)
+  const [summaryLoading, setSummaryLoading] = useState(false)
   const [ignoreFooterOpen, setIgnoreFooterOpen] = useState(false)
   const ignoreFooterRef = useRef<HTMLDivElement>(null)
   const [watchOpen, setWatchOpen] = useState(false)
@@ -110,6 +112,14 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
           }
         })
         .catch(() => {})
+      // AI thread summary (cached server-side after first view).
+      setSummary(null)
+      setSummaryLoading(true)
+      fetch(`/api/action-items/${item.id}/summary`)
+        .then(r => r.ok ? r.json() : null)
+        .then(d => setSummary(d?.summary ?? null))
+        .catch(() => setSummary(null))
+        .finally(() => setSummaryLoading(false))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item?.id])
@@ -521,6 +531,24 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
             <div className="bg-paper-2 rounded-lg p-4 border border-rule">
               <p className="text-xs font-semibold uppercase tracking-wider text-[rgb(11_18_32/30%)] mb-1.5">Suggested action</p>
               <p className="text-sm text-ink">{active.suggestedAction}</p>
+            </div>
+          )}
+
+          {/* AI thread summary */}
+          {active.emailThread && (
+            <div className="bg-paper-2 rounded-lg p-4 border border-rule">
+              <p className="text-xs font-semibold uppercase tracking-wider text-[rgb(11_18_32/30%)] mb-1.5 flex items-center gap-1.5">
+                <Zap className="h-3 w-3 text-action" /> Thread summary
+              </p>
+              {summaryLoading ? (
+                <div className="flex items-center gap-2 text-xs text-[rgb(11_18_32/45%)]">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Summarising the conversation…
+                </div>
+              ) : summary ? (
+                <p className="text-sm text-ink leading-relaxed">{summary}</p>
+              ) : (
+                <p className="text-xs text-[rgb(11_18_32/45%)]">Summary unavailable for this thread.</p>
+              )}
             </div>
           )}
 

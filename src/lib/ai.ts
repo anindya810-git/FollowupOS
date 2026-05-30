@@ -179,6 +179,10 @@ Return ONLY valid JSON:
   "draft": "Full email body including greeting and sign-off"
 }`
 
+const SUMMARY_SYSTEM = `You are Pendingly. Summarise an email thread for a busy professional who needs to get up to speed in seconds.
+
+Read the ENTIRE thread carefully, in order. Write 2-4 short, plain sentences that cover: what the thread is about, the key points / decisions made so far, and what (if anything) is still outstanding or expected next. Be specific — use names and concrete details from the thread. Do NOT invent anything not in the thread. Write in neutral third person. No greeting, no sign-off, no markdown, no bullet points — just the summary prose.`
+
 function buildClassificationSystem(customInstructions?: string | null): string {
   if (!customInstructions?.trim()) return CLASSIFICATION_SYSTEM
   return `${CLASSIFICATION_SYSTEM}
@@ -345,38 +349,38 @@ async function classifyGemini(input: ClassificationInput, config: AiConfig, cust
   throw new Error('Gemini classification failed after retries')
 }
 
-async function suggestAnthropic(userContent: string, config: AiConfig): Promise<string | null> {
+async function suggestAnthropic(userContent: string, config: AiConfig, system: string = SUGGESTION_SYSTEM): Promise<string | null> {
   if (!userContent.trim()) return null
   const client = new Anthropic({ apiKey: config.apiKey })
   const response = await client.messages.create({
     model: config.model,
     max_tokens: 600,
-    system: SUGGESTION_SYSTEM,
+    system,
     messages: [{ role: 'user', content: userContent }],
   })
   const text = response.content[0].type === 'text' ? response.content[0].text.trim() : ''
   return text || null
 }
 
-async function suggestOpenAI(userContent: string, config: AiConfig): Promise<string | null> {
+async function suggestOpenAI(userContent: string, config: AiConfig, system: string = SUGGESTION_SYSTEM): Promise<string | null> {
   const client = new OpenAI({ apiKey: config.apiKey })
   const completion = await client.chat.completions.create({
     model: config.model,
     max_tokens: 600,
     messages: [
-      { role: 'system', content: SUGGESTION_SYSTEM },
+      { role: 'system', content: system },
       { role: 'user', content: userContent },
     ],
   })
   return completion.choices[0].message.content?.trim() || null
 }
 
-async function suggestGemini(userContent: string, config: AiConfig): Promise<string | null> {
+async function suggestGemini(userContent: string, config: AiConfig, system: string = SUGGESTION_SYSTEM): Promise<string | null> {
   await geminiRateLimit(config.isDefaultKey)
   const genAI = new GoogleGenerativeAI(config.apiKey)
   // v1beta default — gemini-2.5-flash requires v1beta (preview model)
   const model = genAI.getGenerativeModel({ model: config.model })
-  const result = await withTimeout(model.generateContent(`${SUGGESTION_SYSTEM}\n\n${userContent}`), AI_CALL_TIMEOUT_MS, 'Gemini suggest')
+  const result = await withTimeout(model.generateContent(`${system}\n\n${userContent}`), AI_CALL_TIMEOUT_MS, 'Gemini suggest')
   let text = result.response.text().trim()
   // Gemini sometimes wraps responses in ```text … ``` even when not asked.
   // Strip leading/trailing fences so the user sees clean prose.
@@ -486,6 +490,33 @@ Write the reply body.`
   } catch {
     return null
   }
+}
+
+// A short, neutral summary of the whole thread for the detail view.
+export async function generateThreadSummary(params: {
+  threadSubject: string
+  messages: Array<{ from: string; body: string; isFromUser: boolean; sentAt?: string }>
+  config: AiConfig | null
+}): Promise<string | null> {
+  if (!params.config || !params.messages?.length) return null
+  const cfg = params.config
+  const userContent = `Subject: "${params.threadSubject}"
+
+FULL THREAD (chronological, oldest first):
+
+${buildThreadText(params.messages)}
+
+Summarise this thread.`
+  try {
+    switch (cfg.provider) {
+      case 'anthropic': return await suggestAnthropic(userContent, cfg, SUMMARY_SYSTEM)
+      case 'openai':    return await suggestOpenAI(userContent, cfg, SUMMARY_SYSTEM)
+      case 'gemini':    return await suggestGemini(userContent, cfg, SUMMARY_SYSTEM)
+    }
+  } catch {
+    return null
+  }
+  return null
 }
 
 export async function generateDraft(params: {
