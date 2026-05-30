@@ -242,6 +242,11 @@ model ActionItem {
   repeatedAskCount    Int       @default(0)
   needsClosure        Boolean   @default(false)
   autoReplySuggestion String?
+  // The specific commitment text the AI extracted (e.g. "I'll send the deck by
+  // Friday") — used for reply-deadline reminders so we can remind the user
+  // before they break their word. commitmentRemindedAt de-dupes the reminder.
+  commitmentText      String?
+  commitmentRemindedAt DateTime?
   // Provider-side calendar event / task IDs (set when user creates one via
   // "Add to calendar" or via auto-create). Lets us link, update, delete.
   calendarEventId      String?
@@ -383,6 +388,9 @@ model AppSettings {
   // "Pause everything" / vacation mode. When true, all automation (auto
   // follow-ups, scheduled sends, snooze wake-ups, digests, nudges) is held.
   automationPaused       Boolean @default(false)
+  // Approval mode: when true, auto follow-ups are queued for one-tap approval
+  // instead of sending automatically.
+  followupApprovalMode   Boolean @default(false)
   // JSON array of installed connector keys, e.g. ["google_calendar","google_meet"].
   // A connector being "available" (its underlying account is synced) is distinct
   // from it being installed/enabled here. Only installed connectors surface as

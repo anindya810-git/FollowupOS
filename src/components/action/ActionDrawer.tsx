@@ -448,6 +448,18 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
             </p>
           </div>
 
+          {/* Commitment / reply-deadline banner — something the user promised */}
+          {active.commitmentText && active.ownerType === 'user' && active.status === 'open' && (
+            <div className="flex items-start gap-2.5 bg-[rgb(242_90_60/6%)] border border-[rgb(242_90_60/20%)] rounded-lg p-3.5">
+              <Clock className="h-4 w-4 text-action flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-semibold text-ink">You committed to this{active.dueDate ? ` — due ${active.dueDate}` : ''}</p>
+                <p className="text-xs text-[rgb(11_18_32/70%)] mt-0.5">“{active.commitmentText}”</p>
+                <p className="text-xs text-[rgb(11_18_32/50%)] mt-0.5">We&apos;ll remind you before the deadline so you don&apos;t break your word.</p>
+              </div>
+            </div>
+          )}
+
           {/* Repeated asks alert */}
           {(active.repeatedAskCount ?? 0) >= 2 && (
             <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-lg p-3.5">

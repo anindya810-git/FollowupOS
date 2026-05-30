@@ -107,6 +107,41 @@ async function runAutoFollowup() {
         ? item.emailThread.subject
         : `Re: ${item.emailThread.subject ?? 'Follow up'}`
 
+      // Approval mode: don't send. Queue an awaiting_approval ScheduledMessage
+      // the user can approve with one tap. De-dupe so we don't pile up drafts
+      // for the same item across cron runs.
+      if ((settings as { followupApprovalMode?: boolean }).followupApprovalMode) {
+        const lastMsg = item.emailThread.messages[0]
+        const already = await prisma.scheduledMessage.findFirst({
+          where: { actionItemId: item.id, status: 'awaiting_approval' },
+          select: { id: true },
+        })
+        if (already) continue
+        await prisma.scheduledMessage.create({
+          data: {
+            userId: settings.userId,
+            actionItemId: item.id,
+            emailAccountId: account.id,
+            toEmail: item.ownerEmail,
+            subject,
+            contentHtml: body,
+            scheduledFor: new Date(),
+            status: 'awaiting_approval',
+            threadId: item.emailThread.providerThreadId,
+            lastMessageId: lastMsg?.providerMessageId ?? null,
+            lastRfcMessageId: lastMsg?.rfcMessageId ?? null,
+          },
+        })
+        // Record that we've proposed this step so it isn't re-evaluated until
+        // the next interval; the step only truly advances on approval.
+        await prisma.actionItem.update({
+          where: { id: item.id },
+          data: { lastAutoFollowupAt: new Date() },
+        })
+        sent++  // counts as "actioned" for the cron summary
+        continue
+      }
+
       try {
         if (account.provider === 'gmail') {
           const mod = await import('@/lib/gmail').catch(() => null)

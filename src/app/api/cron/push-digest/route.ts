@@ -11,11 +11,50 @@ async function runPushDigest() {
     select: { userId: true },
     distinct: ['userId'],
   })
+  // Tomorrow's date (YYYY-MM-DD). Commitments due today/tomorrow (or overdue)
+  // trigger a reminder so the user doesn't break their word.
+  const tomorrow = new Date(Date.now() + 86400_000).toISOString().split('T')[0]
+
   const paused = await getPausedUserIds()
 
   let sent = 0
+  let commitmentRemindersSent = 0
   for (const { userId } of subs) {
     if (paused.has(userId)) continue  // vacation mode — no push digest
+
+    // Reply-deadline reminders: commitments the USER made (owner_type=user)
+    // that are due soon and we haven't reminded about yet.
+    try {
+      const commitments = await prisma.actionItem.findMany({
+        where: {
+          userId,
+          status: 'open',
+          category: 'commitment_detected',
+          ownerType: 'user',
+          commitmentRemindedAt: null,
+          dueDate: { lte: tomorrow },
+        },
+        select: { id: true, title: true, commitmentText: true, dueDate: true },
+        take: 10,
+      })
+      if (commitments.length > 0) {
+        const first = commitments[0]
+        const what = first.commitmentText || first.title || 'a commitment'
+        const body = commitments.length === 1
+          ? `Don't forget: ${what}${first.dueDate ? ` (due ${first.dueDate})` : ''}`
+          : `You have ${commitments.length} commitments coming due — don't let them slip`
+        await sendPushToUser(userId, { title: '⏰ Reply deadline', body, url: '/queue' })
+        await prisma.actionItem.updateMany({
+          where: { id: { in: commitments.map(c => c.id) } },
+          data: { commitmentRemindedAt: new Date() },
+        })
+        commitmentRemindersSent++
+      }
+    } catch (e) {
+      // New columns (commitmentRemindedAt) may not exist yet — never break the digest.
+      safeLog('warn', 'commitment-reminder', e, { userId })
+    }
+
     const [openCount, overdueItems] = await Promise.all([
       prisma.actionItem.count({ where: { userId, status: 'open' } }),
       prisma.actionItem.count({
@@ -34,7 +73,7 @@ async function runPushDigest() {
       safeLog('error', 'push-digest', e, { userId })
     }
   }
-  return { sent }
+  return { sent, commitmentRemindersSent }
 }
 
 export async function GET(request: NextRequest) {

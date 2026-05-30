@@ -1,6 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { LogoMark } from '@/components/ui/Logo'
 import { OpenInboxButton } from '@/components/layout/OpenInboxButton'
@@ -14,6 +15,8 @@ import {
   Zap,
   CreditCard,
   Plug,
+  Users,
+  CheckCheck,
 } from 'lucide-react'
 
 const navGroups = [
@@ -22,6 +25,8 @@ const navGroups = [
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { href: '/queue', label: 'All Items', icon: ListTodo },
+      { href: '/contacts', label: 'Contacts', icon: Users },
+      { href: '/approvals', label: 'Approvals', icon: CheckCheck },
       { href: '/analytics', label: 'Analytics', icon: BarChart2 },
     ],
   },
@@ -39,6 +44,16 @@ const navGroups = [
 export function Sidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const [approvalCount, setApprovalCount] = useState(0)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/approvals')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (!cancelled) setApprovalCount(Array.isArray(d?.approvals) ? d.approvals.length : 0) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [pathname])
 
   return (
     <div className="flex h-screen w-60 flex-shrink-0 flex-col bg-ink text-white">
@@ -83,6 +98,11 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
                 >
                   <Icon className="h-3.5 w-3.5 flex-shrink-0" />
                   {item.label}
+                  {item.href === '/approvals' && approvalCount > 0 && (
+                    <span className="ml-auto inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-action text-white text-[10px] font-bold">
+                      {approvalCount}
+                    </span>
+                  )}
                 </Link>
               )
             })}

@@ -77,6 +77,7 @@ export interface ActionItemWithThread {
   repeatedAskCount: number
   needsClosure: boolean
   autoReplySuggestion: string | null
+  commitmentText?: string | null
   calendarEventId: string | null
   calendarEventProvider: string | null
   calendarTaskId: string | null

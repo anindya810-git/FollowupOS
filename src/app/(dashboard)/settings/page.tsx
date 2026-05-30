@@ -68,6 +68,7 @@ export default function SettingsPage() {
       noiseFilterLevel?: number;
       scanInstructions?: string | null;
       automationPaused?: boolean;
+      followupApprovalMode?: boolean;
     } | null
     digestSettings: { isEnabled: boolean; digestTime: string; timezone: string; slackWebhookUrl?: string | null; slackEnabled?: boolean; teamsWebhookUrl?: string | null; teamsEnabled?: boolean; whatsappEnabled?: boolean } | null
     ignoredSenders: Array<{ id: string; senderEmail?: string; domain?: string; reason?: string }>
@@ -220,6 +221,7 @@ export default function SettingsPage() {
         emailSignatureEnabled: settings.appSettings?.emailSignatureEnabled ?? true,
         noiseFilterLevel: settings.appSettings?.noiseFilterLevel ?? 3,
         scanInstructions: settings.appSettings?.scanInstructions ?? null,
+        followupApprovalMode: settings.appSettings?.followupApprovalMode ?? false,
       }),
     })
     setSaving(false)
@@ -755,6 +757,27 @@ export default function SettingsPage() {
                 value={settings.appSettings?.followupSequenceJson ?? null}
                 onChange={(v) => setSettings(s => ({ ...s, appSettings: { ...s.appSettings!, followupSequenceJson: v } }))}
               />
+
+              <Card>
+                <CardHeader><CardTitle className="flex items-center gap-2"><Check className="h-4 w-4 text-action" />Approval mode</CardTitle></CardHeader>
+                <CardContent className="space-y-3">
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={settings.appSettings?.followupApprovalMode ?? false}
+                      onChange={e => setSettings(s => ({ ...s, appSettings: { ...s.appSettings!, followupApprovalMode: e.target.checked } }))}
+                      className="h-4 w-4 mt-0.5 accent-action"
+                    />
+                    <span>
+                      <span className="text-sm font-medium text-ink">Approve every auto follow-up before it sends</span>
+                      <span className="block text-xs text-[rgb(11_18_32/55%)] mt-0.5">
+                        Nothing goes out automatically. Pendingly drafts each follow-up and queues it on the{' '}
+                        <a href="/approvals" className="underline hover:text-ink">Approvals</a> page for a one-tap send. Remember to Save.
+                      </span>
+                    </span>
+                  </label>
+                </CardContent>
+              </Card>
 
               <Card>
                 <CardHeader><CardTitle>Automation</CardTitle></CardHeader>

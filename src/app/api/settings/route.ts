@@ -47,6 +47,7 @@ export async function PATCH(request: NextRequest) {
     scanInstructions,
     enabledConnectors,
     automationPaused,
+    followupApprovalMode,
     isEnabled, digestTime, timezone, slackWebhookUrl, slackEnabled,
     teamsWebhookUrl, teamsEnabled,
     whatsappEnabled,
@@ -94,6 +95,7 @@ export async function PATCH(request: NextRequest) {
   }
   if (reminderPushEnabled !== undefined) appData.reminderPushEnabled = !!reminderPushEnabled
   if (automationPaused !== undefined) appData.automationPaused = !!automationPaused
+  if (followupApprovalMode !== undefined) appData.followupApprovalMode = !!followupApprovalMode
   if (emailSignatureEnabled !== undefined) appData.emailSignatureEnabled = !!emailSignatureEnabled
   if (scanInstructions !== undefined) {
     const trimmed = typeof scanInstructions === 'string' ? scanInstructions.trim() : ''
