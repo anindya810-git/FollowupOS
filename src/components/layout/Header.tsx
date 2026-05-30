@@ -2,7 +2,7 @@
 import { signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { LogOut, RefreshCw, ChevronDown, RotateCcw, Loader2, Check, Settings } from 'lucide-react'
+import { LogOut, RefreshCw, ChevronDown, RotateCcw, Loader2, Check, Settings, Plus } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 
 interface ConnectedAccount {
@@ -129,27 +129,6 @@ export function Header({ title, onSync }: HeaderProps) {
       <h1 className="text-sm font-semibold text-ink tracking-tight">{title}</h1>
 
       <div className="flex items-center gap-3">
-        {/* Connected inbox chips */}
-        {accounts.length > 0 && (
-          <div className="hidden sm:flex items-center gap-1.5">
-            {accounts.map(a => (
-              <button
-                key={a.id}
-                onClick={() => router.push('/settings')}
-                title={`${a.emailAddress} (${a.provider})`}
-                className="flex items-center gap-1 text-[11px] border border-[rgb(11_18_32/12%)] rounded-full px-2 py-0.5 hover:border-[rgb(11_18_32/25%)] hover:bg-paper transition-colors"
-              >
-                <span className={`inline-flex items-center justify-center w-3.5 h-3.5 rounded-full text-[9px] font-bold ${PROVIDER_COLOR[a.provider] ?? 'bg-zinc-100 text-zinc-600'}`}>
-                  {PROVIDER_SHORT[a.provider] ?? 'M'}
-                </span>
-                <span className="text-[rgb(11_18_32/60%)] max-w-[130px] truncate font-mono" style={{ fontFamily: 'var(--font-mono)' }}>
-                  {a.emailAddress}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
-
         {/* View progress link — appears after a scan is triggered */}
         {scanStarted && (
           <button
@@ -258,6 +237,35 @@ export function Header({ title, onSync }: HeaderProps) {
                     <p className="text-[11px] text-[rgb(255_255_255/45%)] truncate mt-0.5">{profile?.email}</p>
                   </div>
                 </div>
+              </div>
+
+              {/* Connected inboxes */}
+              <div className="border-b border-[rgb(255_255_255/8%)] py-2">
+                <p className="px-4 pb-1 text-[10px] font-semibold uppercase tracking-wider text-[rgb(255_255_255/35%)]">
+                  Inboxes{accounts.length > 0 ? ` (${accounts.length})` : ''}
+                </p>
+                {accounts.map(a => (
+                  <button
+                    key={a.id}
+                    onClick={() => { setAvatarMenuOpen(false); router.push('/settings') }}
+                    className="w-full text-left px-4 py-1.5 hover:bg-[rgb(255_255_255/6%)] transition-colors flex items-center gap-2.5"
+                    title={`${a.emailAddress} (${a.provider})`}
+                  >
+                    <span className={`inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold shrink-0 ${PROVIDER_COLOR[a.provider] ?? 'bg-zinc-100 text-zinc-600'}`}>
+                      {PROVIDER_SHORT[a.provider] ?? 'M'}
+                    </span>
+                    <span className="text-[13px] text-[rgb(255_255_255/70%)] truncate">{a.emailAddress}</span>
+                  </button>
+                ))}
+                <button
+                  onClick={() => { setAvatarMenuOpen(false); router.push('/settings/connectors') }}
+                  className="w-full text-left px-4 py-1.5 hover:bg-[rgb(255_255_255/6%)] transition-colors flex items-center gap-2.5 group"
+                >
+                  <span className="inline-flex items-center justify-center w-4 h-4 shrink-0">
+                    <Plus className="h-3.5 w-3.5 text-[rgb(255_255_255/40%)] group-hover:text-[rgb(255_255_255/70%)] transition-colors" />
+                  </span>
+                  <span className="text-[13px] text-[rgb(255_255_255/55%)] group-hover:text-white transition-colors">Add or manage inboxes</span>
+                </button>
               </div>
 
               {/* Menu items */}
