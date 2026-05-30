@@ -898,12 +898,20 @@ async function processThread(params: {
 }): Promise<'created' | 'skipped' | 'noise' | 'ai_failed'> {
   const { gmail, threadId, userId, emailAccountId, userEmail, userTimezone, userPreferences, provider = 'gmail', aiConfig } = params
 
-  const threadRes = await gmail.users.threads.get({
-    userId: 'me',
-    id: threadId,
-    format: 'metadata',
-    metadataHeaders: ['From', 'To', 'Cc', 'Subject', 'Date'],
-  })
+  let threadRes: Awaited<ReturnType<typeof gmail.users.threads.get>>
+  try {
+    threadRes = await gmail.users.threads.get({
+      userId: 'me',
+      id: threadId,
+      format: 'metadata',
+      metadataHeaders: ['From', 'To', 'Cc', 'Subject', 'Date'],
+    })
+  } catch (e: unknown) {
+    // Thread was deleted or moved since the History API listed it — skip silently
+    const code = (e as { code?: number })?.code ?? (e as { status?: number })?.status
+    if (code === 404) return 'skipped'
+    throw e
+  }
 
   const thread = threadRes.data
   const messages = thread.messages || []
@@ -944,11 +952,18 @@ async function processThread(params: {
   if (existingThread?.threadHash === threadHash) return 'skipped'
 
   // Fetch full thread for classification
-  const fullThreadRes = await gmail.users.threads.get({
-    userId: 'me',
-    id: threadId,
-    format: 'full',
-  })
+  let fullThreadRes: Awaited<ReturnType<typeof gmail.users.threads.get>>
+  try {
+    fullThreadRes = await gmail.users.threads.get({
+      userId: 'me',
+      id: threadId,
+      format: 'full',
+    })
+  } catch (e: unknown) {
+    const code = (e as { code?: number })?.code ?? (e as { status?: number })?.status
+    if (code === 404) return 'skipped'
+    throw e
+  }
 
   const fullMessages = fullThreadRes.data.messages || []
   const participants = new Set<string>()
