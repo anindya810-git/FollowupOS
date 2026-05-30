@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { getAiConfig } from '@/lib/ai'
+import { resolveAiConfig } from '@/lib/ai'
 
 export async function POST() {
   const session = await auth()
@@ -53,7 +53,7 @@ Requirements:
 - Output ONLY the raw HTML — no markdown, no code fences, no explanation`
 
   try {
-    const config = await getAiConfig(session.user.id)
+    const config = await resolveAiConfig(session.user.id)
     let html = ''
 
     if (config.provider === 'gemini') {
