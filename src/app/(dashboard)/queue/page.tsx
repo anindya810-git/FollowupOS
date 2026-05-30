@@ -186,8 +186,28 @@ function QueueContent() {
       <Header title="All Items" onSync={fetchItems} />
       <main className="p-6">
 
-        {/* ── Status (action) tabs + search/filters ── */}
-        <div className="flex items-center justify-between gap-3 mb-3">
+        {/* ── Prominent search bar ── */}
+        <div className="relative mx-auto mb-4 w-full max-w-3xl">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[rgb(11_18_32/35%)]" />
+          <Input
+            placeholder="Search subjects, people, or thread content…"
+            className="h-12 w-full rounded-xl pl-11 pr-10 text-[15px] shadow-sm"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[rgb(11_18_32/35%)] hover:text-ink transition-colors"
+              aria-label="Clear search"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
+        {/* ── Status (action) tabs + advanced filters ── */}
+        <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
           <div className="flex items-center gap-0.5 p-1 bg-[rgb(11_18_32/5%)] rounded-xl border border-rule">
             {STATUS_TABS.map(tab => (
               <button
@@ -204,35 +224,23 @@ function QueueContent() {
             ))}
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[rgb(11_18_32/30%)]" />
-              <Input
-                placeholder="Search…"
-                className="pl-8 h-9 w-52 text-sm"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-              />
-            </div>
-
-            <button
-              onClick={() => setShowAdvanced(v => !v)}
-              className={`flex items-center gap-1.5 h-9 px-3 rounded-lg border text-sm font-medium transition-all ${
-                hasAdvancedFilters || showAdvanced
-                  ? 'border-action bg-[rgb(0_133_93/8%)] text-action'
-                  : 'border-rule bg-white text-[rgb(11_18_32/60%)] hover:text-ink hover:border-[rgb(11_18_32/25%)]'
-              }`}
-            >
-              <SlidersHorizontal className="h-3.5 w-3.5" />
-              Advanced Filters
-              {hasAdvancedFilters && (
-                <span className="h-4 w-4 rounded-full bg-action text-white text-[10px] font-bold flex items-center justify-center leading-none">
-                  {[priority, emailFrom, emailTo, actionFrom, actionTo, inboxParam, senderEmail, senderDomain, keywords, hasAttachment ? '1' : ''].filter(Boolean).length}
-                </span>
-              )}
-              {showAdvanced ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-            </button>
-          </div>
+          <button
+            onClick={() => setShowAdvanced(v => !v)}
+            className={`flex items-center gap-1.5 h-9 px-3 rounded-lg border text-sm font-medium transition-all shrink-0 ${
+              hasAdvancedFilters || showAdvanced
+                ? 'border-action bg-[rgb(0_133_93/8%)] text-action'
+                : 'border-rule bg-white text-[rgb(11_18_32/60%)] hover:text-ink hover:border-[rgb(11_18_32/25%)]'
+            }`}
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            Advanced Filters
+            {hasAdvancedFilters && (
+              <span className="h-4 w-4 rounded-full bg-action text-white text-[10px] font-bold flex items-center justify-center leading-none">
+                {[priority, emailFrom, emailTo, actionFrom, actionTo, inboxParam, senderEmail, senderDomain, keywords, hasAttachment ? '1' : ''].filter(Boolean).length}
+              </span>
+            )}
+            {showAdvanced ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+          </button>
         </div>
 
         {/* ── Category filter pills ── */}
