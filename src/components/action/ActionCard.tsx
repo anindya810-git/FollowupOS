@@ -113,7 +113,7 @@ export function ActionCard({ item, onStatusChange, onSelect, selected, onSelectC
       <div className={`p-4 ${selectable ? 'pl-10' : ''}`}>
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1.5">
+            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
               <span className="text-[11px] font-medium bg-[rgb(11_18_32/6%)] text-ink px-2 py-0.5 rounded">
                 {categoryLabel(item.category)}
               </span>
@@ -121,6 +121,11 @@ export function ActionCard({ item, onStatusChange, onSelect, selected, onSelectC
                 <span className="inline-flex items-center gap-1 text-[11px] font-medium text-ink">
                   <span className="w-1.5 h-1.5 rounded-full bg-action inline-block" />
                   High
+                </span>
+              )}
+              {item.emailThread?.emailAccount?.emailAddress && (
+                <span className="text-[10px] text-[rgb(11_18_32/40%)] bg-[rgb(11_18_32/4%)] border border-[rgb(11_18_32/8%)] px-1.5 py-0.5 rounded font-mono truncate max-w-[160px]" title={item.emailThread.emailAccount.emailAddress}>
+                  {item.emailThread.emailAccount.emailAddress}
                 </span>
               )}
             </div>

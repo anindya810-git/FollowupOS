@@ -50,6 +50,9 @@ export async function GET(request: NextRequest) {
             providerUrl: true,
             lastMessageAt: true,
             participants: true,
+            emailAccount: {
+              select: { provider: true, emailAddress: true },
+            },
             // Latest non-user message so the card can render link/attachment
             // chip counts without pulling the full thread.
             messages: {

@@ -1,5 +1,6 @@
 'use client'
 import { signOut } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { LogOut, RefreshCw, ChevronDown, RotateCcw, Loader2, Check } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
@@ -11,10 +12,12 @@ interface HeaderProps {
 }
 
 export function Header({ title, userEmail, onSync }: HeaderProps) {
+  const router = useRouter()
   const [syncing, setSyncing] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [scanBusy, setScanBusy] = useState(false)
   const [scanDone, setScanDone] = useState(false)
+  const [scanStarted, setScanStarted] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -51,6 +54,7 @@ export function Header({ title, userEmail, onSync }: HeaderProps) {
         )
       )
       setScanDone(true)
+      setScanStarted(true)
       setTimeout(() => setScanDone(false), 3000)
       onSync?.()
     } finally {
@@ -90,6 +94,15 @@ export function Header({ title, userEmail, onSync }: HeaderProps) {
     <div className="flex h-14 items-center justify-between border-b border-rule bg-paper-2 px-6">
       <h1 className="text-sm font-semibold text-ink tracking-tight">{title}</h1>
       <div className="flex items-center gap-2">
+        {/* View progress link — appears after a scan is triggered */}
+        {scanStarted && (
+          <button
+            onClick={() => router.push('/settings')}
+            className="text-[11px] text-action hover:underline flex items-center gap-1 animate-fade-up"
+          >
+            View progress →
+          </button>
+        )}
         {/* Split sync button */}
         <div ref={menuRef} className="relative flex items-center">
           <Button

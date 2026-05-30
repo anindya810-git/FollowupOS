@@ -249,7 +249,14 @@ export default function SettingsPage() {
 
           {/* Connected Inboxes */}
           <Card>
-            <CardHeader><CardTitle>Connected Inboxes</CardTitle></CardHeader>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Connected Inboxes</CardTitle>
+                {integrations.length > 0 && (
+                  <SyncAllButton integrations={integrations} onStarted={fetchIntegrations} />
+                )}
+              </div>
+            </CardHeader>
             <CardContent>
               {integrations.length === 0 ? (
                 <div className="flex items-center justify-between mb-4">
@@ -1723,6 +1730,85 @@ function ProfileCard() {
         )}
       </CardContent>
     </Card>
+  )
+}
+
+function SyncAllButton({ integrations, onStarted }: { integrations: EmailAccount[]; onStarted?: () => void }) {
+  const [busy, setBusy] = useState(false)
+  const [done, setDone] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [menuOpen])
+
+  const syncAll = async (forceFullRescan = false) => {
+    setMenuOpen(false)
+    if (forceFullRescan && !confirm(
+      `Reset scan history for all ${integrations.length} inboxes?\n\nRe-evaluates every email in the scan window from scratch.\n\nExisting action items are NOT deleted.`
+    )) return
+    setBusy(true); setDone(false)
+    try {
+      await Promise.all(integrations.map(a =>
+        fetch('/api/scan/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ account_id: a.id, ...(forceFullRescan ? { force_full_rescan: true } : {}) }),
+        })
+      ))
+      setDone(true)
+      setTimeout(() => setDone(false), 4000)
+      onStarted?.()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div ref={menuRef} className="relative flex items-center">
+      <Button variant="outline" size="sm" onClick={() => syncAll(false)} disabled={busy} className="rounded-r-none border-r-0 pr-2.5">
+        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : done ? <Check className="h-3.5 w-3.5 mr-1 text-done" /> : <RefreshCw className="h-3.5 w-3.5 mr-1" />}
+        {done ? 'Queued' : `Sync all (${integrations.length})`}
+      </Button>
+      <Button variant="outline" size="sm" onClick={() => setMenuOpen(o => !o)} disabled={busy} className="rounded-l-none px-1.5 border-l border-[rgb(11_18_32/15%)]">
+        <ChevronDown className="h-3.5 w-3.5" />
+      </Button>
+      {menuOpen && (
+        <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-[rgb(11_18_32/12%)] rounded-lg shadow-lg w-64 overflow-hidden">
+          <div className="px-3 pt-2.5 pb-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/35%)]">All inboxes</p>
+          </div>
+          <button onClick={() => syncAll(false)} className="w-full text-left px-3 py-2 hover:bg-paper-2 transition-colors">
+            <div className="flex items-center gap-2">
+              <RefreshCw className="h-3.5 w-3.5 text-[rgb(11_18_32/45%)]" />
+              <div>
+                <p className="text-sm font-medium text-ink">Sync all now</p>
+                <p className="text-[11px] text-[rgb(11_18_32/45%)]">Fetch only new emails across all inboxes</p>
+              </div>
+            </div>
+          </button>
+          <div className="mx-3 border-t border-[rgb(11_18_32/8%)]" />
+          <button onClick={() => syncAll(true)} className="w-full text-left px-3 py-2 hover:bg-amber-50 transition-colors">
+            <div className="flex items-center gap-2">
+              <RotateCcw className="h-3.5 w-3.5 text-amber-600" />
+              <div>
+                <p className="text-sm font-medium text-amber-700">Reset &amp; rescan all</p>
+                <p className="text-[11px] text-amber-600/70">Re-evaluate every email from scratch</p>
+              </div>
+            </div>
+          </button>
+          <div className="px-3 pb-2.5 pt-1">
+            <p className="text-[10px] text-[rgb(11_18_32/35%)]">Existing action items are not deleted</p>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 

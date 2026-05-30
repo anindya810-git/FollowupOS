@@ -90,7 +90,7 @@ export interface ActionItemWithThread {
     providerUrl: string | null
     lastMessageAt: Date | null
     participants: string | null
-    emailAccount?: { provider: string } | null
+    emailAccount?: { provider: string; emailAddress: string } | null
     messages?: Array<{
       senderEmail: string | null
       senderName: string | null
