@@ -1,7 +1,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import { categoryLabel, timeAgo } from '@/lib/utils'
-import { ExternalLink, Clock, Check, EyeOff, Calendar as CalendarIcon, AlertCircle, Archive, Link2, Paperclip, ChevronDown, RotateCcw } from 'lucide-react'
+import { ExternalLink, Clock, Check, EyeOff, Calendar as CalendarIcon, AlertCircle, Archive, Link2, Paperclip, ChevronDown, RotateCcw, Star } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { playChime } from '@/lib/sounds'
 import { SnoozeMenu } from './SnoozeMenu'
@@ -14,6 +14,7 @@ interface ActionCardProps {
   selected?: boolean
   onSelectChange?: (checked: boolean) => void
   meeting?: { subject: string; startTime: string }
+  isVip?: boolean
 }
 
 function formatMeetingTime(iso: string): string {
@@ -31,7 +32,7 @@ function formatMeetingTime(iso: string): string {
   return `Meeting ${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${time}`
 }
 
-export function ActionCard({ item, onStatusChange, onSelect, selected, onSelectChange, meeting }: ActionCardProps) {
+export function ActionCard({ item, onStatusChange, onSelect, selected, onSelectChange, meeting, isVip }: ActionCardProps) {
   const [loading, setLoading] = useState(false)
   const [ignoreOpen, setIgnoreOpen] = useState(false)
   const [ignoring, setIgnoring] = useState(false)
@@ -117,6 +118,11 @@ export function ActionCard({ item, onStatusChange, onSelect, selected, onSelectC
               <span className="text-[11px] font-medium bg-[rgb(11_18_32/6%)] text-ink px-2 py-0.5 rounded">
                 {categoryLabel(item.category)}
               </span>
+              {isVip && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded" title="A VIP contact — auto-detected from how often you engage">
+                  <Star className="h-2.5 w-2.5 fill-amber-500 text-amber-500" /> VIP
+                </span>
+              )}
               {item.priority === 'high' && (
                 <span className="inline-flex items-center gap-1 text-[11px] font-medium text-ink">
                   <span className="w-1.5 h-1.5 rounded-full bg-action inline-block" />

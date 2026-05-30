@@ -54,6 +54,22 @@ function QueueContent() {
   const [selectedItem, setSelectedItem] = useState<ActionItemWithThread | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [vipEmails, setVipEmails] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    fetch('/api/contacts/vip')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (Array.isArray(d?.emails)) setVipEmails(new Set(d.emails.map((e: string) => e.toLowerCase()))) })
+      .catch(() => {})
+  }, [])
+
+  // Determine whether an item's contact is an auto-detected VIP.
+  const itemIsVip = useCallback((it: ActionItemWithThread): boolean => {
+    if (vipEmails.size === 0) return false
+    const inbound = it.emailThread?.messages?.find(m => !m.isFromUser)?.senderEmail
+    const email = (inbound || it.ownerEmail || '').trim().toLowerCase()
+    return !!email && vipEmails.has(email)
+  }, [vipEmails])
 
   // Status (action) and category are independent filters.
   const [status, setStatus] = useState(searchParams.get('status') || 'open')
@@ -370,6 +386,7 @@ function QueueContent() {
                   onSelect={setSelectedItem}
                   selected={selectedIds.has(item.id)}
                   onSelectChange={(checked) => toggleSelected(item.id, checked)}
+                  isVip={itemIsVip(item)}
                 />
               ))}
             </div>
