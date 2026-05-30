@@ -1183,22 +1183,98 @@ function ScopeSelect({
   setScope: (v: string) => void
   inboxes: EmailAccount[]
 }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  const selectedLabel = scope === 'all'
+    ? 'All inboxes (default)'
+    : (inboxes.find(i => i.id === scope)?.emailAddress ?? 'Unknown inbox')
+
+  const initials = (email: string) => email.slice(0, 2).toUpperCase()
+
   return (
-    <div>
-      <label className="block text-[11px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/45%)] mb-1.5">
+    <div ref={ref} className="relative">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/45%)] mb-1.5">
         Applies to
-      </label>
-      <select
-        value={scope}
-        onChange={e => setScope(e.target.value)}
-        className="h-9 w-full max-w-sm rounded-md border border-rule bg-white px-2.5 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-action"
-        aria-label="Apply settings to"
+      </p>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="flex h-9 w-full max-w-sm items-center justify-between gap-2 rounded-lg border border-[rgb(11_18_32/12%)] bg-white px-3 text-sm text-ink shadow-sm hover:border-[rgb(11_18_32/22%)] hover:bg-[rgb(11_18_32/2%)] transition-colors focus:outline-none focus:ring-2 focus:ring-action/40"
+        aria-haspopup="listbox"
+        aria-expanded={open}
       >
-        <option value="all">All inboxes (default)</option>
-        {inboxes.map(i => (
-          <option key={i.id} value={i.id}>{i.emailAddress}</option>
-        ))}
-      </select>
+        <span className="flex items-center gap-2 min-w-0">
+          {scope === 'all' ? (
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[rgb(11_18_32/8%)]">
+              <svg className="h-3 w-3 text-[rgb(11_18_32/55%)]" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M3 8a5 5 0 1 1 10 0A5 5 0 0 1 3 8zm5-6.5A6.5 6.5 0 1 0 8 14.5 6.5 6.5 0 0 0 8 1.5zM5 8a3 3 0 1 1 6 0A3 3 0 0 1 5 8z" />
+              </svg>
+            </span>
+          ) : (
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-action text-[9px] font-bold text-white">
+              {initials(selectedLabel)}
+            </span>
+          )}
+          <span className="truncate">{selectedLabel}</span>
+        </span>
+        <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-[rgb(11_18_32/35%)] transition-transform duration-150 ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-full z-50 mt-1.5 w-full max-w-sm rounded-xl border border-[rgb(11_18_32/10%)] bg-white shadow-lg overflow-hidden">
+          <div className="px-2 py-1.5">
+            <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/35%)]">Applies to</p>
+            <button
+              type="button"
+              role="option"
+              aria-selected={scope === 'all'}
+              onClick={() => { setScope('all'); setOpen(false) }}
+              className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm transition-colors ${scope === 'all' ? 'bg-[rgb(11_18_32/6%)] text-ink font-medium' : 'text-[rgb(11_18_32/70%)] hover:bg-[rgb(11_18_32/4%)] hover:text-ink'}`}
+            >
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[rgb(11_18_32/8%)]">
+                <svg className="h-3.5 w-3.5 text-[rgb(11_18_32/55%)]" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M3 8a5 5 0 1 1 10 0A5 5 0 0 1 3 8zm5-6.5A6.5 6.5 0 1 0 8 14.5 6.5 6.5 0 0 0 8 1.5zM5 8a3 3 0 1 1 6 0A3 3 0 0 1 5 8z" />
+                </svg>
+              </span>
+              <span className="truncate">All inboxes</span>
+              {scope === 'all' && <Check className="ml-auto h-3.5 w-3.5 shrink-0 text-action" />}
+            </button>
+
+            {inboxes.length > 0 && (
+              <>
+                <div className="mx-2 my-1 border-t border-[rgb(11_18_32/6%)]" />
+                <p className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/35%)]">Specific inbox</p>
+                {inboxes.map(inbox => (
+                  <button
+                    key={inbox.id}
+                    type="button"
+                    role="option"
+                    aria-selected={scope === inbox.id}
+                    onClick={() => { setScope(inbox.id); setOpen(false) }}
+                    className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm transition-colors ${scope === inbox.id ? 'bg-[rgb(11_18_32/6%)] text-ink font-medium' : 'text-[rgb(11_18_32/70%)] hover:bg-[rgb(11_18_32/4%)] hover:text-ink'}`}
+                  >
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-action text-[9px] font-bold text-white">
+                      {initials(inbox.emailAddress)}
+                    </span>
+                    <span className="truncate">{inbox.emailAddress}</span>
+                    {scope === inbox.id && <Check className="ml-auto h-3.5 w-3.5 shrink-0 text-action" />}
+                  </button>
+                ))}
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
