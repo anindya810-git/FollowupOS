@@ -95,17 +95,20 @@ export default function SettingsPage() {
       return accounts
     })
 
-  // Optimistically flip the given inboxes into a "queued" scan state the instant
-  // the user clicks Sync. This makes the progress bar appear immediately (instead
-  // of waiting for the first poll) and reliably starts the 4 s polling loop even
-  // when the scan finishes or fails before the first server round-trip lands.
+  // Optimistically flip the given inboxes into a synthetic "starting" state the
+  // instant the user clicks Sync — shows the progress bar immediately without
+  // waiting for the server round-trip. We deliberately use the fake status
+  // 'starting' (not 'queued'/'running') so the button stays as "Sync now" (busy
+  // spinner) rather than switching to "Cancel scan" before the job actually exists
+  // in the database. Once the server responds and fetchIntegrations brings back real
+  // data, the real status takes over.
   const markScanStarting = (accountIds: string[]) =>
     setIntegrations(prev => prev.map(a =>
       accountIds.includes(a.id)
         ? {
             ...a,
             lastScan: {
-              status: 'queued',
+              status: 'starting',
               threadsFound: 0,
               threadsProcessed: 0,
               actionItemsCreated: 0,
@@ -125,13 +128,16 @@ export default function SettingsPage() {
     })
   }, [])
 
-  // Poll every 4 s while any account has a running/queued scan
+  // Poll every 2 s while any account has an active scan so progress and
+  // completion states appear quickly (fast scans can finish in < 4 s).
+  // Also treats the synthetic 'starting' status as active so polling begins
+  // the moment the user clicks Sync.
   useEffect(() => {
     const hasScanRunning = integrations.some(
-      a => a.lastScan?.status === 'running' || a.lastScan?.status === 'queued'
+      a => a.lastScan?.status === 'running' || a.lastScan?.status === 'queued' || a.lastScan?.status === 'starting'
     )
     if (!hasScanRunning) return
-    const id = setInterval(fetchIntegrations, 4000)
+    const id = setInterval(fetchIntegrations, 2000)
     return () => clearInterval(id)
   }, [integrations])
 
@@ -320,7 +326,7 @@ export default function SettingsPage() {
                       </div>
                       {account.lastScan && (() => {
                         const scan = account.lastScan
-                        const isRunning = scan.status === 'running' || scan.status === 'queued'
+                        const isRunning = scan.status === 'running' || scan.status === 'queued' || scan.status === 'starting'
                         const isCancelled = scan.status === 'failed' && scan.errorMessage === 'Cancelled by user.'
                         const hasError = scan.status === 'failed' && !!scan.errorMessage && !isCancelled
                         const hasFailed = isCancelled || hasError
