@@ -1730,14 +1730,15 @@ function InboxSyncButton({ accountId, scanning, onCancelled, onStarted }: { acco
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [resetting, setResetting] = useState(false)
 
-  const sync = async () => {
+  const sync = async (forceFullRescan = false) => {
     setBusy(true); setError(null); setDone(false)
     try {
       const res = await fetch('/api/scan/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ account_id: accountId }),
+        body: JSON.stringify({ account_id: accountId, ...(forceFullRescan ? { force_full_rescan: true } : {}) }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Sync failed')
@@ -1749,7 +1750,18 @@ function InboxSyncButton({ accountId, scanning, onCancelled, onStarted }: { acco
       setTimeout(() => setError(null), 4000)
     } finally {
       setBusy(false)
+      setResetting(false)
     }
+  }
+
+  const handleReset = () => {
+    if (!confirm(
+      'Reset scan history for this inbox?\n\n' +
+      'This clears all previously seen thread records so every email in the scan window is re-evaluated from scratch — including ones that were skipped on the previous scan.\n\n' +
+      'Existing action items are NOT deleted.'
+    )) return
+    setResetting(true)
+    sync(true)
   }
 
   const cancel = async () => {
@@ -1775,20 +1787,30 @@ function InboxSyncButton({ accountId, scanning, onCancelled, onStarted }: { acco
   }
 
   return (
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={sync}
-      disabled={busy}
-      title={error || (done ? 'Sync queued' : 'Run a fresh scan now')}
-    >
-      {busy ? (
-        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-      ) : done ? (
-        <><Check className="h-3.5 w-3.5 mr-1 text-done" /> Queued</>
-      ) : (
-        <><RefreshCw className="h-3.5 w-3.5 mr-1" /> Sync now</>
-      )}
-    </Button>
+    <div className="flex items-center gap-1.5">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => sync(false)}
+        disabled={busy}
+        title={error || (done ? 'Sync queued' : 'Run an incremental scan now (only new emails)')}
+      >
+        {busy && !resetting ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : done && !resetting ? (
+          <><Check className="h-3.5 w-3.5 mr-1 text-done" /> Queued</>
+        ) : (
+          <><RefreshCw className="h-3.5 w-3.5 mr-1" /> Sync now</>
+        )}
+      </Button>
+      <button
+        onClick={handleReset}
+        disabled={busy}
+        className="text-[11px] text-[rgb(11_18_32/40%)] hover:text-action disabled:opacity-40 underline underline-offset-2 decoration-dotted transition-colors"
+        title="Clear scan history and re-evaluate all emails in the scan window from scratch"
+      >
+        {resetting ? <Loader2 className="h-3 w-3 animate-spin inline" /> : 'Reset scan'}
+      </button>
+    </div>
   )
 }
