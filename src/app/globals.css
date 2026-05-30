@@ -101,12 +101,19 @@
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.6; }
 }
+/* Indeterminate progress: a partial bar that slides across the track. */
+@keyframes indeterminate-slide {
+  0%   { left: -40%; width: 40%; }
+  50%  { left: 25%;  width: 50%; }
+  100% { left: 100%; width: 40%; }
+}
 
 .animate-fade-up    { animation: fade-up 0.35s cubic-bezier(.16,1,.3,1) both; }
 .animate-fade-in    { animation: fade-in 0.25s ease both; }
 .animate-slide-right { animation: slide-in-right 0.3s cubic-bezier(.16,1,.3,1) both; }
 .animate-count      { animation: count-up 0.4s cubic-bezier(.16,1,.3,1) both; }
 .animate-pulse-soft { animation: pulse-soft 2s ease-in-out infinite; }
+.animate-indeterminate { position: absolute; top: 0; bottom: 0; border-radius: 9999px; animation: indeterminate-slide 1.3s ease-in-out infinite; }
 
 /* Stagger children */
 .stagger > *:nth-child(1) { animation-delay: 0ms; }

@@ -123,6 +123,32 @@ function ScanProgress() {
 
   const isPaid = scanInfo && scanInfo.planType !== 'free'
 
+  // Per-step fill percentage. Completed steps are full; steps after the current
+  // one are empty; the active step shows real progress where we have it
+  // (the "Detecting follow-ups" step is driven by processed/found threads) and
+  // an indeterminate sliding bar otherwise.
+  const stepFill = (i: number): number | null => {
+    if (status === 'completed') return 100
+    if (i < currentStep) return 100
+    if (i > currentStep) return 0
+    // Active step. The detection step (index 3) maps to real thread progress.
+    if (i === 3 && progress.found > 0) {
+      return Math.min(100, Math.round((progress.processed / progress.found) * 100))
+    }
+    return null // indeterminate
+  }
+
+  // Overall progress across all 5 steps. An indeterminate active step counts
+  // as half-done so the top bar always advances smoothly.
+  const overallPct = status === 'completed'
+    ? 100
+    : Math.round(
+        STEPS.reduce((sum, _, i) => {
+          const f = stepFill(i)
+          return sum + (f === null ? 50 : f)
+        }, 0) / STEPS.length,
+      )
+
   return (
     <div className="min-h-screen bg-paper flex items-center justify-center p-4">
       <div className="max-w-md w-full text-center">
@@ -165,25 +191,70 @@ function ScanProgress() {
             : 'Scanning your email...'}
         </p>
 
+        {/* Overall progress bar */}
+        {!error && (
+          <div className="mb-5">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[11px] font-medium text-[rgb(11_18_32/45%)]" style={{ fontFamily: 'var(--font-mono)' }}>
+                {status === 'completed' ? 'Complete' : STEPS[Math.min(currentStep, STEPS.length - 1)]}
+              </span>
+              <span className="text-[11px] font-semibold text-action" style={{ fontFamily: 'var(--font-mono)' }}>
+                {overallPct}%
+              </span>
+            </div>
+            <div className="h-2 w-full rounded-full bg-[rgb(11_18_32/8%)] overflow-hidden">
+              <div
+                className="h-full rounded-full bg-action transition-all duration-500 ease-out"
+                style={{ width: `${overallPct}%` }}
+              />
+            </div>
+          </div>
+        )}
+
         {error ? (
           <div className="text-action bg-[rgb(242_90_60/8%)] rounded-lg p-4 border border-[rgb(242_90_60/20%)]">{error}</div>
         ) : (
           <div className="bg-white rounded-xl border border-rule p-6">
             <div className="space-y-4">
-              {STEPS.map((step, i) => (
-                <div key={step} className="flex items-center gap-3">
-                  {i < currentStep ? (
-                    <CheckCircle className="h-5 w-5 text-action flex-shrink-0" />
-                  ) : i === currentStep ? (
-                    <Loader2 className="h-5 w-5 text-action animate-spin flex-shrink-0" />
-                  ) : (
-                    <div className="h-5 w-5 rounded-full border-2 border-rule flex-shrink-0" />
-                  )}
-                  <span className={`text-sm ${i <= currentStep ? 'text-ink font-medium' : 'text-[rgb(11_18_32/30%)]'}`}>
-                    {step}
-                  </span>
-                </div>
-              ))}
+              {STEPS.map((step, i) => {
+                const fill = stepFill(i)
+                const isDone = status === 'completed' || i < currentStep
+                const isActive = !isDone && i === currentStep
+                return (
+                  <div key={step} className="flex items-center gap-3">
+                    {isDone ? (
+                      <CheckCircle className="h-5 w-5 text-action flex-shrink-0" />
+                    ) : isActive ? (
+                      <Loader2 className="h-5 w-5 text-action animate-spin flex-shrink-0" />
+                    ) : (
+                      <div className="h-5 w-5 rounded-full border-2 border-rule flex-shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={`text-sm ${isDone || isActive ? 'text-ink font-medium' : 'text-[rgb(11_18_32/30%)]'}`}>
+                          {step}
+                        </span>
+                        {isActive && fill !== null && (
+                          <span className="text-[11px] font-semibold text-action" style={{ fontFamily: 'var(--font-mono)' }}>
+                            {fill}%
+                          </span>
+                        )}
+                      </div>
+                      {/* Per-step progress track */}
+                      <div className="relative mt-1.5 h-1 w-full rounded-full bg-[rgb(11_18_32/6%)] overflow-hidden">
+                        {isActive && fill === null ? (
+                          <div className="animate-indeterminate bg-action/70" />
+                        ) : (
+                          <div
+                            className="h-full rounded-full bg-action transition-all duration-500 ease-out"
+                            style={{ width: `${fill ?? 0}%` }}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </div>
         )}
