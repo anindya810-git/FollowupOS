@@ -8,6 +8,7 @@ import { ActionDrawer } from '@/components/action/ActionDrawer'
 import { SnoozeMenu } from '@/components/action/SnoozeMenu'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { FilterSelect, type FilterOption } from '@/components/ui/filter-select'
 import { Search, X, SlidersHorizontal, ChevronDown, ChevronUp } from 'lucide-react'
 import type { ActionItemWithThread } from '@/types'
 
@@ -234,29 +235,35 @@ function QueueContent() {
               {/* Row 1: Priority + Inbox */}
               <div className="col-span-2 sm:col-span-1">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)] mb-1.5">Priority</p>
-                <select
+                <FilterSelect
                   value={priority}
-                  onChange={e => setPriority(e.target.value)}
-                  className={`${inputClass} w-full`}
-                  aria-label="Priority filter"
-                >
-                  {PRIORITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
+                  onChange={setPriority}
+                  options={[
+                    { value: '', label: 'All priorities' },
+                    { value: 'high', label: 'High', dot: '#ef4444' },
+                    { value: 'medium', label: 'Medium', dot: '#f59e0b' },
+                    { value: 'low', label: 'Low', dot: '#6366f1' },
+                  ]}
+                  className="w-full"
+                />
               </div>
 
               <div className="col-span-2 sm:col-span-1">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)] mb-1.5">Inbox</p>
-                <select
+                <FilterSelect
                   value={inboxId}
-                  onChange={e => setInboxId(e.target.value)}
-                  className={`${inputClass} w-full`}
-                  aria-label="Inbox filter"
-                >
-                  <option value="">All inboxes</option>
-                  {inboxes.map(acc => (
-                    <option key={acc.id} value={acc.id}>{acc.emailAddress}</option>
-                  ))}
-                </select>
+                  onChange={setInboxId}
+                  options={[
+                    { value: '', label: 'All inboxes' },
+                    ...inboxes.map((acc): FilterOption => ({
+                      value: acc.id,
+                      label: acc.emailAddress,
+                      initials: acc.emailAddress.slice(0, 2).toUpperCase(),
+                      avatarColor: '#6366f1',
+                    })),
+                  ]}
+                  className="w-full"
+                />
               </div>
 
               {/* Row 2: From User + From Domain */}

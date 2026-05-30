@@ -3,9 +3,10 @@ import { useEffect, useState, Suspense, type ReactNode } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Header } from '@/components/layout/Header'
 import { Button } from '@/components/ui/button'
-import { Check, ExternalLink, Loader2, Video, Bell, ChevronDown } from 'lucide-react'
+import { Check, ExternalLink, Loader2, Video, Bell, Calendar, ChevronDown } from 'lucide-react'
 import {
   GoogleMeetLogo, MicrosoftTeamsLogo, ZoomLogo, SlackLogo, WhatsAppLogo,
+  GoogleCalendarLogo, OutlookCalendarLogo, AppleCalendarLogo,
 } from '@/components/icons/BrandLogos'
 
 interface InboxStatus { hasGmail: boolean; hasOutlook: boolean }
@@ -250,8 +251,8 @@ function ConnectorsInner() {
       <Header title="Connectors" />
       <main className="p-6 max-w-3xl">
         <p className="text-sm text-[rgb(11_18_32/55%)] mb-6 max-w-2xl">
-          Wire up video conferencing, chat notifications, and other tools. When enabled, Pendingly
-          can schedule meetings and push your daily digest to the channels you use.
+          Wire up video conferencing, calendars, chat notifications, and other tools. When enabled, Pendingly
+          can schedule meetings, create calendar events, and push your daily digest to the channels you use.
         </p>
 
         {connected === 'zoom' && (
@@ -295,6 +296,34 @@ function ConnectorsInner() {
                 ? `Connected as ${zoom.accountEmail || 'your Zoom account'}. Meetings are created via your account.`
                 : 'Schedule Zoom meetings directly from action items. Requires a Zoom account.'}
               state={zoomState}
+            />
+          </div>
+        </section>
+
+        {/* ── Calendar ── */}
+        <section className="rounded-2xl border border-rule bg-white overflow-hidden mb-6">
+          <div className="flex items-center gap-2 px-5 py-3.5 border-b border-rule bg-paper-2">
+            <Calendar className="h-4 w-4 text-[rgb(11_18_32/45%)]" />
+            <h2 className="text-[13px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/55%)]">Calendar</h2>
+          </div>
+          <div className="divide-y divide-rule">
+            <ConnectorRow
+              logo={<GoogleCalendarLogo className="h-7 w-7" />}
+              name="Google Calendar"
+              description="Create calendar events and set reminders directly from action items. Uses your connected Gmail account."
+              state={inbox == null ? { kind: 'loading' } : inbox.hasGmail ? { kind: 'available' } : { kind: 'needs', label: 'Connect Gmail first' }}
+            />
+            <ConnectorRow
+              logo={<OutlookCalendarLogo className="h-7 w-7" />}
+              name="Outlook Calendar"
+              description="Create calendar events from action items using your connected Outlook account."
+              state={inbox == null ? { kind: 'loading' } : inbox.hasOutlook ? { kind: 'available' } : { kind: 'needs', label: 'Connect Outlook first' }}
+            />
+            <ConnectorRow
+              logo={<AppleCalendarLogo className="h-7 w-7" />}
+              name="Apple Calendar"
+              description="iCloud Calendar integration via CalDAV. Coming soon — subscribe to the roadmap for updates."
+              state={{ kind: 'needs', label: 'Coming soon' }}
             />
           </div>
         </section>
