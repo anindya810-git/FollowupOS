@@ -1864,6 +1864,3 @@ function InboxSyncButton({ accountId, scanning, onCancelled, onStarted }: { acco
     </div>
   )
 }
-    </div>
-  )
-}
