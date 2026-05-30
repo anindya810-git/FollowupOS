@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
+// Never cache — scan status/progress must always be read fresh so the
+// settings page polling reflects live scan state.
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 export async function GET() {
   const session = await auth()
   if (!session?.user?.id) {

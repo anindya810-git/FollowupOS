@@ -87,13 +87,20 @@ export default function SettingsPage() {
   const [generatingSig, setGeneratingSig] = useState(false)
   const [sigGenError, setSigGenError] = useState<string | null>(null)
 
-  const fetchIntegrations = () =>
-    fetch('/api/integrations').then(r => r.json()).then(i => {
+  const fetchIntegrations = async () => {
+    try {
+      const r = await fetch('/api/integrations', { cache: 'no-store' })
+      if (!r.ok) return []
+      const i = await r.json()
       const accounts = i.accounts || []
       setIntegrations(accounts)
       try { localStorage.setItem('pendingly_integrations', JSON.stringify(accounts)) } catch {}
       return accounts
-    })
+    } catch {
+      // Network/parse error — don't strand the UI; the next poll will retry.
+      return []
+    }
+  }
 
   // Optimistically flip the given inboxes into a synthetic "starting" state the
   // instant the user clicks Sync — shows the progress bar immediately without

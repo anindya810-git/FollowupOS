@@ -36,13 +36,6 @@ const CATEGORY_TABS = [
   { value: 'overdue_commitment', label: 'Overdue' },
 ]
 
-const PRIORITY_OPTIONS = [
-  { value: '', label: 'All priorities' },
-  { value: 'high', label: 'High' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'low', label: 'Low' },
-]
-
 const inputClass = 'h-8 rounded-md border border-rule bg-white px-2.5 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-action'
 
 interface EmailAccount {
