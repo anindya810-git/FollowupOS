@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse, after } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { safeLog } from '@/lib/safe-log'
@@ -96,12 +96,33 @@ export async function POST(request: NextRequest) {
     })
   }
 
-  // Schedule scan to run after the response is sent.
-  after(triggerScan(scanJob.id, session.user.id, account.id, scan_window_days, max_threads))
+  // Run the scan inline (awaited) rather than via `after()`.
+  //
+  // `after()` schedules work to run *after the response is flushed*, but on
+  // serverless platforms the function instance can be frozen/reclaimed the
+  // moment the response returns — so the background callback may never execute
+  // and the job sits at "queued" forever. Running inline guarantees the scan
+  // actually runs and the response carries the final status.
+  //
+  // The scan job row was already committed above, and the scanner updates its
+  // progress counters in the DB per batch, so the client's 2 s polling shows
+  // live progress (from concurrent /api/integrations requests) while this
+  // request is still in flight. maxDuration=300 gives the scan room to finish.
+  await triggerScan(scanJob.id, session.user.id, account.id, scan_window_days, max_threads)
+
+  // Re-read the job so the caller gets the real terminal status/diagnostics.
+  const finished = await prisma.scanJob.findUnique({
+    where: { id: scanJob.id },
+    select: { status: true, threadsFound: true, threadsProcessed: true, actionItemsCreated: true, errorMessage: true },
+  })
 
   return NextResponse.json({
     job_id: scanJob.id,
-    status: 'queued',
+    status: finished?.status ?? 'queued',
+    threads_found: finished?.threadsFound ?? 0,
+    threads_processed: finished?.threadsProcessed ?? 0,
+    action_items_created: finished?.actionItemsCreated ?? 0,
+    error_message: finished?.errorMessage ?? null,
     scan_window_days,
     max_threads: max_threads ?? null,
     is_first_scan: isFirstScan,
