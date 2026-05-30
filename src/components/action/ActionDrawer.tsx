@@ -70,6 +70,7 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
   const [scheduling, setScheduling] = useState(false)
   const [scheduleOpen, setScheduleOpen] = useState(false)
   const [ignoring, setIgnoring] = useState(false)
+  const [connectedAccounts, setConnectedAccounts] = useState<Array<{ provider: string; emailAddress: string }>>([])
   const [ignoreFooterOpen, setIgnoreFooterOpen] = useState(false)
   const ignoreFooterRef = useRef<HTMLDivElement>(null)
   const [customWhen, setCustomWhen] = useState(() => {
@@ -93,17 +94,18 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
   }, [item?.id])
 
   useEffect(() => {
-    fetch('/api/settings')
-      .then(r => r.ok ? r.json() : null)
-      .then(d => {
-        setSignatureHtml(d?.appSettings?.signatureHtml ?? null)
-        setDefaultMeetingProvider(d?.appSettings?.defaultMeetingProvider ?? 'none')
-      })
-      .catch(() => {})
-    fetch('/api/integrations/zoom/status')
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { setZoomConnected(!!d?.connected) })
-      .catch(() => {})
+    Promise.all([
+      fetch('/api/settings').then(r => r.ok ? r.json() : null),
+      fetch('/api/integrations').then(r => r.ok ? r.json() : null),
+      fetch('/api/integrations/zoom/status').then(r => r.ok ? r.json() : null),
+    ]).then(([settings, integrations, zoom]) => {
+      setSignatureHtml(settings?.appSettings?.signatureHtml ?? null)
+      setDefaultMeetingProvider(settings?.appSettings?.defaultMeetingProvider ?? 'none')
+      const accounts: Array<{ provider: string; emailAddress: string; connectedStatus: string }> =
+        integrations?.accounts ?? []
+      setConnectedAccounts(accounts.filter(a => a.connectedStatus === 'connected'))
+      setZoomConnected(!!zoom?.connected)
+    }).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -373,20 +375,21 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
               actionItemId={item.id}
               defaultTitle={active.title || active.emailThread?.subject || 'Follow-up'}
               defaultDescription={active.suggestedAction || active.reason || ''}
-              inboxProvider={active.emailThread?.emailAccount?.provider || ''}
+              availableCalendars={connectedAccounts.filter(a => a.provider === 'gmail' || a.provider === 'outlook') as Array<{ provider: 'gmail' | 'outlook'; emailAddress: string }>}
+              defaultAccountProvider={active.emailThread?.emailAccount?.provider || ''}
               defaultMeetingProvider={defaultMeetingProvider}
               zoomConnected={zoomConnected}
               onCreated={(r) => { setCalendarResult(r); setCalendarOpen(false) }}
               onClose={() => setCalendarOpen(false)}
             />
-          ) : (
+          ) : connectedAccounts.some(a => a.provider === 'gmail' || a.provider === 'outlook') ? (
             <button
               onClick={() => setCalendarOpen(true)}
               className="w-full text-xs text-ink border border-rule rounded-lg px-4 py-2.5 hover:bg-paper-2 transition-colors flex items-center justify-center gap-2"
             >
               <CalendarPlus className="h-3.5 w-3.5" /> Add to calendar or create task
             </button>
-          )}
+          ) : null}
 
           {/* Links & attachments aggregated across thread */}
           <ThreadResources

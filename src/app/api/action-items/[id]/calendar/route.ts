@@ -25,6 +25,7 @@ interface CalendarRequestBody {
   reminderMinutes?: number
   meetingProvider?: 'none' | 'meet' | 'teams' | 'zoom'
   attendees?: string[]
+  calendarProvider?: 'gmail' | 'outlook'
 }
 
 export async function POST(
@@ -49,7 +50,16 @@ export async function POST(
   })
   if (!item) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  const account = item.emailThread?.emailAccount
+  // If the client specifies a calendarProvider (e.g. user picked a different calendar
+  // from the "Create in" selector), look up that account. Otherwise fall back to the
+  // account linked to this action item's email thread.
+  let account = item.emailThread?.emailAccount ?? null
+  if (body.calendarProvider && body.calendarProvider !== account?.provider) {
+    const override = await prisma.emailAccount.findFirst({
+      where: { userId: session.user.id, provider: body.calendarProvider, connectedStatus: 'connected' },
+    })
+    if (override) account = override
+  }
   if (!account) {
     return NextResponse.json({ error: 'No email account linked to this item' }, { status: 400 })
   }

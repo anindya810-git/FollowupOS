@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { FilterSelect } from '@/components/ui/filter-select'
 import { Select } from '@/components/ui/select'
 import { CalendarPlus, Loader2, Check, X } from 'lucide-react'
 
@@ -9,7 +10,6 @@ function toLocalInput(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 function isoFromLocal(local: string): string {
-  // local is "YYYY-MM-DDTHH:mm" in user's browser timezone
   return new Date(local).toISOString()
 }
 
@@ -17,24 +17,36 @@ interface CalendarFormProps {
   actionItemId: string
   defaultTitle: string
   defaultDescription: string
-  inboxProvider: 'gmail' | 'outlook' | string
+  availableCalendars: Array<{ provider: 'gmail' | 'outlook'; emailAddress: string }>
+  defaultAccountProvider: string
   defaultMeetingProvider: 'none' | 'meet' | 'teams' | 'zoom'
   zoomConnected: boolean
   onCreated: (result: { kind: 'event' | 'task'; link?: string; meetingLink?: string }) => void
   onClose: () => void
 }
 
+function calendarLabel(provider: 'gmail' | 'outlook') {
+  return provider === 'gmail' ? 'Google Calendar' : 'Outlook Calendar'
+}
+
 export function CalendarForm({
   actionItemId,
   defaultTitle,
   defaultDescription,
-  inboxProvider,
+  availableCalendars,
+  defaultAccountProvider,
   defaultMeetingProvider,
   zoomConnected,
   onCreated,
   onClose,
 }: CalendarFormProps) {
+  const initialProvider: 'gmail' | 'outlook' =
+    availableCalendars.find(c => c.provider === defaultAccountProvider)?.provider
+    ?? availableCalendars[0]?.provider
+    ?? 'gmail'
+
   const [kind, setKind] = useState<'event' | 'task'>('event')
+  const [selectedProvider, setSelectedProvider] = useState<'gmail' | 'outlook'>(initialProvider)
   const [title, setTitle] = useState(defaultTitle)
   const [description, setDescription] = useState(defaultDescription)
   const [start, setStart] = useState(() => {
@@ -44,11 +56,22 @@ export function CalendarForm({
   })
   const [durationMin, setDurationMin] = useState(30)
   const [reminderMin, setReminderMin] = useState(10)
-  const [meetingProvider, setMeetingProvider] = useState<'none' | 'meet' | 'teams' | 'zoom'>(
-    defaultMeetingProvider,
-  )
+  const [meetingProvider, setMeetingProvider] = useState<'none' | 'meet' | 'teams' | 'zoom'>(() => {
+    // Only keep default if it's valid for the initial calendar
+    if (defaultMeetingProvider === 'meet' && initialProvider === 'gmail') return 'meet'
+    if (defaultMeetingProvider === 'teams' && initialProvider === 'outlook') return 'teams'
+    if (defaultMeetingProvider === 'zoom' && zoomConnected) return 'zoom'
+    return 'none'
+  })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // When the user switches calendar, reset meeting provider if it's no longer valid
+  const handleProviderChange = (p: 'gmail' | 'outlook') => {
+    setSelectedProvider(p)
+    if (meetingProvider === 'meet' && p !== 'gmail') setMeetingProvider('none')
+    if (meetingProvider === 'teams' && p !== 'outlook') setMeetingProvider('none')
+  }
 
   const submit = async () => {
     setBusy(true); setError(null)
@@ -66,6 +89,7 @@ export function CalendarForm({
           endIso,
           reminderMinutes: reminderMin,
           meetingProvider: kind === 'event' ? meetingProvider : 'none',
+          calendarProvider: selectedProvider,
         }),
       })
       const data = await res.json()
@@ -82,13 +106,18 @@ export function CalendarForm({
     }
   }
 
-  // Conferencing options gated by inbox + zoom connection
-  const meetingOptions: Array<{ value: string; label: string; disabled?: boolean }> = [
+  // Only show meeting options that are valid for the selected calendar
+  const meetingOptions: Array<{ value: string; label: string }> = [
     { value: 'none', label: 'No meeting link' },
-    { value: 'meet', label: 'Google Meet', disabled: inboxProvider !== 'gmail' },
-    { value: 'teams', label: 'Microsoft Teams', disabled: inboxProvider !== 'outlook' },
-    { value: 'zoom', label: zoomConnected ? 'Zoom' : 'Zoom (not connected)', disabled: !zoomConnected },
+    ...(selectedProvider === 'gmail' ? [{ value: 'meet', label: 'Google Meet' }] : []),
+    ...(selectedProvider === 'outlook' ? [{ value: 'teams', label: 'Microsoft Teams' }] : []),
+    ...(zoomConnected ? [{ value: 'zoom', label: 'Zoom' }] : []),
   ]
+
+  const calendarOptions = availableCalendars.map(c => ({
+    value: c.provider,
+    label: `${calendarLabel(c.provider)} (${c.emailAddress})`,
+  }))
 
   return (
     <div className="border border-rule rounded-lg overflow-hidden bg-paper-2">
@@ -120,6 +149,18 @@ export function CalendarForm({
             </button>
           ))}
         </div>
+
+        {/* Calendar selector — only shown when > 1 calendar is connected */}
+        {calendarOptions.length > 1 && (
+          <div>
+            <label className="block text-[11px] font-medium text-[rgb(11_18_32/55%)] mb-1">Create in</label>
+            <FilterSelect
+              value={selectedProvider}
+              onChange={v => handleProviderChange(v as 'gmail' | 'outlook')}
+              options={calendarOptions}
+            />
+          </div>
+        )}
 
         <div>
           <label className="block text-[11px] font-medium text-[rgb(11_18_32/55%)] mb-1">Title</label>
@@ -170,18 +211,14 @@ export function CalendarForm({
           </div>
         )}
 
-        {kind === 'event' && (
+        {kind === 'event' && meetingOptions.length > 1 && (
           <div>
             <label className="block text-[11px] font-medium text-[rgb(11_18_32/55%)] mb-1">Meeting link</label>
-            <Select
+            <FilterSelect
               value={meetingProvider}
-              onChange={e => setMeetingProvider(e.target.value as typeof meetingProvider)}
-              className="text-sm h-8"
-            >
-              {meetingOptions.map(o => (
-                <option key={o.value} value={o.value} disabled={o.disabled}>{o.label}</option>
-              ))}
-            </Select>
+              onChange={v => setMeetingProvider(v as typeof meetingProvider)}
+              options={meetingOptions}
+            />
           </div>
         )}
 
