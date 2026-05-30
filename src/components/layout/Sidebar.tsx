@@ -7,17 +7,12 @@ import { OpenInboxButton } from '@/components/layout/OpenInboxButton'
 import {
   LayoutDashboard,
   ListTodo,
-  Clock,
-  MessageSquare,
-  AlertTriangle,
-  Archive,
   Settings,
   BarChart2,
   HelpCircle,
   Gift,
   Zap,
   CreditCard,
-  CheckCircle2,
 } from 'lucide-react'
 
 const navGroups = [
@@ -26,7 +21,6 @@ const navGroups = [
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { href: '/queue', label: 'All Items', icon: ListTodo },
-      { href: '/queue?status=done', label: 'Completed', icon: CheckCircle2 },
       { href: '/analytics', label: 'Analytics', icon: BarChart2 },
     ],
   },
@@ -36,15 +30,6 @@ const navGroups = [
       { href: '/referral', label: 'Referral', icon: Gift },
       { href: '/payments', label: 'Payments', icon: CreditCard },
       { href: '/upgrade', label: 'Upgrade', icon: Zap },
-    ],
-  },
-  {
-    label: 'Categories',
-    items: [
-      { href: '/queue?category=reply_needed', label: 'Reply Needed', icon: MessageSquare },
-      { href: '/queue?category=waiting_on_them', label: 'Waiting on Them', icon: Clock },
-      { href: '/queue?category=overdue_commitment', label: 'Overdue', icon: AlertTriangle },
-      { href: '/queue?status=snoozed', label: 'Snoozed', icon: Archive },
     ],
   },
 ]

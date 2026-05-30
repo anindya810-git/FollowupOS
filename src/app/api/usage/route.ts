@@ -1,9 +1,9 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getUserAiUsage } from '@/lib/plan'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const session = await auth()
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -16,7 +16,19 @@ export async function GET() {
   const dayStart = new Date(now)
   dayStart.setHours(0, 0, 0, 0)
 
-  const [usage, monthlyRows, todayRows] = await Promise.all([
+  // Selectable time window for the breakdown tables. Defaults to this month.
+  const range = request.nextUrl.searchParams.get('range') || 'month'
+  let rangeStart: Date | null
+  switch (range) {
+    case 'today': rangeStart = dayStart; break
+    case '7d':    rangeStart = new Date(now.getTime() - 7 * 86400_000); break
+    case '30d':   rangeStart = new Date(now.getTime() - 30 * 86400_000); break
+    case 'all':   rangeStart = null; break
+    case 'month':
+    default:      rangeStart = monthStart; break
+  }
+
+  const [usage, monthlyRows, todayRows, rangeRows] = await Promise.all([
     getUserAiUsage(session.user.id),
 
     // Monthly: group by callType + modelProvider + usedDefaultKey
@@ -30,6 +42,16 @@ export async function GET() {
     prisma.aiClassificationLog.groupBy({
       by: ['callType', 'modelProvider', 'usedDefaultKey'],
       where: { userId: session.user.id, createdAt: { gte: dayStart } },
+      _count: { _all: true },
+    }),
+
+    // Selected range: group by callType + modelProvider + usedDefaultKey
+    prisma.aiClassificationLog.groupBy({
+      by: ['callType', 'modelProvider', 'usedDefaultKey'],
+      where: {
+        userId: session.user.id,
+        ...(rangeStart ? { createdAt: { gte: rangeStart } } : {}),
+      },
       _count: { _all: true },
     }),
   ])
@@ -68,6 +90,10 @@ export async function GET() {
   const todayByProvider = buildByProvider(todayRows)
   const todayTotal    = todayRows.reduce((sum, r) => sum + r._count._all, 0)
 
+  const rangeByType     = buildByType(rangeRows)
+  const rangeByProvider = buildByProvider(rangeRows)
+  const rangeTotal      = rangeRows.reduce((sum, r) => sum + r._count._all, 0)
+
   return NextResponse.json({
     ...usage,
     byType,
@@ -75,5 +101,9 @@ export async function GET() {
     todayTotal,
     todayByType,
     todayByProvider,
+    range,
+    rangeTotal,
+    rangeByType,
+    rangeByProvider,
   })
 }

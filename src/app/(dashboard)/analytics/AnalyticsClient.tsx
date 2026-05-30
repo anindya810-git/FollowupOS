@@ -6,7 +6,7 @@ import { LineChart } from '@/components/charts/LineChart'
 import { BarChart } from '@/components/charts/BarChart'
 import { DonutChart } from '@/components/charts/DonutChart'
 import { LogoMark } from '@/components/ui/Logo'
-import { ExternalLink, Share2, Copy, Check } from 'lucide-react'
+import { ExternalLink, Copy, Check, Info } from 'lucide-react'
 
 // Inline brand SVGs (lucide-react doesn't ship these)
 const IconX = () => (
@@ -65,13 +65,25 @@ const CATEGORY_COLORS: Record<string, string> = {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────
-function Eyebrow({ children }: { children: React.ReactNode }) {
+function InfoTip({ text }: { text: string }) {
+  return (
+    <span className="relative inline-flex group align-middle normal-case tracking-normal">
+      <Info className="h-3 w-3 text-mute cursor-help" />
+      <span className="pointer-events-none absolute left-1/2 bottom-full mb-1.5 -translate-x-1/2 w-56 rounded-md bg-ink text-white text-[11px] font-normal leading-snug px-2.5 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity z-20 shadow-lg">
+        {text}
+      </span>
+    </span>
+  )
+}
+
+function Eyebrow({ children, info }: { children: React.ReactNode; info?: string }) {
   return (
     <p
-      className="text-[11px] font-medium tracking-[0.14em] uppercase text-mute mb-4"
+      className="text-[11px] font-medium tracking-[0.14em] uppercase text-mute mb-4 flex items-center gap-1.5"
       style={{ fontFamily: 'var(--font-mono)' }}
     >
       {children}
+      {info && <InfoTip text={info} />}
     </p>
   )
 }
@@ -388,10 +400,11 @@ export function AnalyticsClient({ userEmail }: { userEmail: string }) {
                   {/* Health Score */}
                   <div className="bg-card border border-rule rounded-lg p-6">
                     <p
-                      className="text-[11px] font-medium tracking-[0.14em] uppercase text-mute mb-3"
+                      className="text-[11px] font-medium tracking-[0.14em] uppercase text-mute mb-3 flex items-center gap-1.5"
                       style={{ fontFamily: 'var(--font-mono)' }}
                     >
                       Inbox Health
+                      <InfoTip text="Starts at 100. Each open item −2 (max −40), each overdue item −5 (max −30), each item resolved this week +2 (max +20). 100 means nothing is pending." />
                     </p>
                     <p
                       className={`text-4xl font-semibold tracking-tight ${getHealthColor(summary?.healthScore ?? 100)}`}
@@ -419,6 +432,7 @@ export function AnalyticsClient({ userEmail }: { userEmail: string }) {
                     label="Avg TAT"
                     value={summary ? `${summary.avgTatDays}d` : '—'}
                     sublabel="avg days to resolve"
+                    info="Turn-around time: the average number of days between an item being detected and you marking it done. Averaged across all completed items. 0d means same-day resolution."
                   />
 
                   <StatCard
@@ -430,6 +444,7 @@ export function AnalyticsClient({ userEmail }: { userEmail: string }) {
                         ? { value: summary.weekOverWeekChange, label: 'vs last week' }
                         : undefined
                     }
+                    info="Items marked done in the last 7 days. The trend compares this with the 7 days before that."
                   />
 
                   <StatCard
@@ -437,6 +452,7 @@ export function AnalyticsClient({ userEmail }: { userEmail: string }) {
                     value={summary?.overdueCount ?? '—'}
                     sublabel="items past due date"
                     accent={!!(summary && summary.overdueCount > 0)}
+                    info="Open items whose due date is earlier than today. These need attention first."
                   />
                 </>
               )}
@@ -445,7 +461,7 @@ export function AnalyticsClient({ userEmail }: { userEmail: string }) {
             {/* Row 2: Volume Trend + Category Mix */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
               <div className="bg-card border border-rule rounded-lg p-6">
-                <Eyebrow>Volume Trend</Eyebrow>
+                <Eyebrow info="Number of new action items detected each day over the last 30 days. Spikes show your busiest days.">Volume Trend</Eyebrow>
                 {loading ? (
                   <div className="h-40 bg-rule rounded animate-pulse" />
                 ) : (
@@ -455,7 +471,7 @@ export function AnalyticsClient({ userEmail }: { userEmail: string }) {
               </div>
 
               <div className="bg-card border border-rule rounded-lg p-6">
-                <Eyebrow>Category Mix</Eyebrow>
+                <Eyebrow info="How your currently open items split across categories (Reply Needed, Waiting on Them, etc).">Category Mix</Eyebrow>
                 {loading ? (
                   <div className="h-40 bg-rule rounded animate-pulse" />
                 ) : (
@@ -466,7 +482,7 @@ export function AnalyticsClient({ userEmail }: { userEmail: string }) {
 
             {/* Row 3: TAT by Category */}
             <div className="bg-card border border-rule rounded-lg p-6 mb-8">
-              <Eyebrow>Turn-Around Time by Category</Eyebrow>
+              <Eyebrow info="Average days from detection to completion, split by category. Shows which kinds of items you resolve fastest or slowest.">Turn-Around Time by Category</Eyebrow>
               {loading ? (
                 <div className="space-y-3">
                   {[1, 2, 3, 4].map(i => (
@@ -488,7 +504,7 @@ export function AnalyticsClient({ userEmail }: { userEmail: string }) {
 
             {/* Row 4: Resolution Funnel */}
             <div className="bg-card border border-rule rounded-lg p-6 mb-8">
-              <Eyebrow>Resolution Funnel</Eyebrow>
+              <Eyebrow info="Of every action item ever created, how many ended up done, snoozed, ignored, or are still open.">Resolution Funnel</Eyebrow>
               {loading ? (
                 <div className="space-y-3">
                   {[1, 2, 3, 4, 5].map(i => (
@@ -509,7 +525,7 @@ export function AnalyticsClient({ userEmail }: { userEmail: string }) {
             {/* Row 5: Day-of-week + Top Contacts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
               <div className="bg-card border border-rule rounded-lg p-6">
-                <Eyebrow>Day-of-Week Pattern</Eyebrow>
+                <Eyebrow info="Which weekday tends to generate the most new action items, totalled across all weeks.">Day-of-Week Pattern</Eyebrow>
                 {loading ? (
                   <div className="h-40 bg-rule rounded animate-pulse" />
                 ) : dowBarData.length === 0 ? (
@@ -523,7 +539,7 @@ export function AnalyticsClient({ userEmail }: { userEmail: string }) {
               </div>
 
               <div className="bg-card border border-rule rounded-lg p-6">
-                <Eyebrow>Top Pending Contacts</Eyebrow>
+                <Eyebrow info="People with the most open items waiting on you. Start here to clear the most relationships fastest.">Top Pending Contacts</Eyebrow>
                 {loading ? (
                   <div className="space-y-3">
                     {[1, 2, 3, 4].map(i => (
@@ -561,7 +577,7 @@ export function AnalyticsClient({ userEmail }: { userEmail: string }) {
 
             {/* Row 6: Overdue Trend */}
             <div className="bg-card border border-rule rounded-lg p-6">
-              <Eyebrow>Overdue Trend</Eyebrow>
+              <Eyebrow info="Still-open items grouped by the week they were created, over the last 8 weeks. A rising bar means older items are piling up unresolved.">Overdue Trend</Eyebrow>
               {loading ? (
                 <div className="h-32 bg-rule rounded animate-pulse" />
               ) : overdueWeekData.length === 0 ? (

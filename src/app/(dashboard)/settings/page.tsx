@@ -965,14 +965,27 @@ interface UsageInfo {
   todayTotal: number
   todayByType: Record<string, { default: number; byok: number }>
   todayByProvider: Record<string, { default: number; byok: number }>
+  range?: string
+  rangeTotal?: number
+  rangeByType?: Record<string, { default: number; byok: number }>
+  rangeByProvider?: Record<string, { default: number; byok: number }>
 }
+
+const USAGE_RANGES = [
+  { value: 'today', label: 'Today' },
+  { value: '7d',    label: 'Last 7 days' },
+  { value: '30d',   label: 'Last 30 days' },
+  { value: 'month', label: 'This month' },
+  { value: 'all',   label: 'All time' },
+]
 
 function UsageCard() {
   const [usage, setUsage] = useState<UsageInfo | null>(null)
+  const [range, setRange] = useState('month')
 
   useEffect(() => {
-    fetch('/api/usage').then(r => r.ok ? r.json() : null).then(d => { if (d) setUsage(d) }).catch(() => {})
-  }, [])
+    fetch(`/api/usage?range=${range}`).then(r => r.ok ? r.json() : null).then(d => { if (d) setUsage(d) }).catch(() => {})
+  }, [range])
 
   if (!usage) return null
 
@@ -981,6 +994,8 @@ function UsageCard() {
     ? new Date(usage.resetAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     : ''
 
+  const rangeLabel = USAGE_RANGES.find(r => r.value === range)?.label ?? 'This month'
+
   const PROVIDER_LABELS: Record<string, string> = {
     google:    'Google Gemini',
     anthropic: 'Anthropic (Claude)',
@@ -988,23 +1003,33 @@ function UsageCard() {
     unknown:   'Unknown provider',
   }
 
-  // All providers seen this month or today
-  const allProviders = Array.from(new Set([
-    ...Object.keys(usage.byProvider),
-    ...Object.keys(usage.todayByProvider),
-  ])).filter(p => {
-    const m = usage.byProvider[p] || { default: 0, byok: 0 }
-    const t = usage.todayByProvider[p] || { default: 0, byok: 0 }
-    return m.default + m.byok + t.default + t.byok > 0
+  // Range-scoped breakdown data (falls back to monthly if API is older)
+  const rangeByProvider = usage.rangeByProvider ?? usage.byProvider
+  const rangeByType = usage.rangeByType ?? usage.byType
+  const rangeTotal = usage.rangeTotal ?? Object.values(rangeByProvider).reduce((s, r) => s + r.default + r.byok, 0)
+
+  // All providers seen in the selected range
+  const allProviders = Object.keys(rangeByProvider).filter(p => {
+    const r = rangeByProvider[p] || { default: 0, byok: 0 }
+    return r.default + r.byok > 0
   })
 
   const monthlyTotal = Object.values(usage.byProvider).reduce((s, r) => s + r.default + r.byok, 0)
-  const anyByok = Object.values(usage.byProvider).some(r => r.byok > 0) ||
-                  Object.values(usage.todayByProvider).some(r => r.byok > 0)
+  const anyByok = Object.values(rangeByProvider).some(r => r.byok > 0)
 
   return (
     <Card>
-      <CardHeader><CardTitle>AI usage</CardTitle></CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between gap-2">
+        <CardTitle>AI usage</CardTitle>
+        <select
+          value={range}
+          onChange={e => setRange(e.target.value)}
+          className="h-8 rounded-md border border-rule bg-white px-2 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-action"
+          aria-label="Usage time range"
+        >
+          {USAGE_RANGES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+        </select>
+      </CardHeader>
       <CardContent className="space-y-5">
 
         {/* Today vs Month headline */}
@@ -1051,37 +1076,32 @@ function UsageCard() {
           </div>
         )}
 
-        {/* Provider breakdown table */}
+        {/* Provider breakdown table — scoped to selected range */}
         {allProviders.length > 0 && (
           <div className="rounded-lg border border-[rgb(11_18_32/8%)] overflow-hidden">
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-[rgb(11_18_32/6%)] bg-paper">
                   <th className="text-left px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/45%)]">Provider</th>
-                  <th className="text-right px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/45%)]">Today</th>
-                  <th className="text-right px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/45%)]">This month</th>
+                  <th className="text-right px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/45%)]">{rangeLabel}</th>
                 </tr>
               </thead>
               <tbody>
                 {allProviders.map((p, i) => {
-                  const month = usage.byProvider[p] || { default: 0, byok: 0 }
-                  const today = usage.todayByProvider[p] || { default: 0, byok: 0 }
-                  const isDefault = month.default > 0 || today.default > 0
+                  const r = rangeByProvider[p] || { default: 0, byok: 0 }
+                  const isDefault = r.default > 0
                   return (
                     <tr key={p} className={i > 0 ? 'border-t border-[rgb(11_18_32/6%)]' : ''}>
                       <td className="px-3 py-2.5 text-ink font-medium">
                         {PROVIDER_LABELS[p] ?? p}
                         <span className="ml-1.5 text-[10px] text-[rgb(11_18_32/35%)] font-normal">
-                          {isDefault && month.byok === 0 && today.byok === 0 ? 'Pendingly key' : ''}
+                          {isDefault && r.byok === 0 ? 'Pendingly key' : ''}
                           {!isDefault ? 'BYOK' : ''}
-                          {isDefault && (month.byok > 0 || today.byok > 0) ? 'Pendingly + BYOK' : ''}
+                          {isDefault && r.byok > 0 ? 'Pendingly + BYOK' : ''}
                         </span>
                       </td>
                       <td className="px-3 py-2.5 text-right font-mono text-ink">
-                        {(today.default + today.byok).toLocaleString()}
-                      </td>
-                      <td className="px-3 py-2.5 text-right font-mono text-ink">
-                        {(month.default + month.byok).toLocaleString()}
+                        {(r.default + r.byok).toLocaleString()}
                       </td>
                     </tr>
                   )
@@ -1091,27 +1111,25 @@ function UsageCard() {
           </div>
         )}
 
-        {/* Call type breakdown */}
+        {/* Call type breakdown — scoped to selected range */}
         <div className="rounded-lg border border-[rgb(11_18_32/8%)] p-3 space-y-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/45%)]">By call type — this month</p>
-          {(['classify', 'suggest', 'draft'] as const).map(t => {
-            const month = usage.byType[t] || { default: 0, byok: 0 }
-            const today = usage.todayByType[t] || { default: 0, byok: 0 }
-            const monthTotal = month.default + month.byok
-            const todayTotal = today.default + today.byok
-            if (monthTotal === 0 && todayTotal === 0) return null
-            return (
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/45%)]">By call type — {rangeLabel.toLowerCase()}</p>
+          {(() => {
+            const rows = (['classify', 'suggest', 'draft'] as const).map(t => {
+              const r = rangeByType[t] || { default: 0, byok: 0 }
+              return { t, total: r.default + r.byok }
+            }).filter(r => r.total > 0)
+            if (rows.length === 0) return <p className="text-xs text-[rgb(11_18_32/40%)]">No AI calls in this period.</p>
+            return rows.map(({ t, total }) => (
               <div key={t} className="flex items-center justify-between text-xs">
                 <span className="text-[rgb(11_18_32/65%)]">
                   {t === 'classify' ? 'Email classification' : t === 'suggest' ? 'Quick suggestions' : 'Full drafts'}
                 </span>
-                <span className="font-mono text-ink tabular-nums">
-                  {todayTotal > 0 && <span className="text-[rgb(11_18_32/40%)] mr-2">+{todayTotal} today</span>}
-                  {monthTotal}
-                </span>
+                <span className="font-mono text-ink tabular-nums">{total.toLocaleString()}</span>
               </div>
-            )
-          })}
+            ))
+          })()}
+          <p className="text-[10px] text-[rgb(11_18_32/35%)] pt-1">{rangeTotal.toLocaleString()} total calls in {rangeLabel.toLowerCase()}</p>
         </div>
 
         {anyByok && (
@@ -1545,28 +1563,37 @@ function AvatarCropModal({ src, onSave, onCancel }: {
   const containerRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef({ active: false, startX: 0, startY: 0, startOX: 0, startOY: 0 })
   const [naturalSize, setNaturalSize] = useState({ w: 0, h: 0 })
-  const [offsetX, setOffsetX] = useState(0)
-  const [offsetY, setOffsetY] = useState(0)
+  const [offset, setOffset] = useState({ x: 0, y: 0 })
   const [zoom, setZoom] = useState(1)
   const [rotation, setRotation] = useState(0)
 
-  const isSwapped = rotation === 90 || rotation === 270
   const { w: nw, h: nh } = naturalSize
-  const baseScale = nw > 0
-    ? Math.max(CROP_SIZE / (isSwapped ? nh : nw), CROP_SIZE / (isSwapped ? nw : nh))
-    : 1
+  const swapped = rotation === 90 || rotation === 270
+  // Effective dimensions as they appear after rotation
+  const effW = swapped ? nh : nw
+  const effH = swapped ? nw : nh
+  // baseScale fits the image to COVER the circle at zoom = 1 (no distortion —
+  // width & height are scaled by the same factor)
+  const baseScale = effW > 0 ? Math.max(CROP_SIZE / effW, CROP_SIZE / effH) : 1
   const scale = baseScale * zoom
-  const dw = nw * scale
-  const dh = nh * scale
-  const imgLeft = (CROP_SIZE - dw) / 2 + offsetX
-  const imgTop = (CROP_SIZE - dh) / 2 + offsetY
+
+  // How far the image may pan before an edge enters the circle
+  const maxX = Math.max(0, (effW * scale - CROP_SIZE) / 2)
+  const maxY = Math.max(0, (effH * scale - CROP_SIZE) / 2)
+  const clamp = (v: number, max: number) => Math.max(-max, Math.min(max, v))
+
+  // Re-clamp the pan whenever zoom/rotation shrink the allowed range
+  useEffect(() => {
+    setOffset(o => ({ x: clamp(o.x, maxX), y: clamp(o.y, maxY) }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoom, rotation, nw, nh])
 
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
     const handler = (e: WheelEvent) => {
       e.preventDefault()
-      setZoom(z => Math.max(1, Math.min(3, z - e.deltaY * 0.003)))
+      setZoom(z => Math.max(1, Math.min(4, z * (1 - e.deltaY * 0.0015))))
     }
     el.addEventListener('wheel', handler, { passive: false })
     return () => el.removeEventListener('wheel', handler)
@@ -1574,39 +1601,42 @@ function AvatarCropModal({ src, onSave, onCancel }: {
 
   const onPointerDown = (e: React.PointerEvent) => {
     containerRef.current?.setPointerCapture(e.pointerId)
-    dragRef.current = { active: true, startX: e.clientX, startY: e.clientY, startOX: offsetX, startOY: offsetY }
+    dragRef.current = { active: true, startX: e.clientX, startY: e.clientY, startOX: offset.x, startOY: offset.y }
   }
   const onPointerMove = (e: React.PointerEvent) => {
     if (!dragRef.current.active) return
     const { startX, startY, startOX, startOY } = dragRef.current
-    const newOX = startOX + e.clientX - startX
-    const newOY = startOY + e.clientY - startY
-    const maxX = Math.max(0, dw / 2 - CROP_SIZE / 2)
-    const maxY = Math.max(0, dh / 2 - CROP_SIZE / 2)
-    setOffsetX(Math.max(-maxX, Math.min(maxX, newOX)))
-    setOffsetY(Math.max(-maxY, Math.min(maxY, newOY)))
+    setOffset({
+      x: clamp(startOX + e.clientX - startX, maxX),
+      y: clamp(startOY + e.clientY - startY, maxY),
+    })
   }
   const onPointerUp = () => { dragRef.current.active = false }
 
   const handleRotate = () => {
     setRotation(r => (r + 90) % 360)
-    setOffsetX(0); setOffsetY(0)
+    setOffset({ x: 0, y: 0 })
   }
 
   const handleSave = () => {
     const img = imgRef.current
-    if (!img || !img.complete) return
+    if (!img || !img.complete || nw === 0) return
     const canvas = document.createElement('canvas')
     canvas.width = OUTPUT_SIZE
     canvas.height = OUTPUT_SIZE
     const ctx = canvas.getContext('2d')!
     const ratio = OUTPUT_SIZE / CROP_SIZE
-    ctx.translate(OUTPUT_SIZE / 2, OUTPUT_SIZE / 2)
-    ctx.translate(offsetX * ratio, offsetY * ratio)
+    // Mirror the exact CSS transform used in the preview
+    ctx.translate(OUTPUT_SIZE / 2 + offset.x * ratio, OUTPUT_SIZE / 2 + offset.y * ratio)
     ctx.rotate((rotation * Math.PI) / 180)
-    ctx.drawImage(img, -dw * ratio / 2, -dh * ratio / 2, dw * ratio, dh * ratio)
-    onSave(canvas.toDataURL('image/jpeg', 0.88))
+    ctx.scale(scale * ratio, scale * ratio)
+    ctx.drawImage(img, -nw / 2, -nh / 2)
+    onSave(canvas.toDataURL('image/jpeg', 0.9))
   }
+
+  // CSS transform: centre the image on the circle centre, then rotate, scale & pan.
+  // transform-origin 0 0 keeps the maths identical to the canvas export above.
+  const transform = `translate(${offset.x}px, ${offset.y}px) rotate(${rotation}deg) scale(${scale}) translate(${-nw / 2}px, ${-nh / 2}px)`
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onMouseDown={e => { if (e.target === e.currentTarget) onCancel() }}>
@@ -1627,32 +1657,27 @@ function AvatarCropModal({ src, onSave, onCancel }: {
             onPointerUp={onPointerUp}
             onPointerCancel={onPointerUp}
           >
-            {nw > 0 && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                ref={imgRef}
-                src={src}
-                alt=""
-                draggable={false}
-                onLoad={e => setNaturalSize({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
-                style={{
-                  position: 'absolute',
-                  left: imgLeft,
-                  top: imgTop,
-                  width: dw,
-                  height: dh,
-                  transform: `rotate(${rotation}deg)`,
-                  transformOrigin: 'center',
-                  userSelect: 'none',
-                  pointerEvents: 'none',
-                }}
-              />
-            )}
-            {nw === 0 && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img ref={imgRef} src={src} alt="" className="opacity-0 absolute"
-                onLoad={e => setNaturalSize({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })} />
-            )}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              ref={imgRef}
+              src={src}
+              alt=""
+              draggable={false}
+              onLoad={e => setNaturalSize({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+              style={{
+                position: 'absolute',
+                left: CROP_SIZE / 2,
+                top: CROP_SIZE / 2,
+                width: nw || undefined,
+                height: nh || undefined,
+                transform,
+                transformOrigin: '0 0',
+                visibility: nw > 0 ? 'visible' : 'hidden',
+                userSelect: 'none',
+                pointerEvents: 'none',
+                maxWidth: 'none',
+              }}
+            />
             {/* subtle ring */}
             <div className="absolute inset-0 rounded-full pointer-events-none ring-2 ring-inset ring-white/30" />
           </div>
@@ -1661,7 +1686,7 @@ function AvatarCropModal({ src, onSave, onCancel }: {
           <div className="flex items-center gap-3 w-full px-1">
             <span className="text-base text-[rgb(11_18_32/35%)] leading-none select-none font-light">−</span>
             <input
-              type="range" min={1} max={3} step={0.01} value={zoom}
+              type="range" min={1} max={4} step={0.01} value={zoom}
               onChange={e => setZoom(Number(e.target.value))}
               className="flex-1 accent-action h-1"
             />

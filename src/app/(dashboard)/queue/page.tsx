@@ -9,7 +9,7 @@ import { SnoozeMenu } from '@/components/action/SnoozeMenu'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { categoryLabel } from '@/lib/utils'
-import { Search } from 'lucide-react'
+import { Search, X } from 'lucide-react'
 import type { ActionItemWithThread } from '@/types'
 
 function tomorrow(): string {
@@ -17,6 +17,23 @@ function tomorrow(): string {
   d.setDate(d.getDate() + 1)
   return d.toISOString().split('T')[0]
 }
+
+const STATUS_OPTIONS = [
+  { value: 'open', label: 'Open' },
+  { value: 'done', label: 'Completed' },
+  { value: 'snoozed', label: 'Snoozed' },
+  { value: 'ignored', label: 'Ignored' },
+  { value: 'all', label: 'All statuses' },
+]
+
+const PRIORITY_OPTIONS = [
+  { value: '', label: 'All priorities' },
+  { value: 'high', label: 'High' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'low', label: 'Low' },
+]
+
+const selectClass = 'h-9 rounded-md border border-rule bg-white px-2.5 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-action'
 
 function QueueContent() {
   const searchParams = useSearchParams()
@@ -28,9 +45,14 @@ function QueueContent() {
   const [selectedItem, setSelectedItem] = useState<ActionItemWithThread | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
-  const status = searchParams.get('status') || 'open'
+  // Filters — initialized from URL params (deep links), then user-controllable
+  const [status, setStatus] = useState(searchParams.get('status') || 'open')
+  const [priority, setPriority] = useState(searchParams.get('priority') || '')
+  const [emailFrom, setEmailFrom] = useState('')
+  const [emailTo, setEmailTo] = useState('')
+  const [actionFrom, setActionFrom] = useState('')
+  const [actionTo, setActionTo] = useState('')
   const category = searchParams.get('category') || ''
-  const priority = searchParams.get('priority') || ''
 
   const fetchItems = useCallback(async () => {
     setLoading(true)
@@ -38,20 +60,31 @@ function QueueContent() {
     if (category) params.set('category', category)
     if (priority) params.set('priority', priority)
     if (search) params.set('search', search)
+    if (emailFrom) params.set('email_from', emailFrom)
+    if (emailTo) params.set('email_to', emailTo)
+    if (actionFrom) params.set('action_from', actionFrom)
+    if (actionTo) params.set('action_to', actionTo)
 
     const res = await fetch(`/api/action-items?${params}`)
     const data = await res.json()
     setItems(data.items || [])
     setTotal(data.total || 0)
     setLoading(false)
-  }, [status, category, priority, search, page])
+  }, [status, category, priority, search, emailFrom, emailTo, actionFrom, actionTo, page])
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { fetchItems() }, [fetchItems])
 
+  // Reset to first page when any filter changes
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { setPage(1) }, [status, priority, search, emailFrom, emailTo, actionFrom, actionTo])
+
   // Clear selection when filters change
   // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { setSelectedIds(new Set()) }, [status, category, priority, search, page])
+  useEffect(() => { setSelectedIds(new Set()) }, [status, category, priority, search, emailFrom, emailTo, actionFrom, actionTo, page])
+
+  const hasDateFilters = !!(emailFrom || emailTo || actionFrom || actionTo)
+  const clearDates = () => { setEmailFrom(''); setEmailTo(''); setActionFrom(''); setActionTo('') }
 
   const handleStatusChange = async (id: string, statusVal: string, extra?: Record<string, string>) => {
     await fetch(`/api/action-items/${id}/status`, {
@@ -83,19 +116,14 @@ function QueueContent() {
     fetchItems()
   }
 
-  const title = category
-    ? categoryLabel(category)
-    : status === 'snoozed' ? 'Snoozed'
-    : status === 'ignored' ? 'Ignored'
-    : status === 'done' ? 'Completed'
-    : 'Action Queue'
+  const title = category ? categoryLabel(category) : 'All Items'
 
   return (
     <>
       <Header title={title} onSync={fetchItems} />
       <main className="p-6">
-        <div className="flex gap-3 mb-6">
-          <div className="relative flex-1 max-w-md">
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          <div className="relative flex-1 min-w-[200px] max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[rgb(11_18_32/30%)]" />
             <Input
               placeholder="Search by subject, contact..."
@@ -104,6 +132,41 @@ function QueueContent() {
               onChange={e => setSearch(e.target.value)}
             />
           </div>
+
+          <select value={status} onChange={e => setStatus(e.target.value)} className={selectClass} aria-label="Status filter">
+            {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+
+          <select value={priority} onChange={e => setPriority(e.target.value)} className={selectClass} aria-label="Priority filter">
+            {PRIORITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
+
+        {/* Date range filters */}
+        <div className="flex flex-wrap items-end gap-x-5 gap-y-3 mb-6 p-3 rounded-lg bg-paper-2 border border-rule">
+          <div>
+            <p className="text-[11px] font-medium uppercase tracking-wider text-[rgb(11_18_32/45%)] mb-1.5">Email date</p>
+            <div className="flex items-center gap-1.5">
+              <input type="date" value={emailFrom} onChange={e => setEmailFrom(e.target.value)} className={selectClass} aria-label="Email date from" />
+              <span className="text-xs text-[rgb(11_18_32/40%)]">to</span>
+              <input type="date" value={emailTo} onChange={e => setEmailTo(e.target.value)} className={selectClass} aria-label="Email date to" />
+            </div>
+          </div>
+
+          <div>
+            <p className="text-[11px] font-medium uppercase tracking-wider text-[rgb(11_18_32/45%)] mb-1.5">Action due date</p>
+            <div className="flex items-center gap-1.5">
+              <input type="date" value={actionFrom} onChange={e => setActionFrom(e.target.value)} className={selectClass} aria-label="Action date from" />
+              <span className="text-xs text-[rgb(11_18_32/40%)]">to</span>
+              <input type="date" value={actionTo} onChange={e => setActionTo(e.target.value)} className={selectClass} aria-label="Action date to" />
+            </div>
+          </div>
+
+          {hasDateFilters && (
+            <button onClick={clearDates} className="flex items-center gap-1 text-xs text-[rgb(11_18_32/50%)] hover:text-action transition-colors h-9">
+              <X className="h-3.5 w-3.5" /> Clear dates
+            </button>
+          )}
         </div>
 
         {loading ? (

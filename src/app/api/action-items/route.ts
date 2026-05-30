@@ -14,17 +14,43 @@ export async function GET(request: NextRequest) {
   const priority = searchParams.get('priority')
   const search = searchParams.get('search')
   const repeatedAsks = searchParams.get('repeated_asks')
+  // Date-of-email range → filters on the source email's last message date
+  const emailFrom = searchParams.get('email_from')
+  const emailTo = searchParams.get('email_to')
+  // Date-of-action range → filters on the action item's due date
+  const actionFrom = searchParams.get('action_from')
+  const actionTo = searchParams.get('action_to')
   const page = parseInt(searchParams.get('page') || '1')
   const limit = parseInt(searchParams.get('limit') || '20')
 
   const where: Record<string, unknown> = {
     userId: session.user.id,
-    status,
   }
+
+  // status='all' means no status constraint (every state)
+  if (status && status !== 'all') where.status = status
 
   if (category) where.category = category
   if (priority) where.priority = priority
   if (repeatedAsks) where.repeatedAskCount = { gte: 2 }
+
+  // Action due-date range. dueDate is stored as an ISO string, so lexical
+  // comparison works; pad the upper bound to the end of the day.
+  if (actionFrom || actionTo) {
+    const dueDate: Record<string, string> = {}
+    if (actionFrom) dueDate.gte = actionFrom
+    if (actionTo) dueDate.lte = `${actionTo}T23:59:59.999`
+    where.dueDate = dueDate
+  }
+
+  // Email date range filters on the related thread's lastMessageAt (DateTime).
+  if (emailFrom || emailTo) {
+    const lastMessageAt: Record<string, Date> = {}
+    if (emailFrom) lastMessageAt.gte = new Date(emailFrom)
+    if (emailTo) lastMessageAt.lte = new Date(`${emailTo}T23:59:59.999`)
+    where.emailThread = { is: { lastMessageAt } }
+  }
+
   if (search) {
     where.OR = [
       { title: { contains: search } },
