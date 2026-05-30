@@ -136,7 +136,7 @@ export default function AdminPaymentsPage() {
                 ].map(f => (
                   <div key={f.key}>
                     <label className="block text-xs font-medium text-gray-600 mb-1">{f.label}</label>
-                    <input type={f.type} value={(addForm as any)[f.key]}
+                    <input type={f.type} value={(addForm as Record<string, string>)[f.key]}
                       onChange={e => setAddForm(v => ({ ...v, [f.key]: e.target.value }))}
                       placeholder={f.placeholder}
                       className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900" />

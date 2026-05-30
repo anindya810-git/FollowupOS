@@ -100,8 +100,8 @@ export async function POST(
   const localDate = new Intl.DateTimeFormat('en-CA', {
     timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
   }).format(scheduledFor) // yields YYYY-MM-DD
-  await prisma.actionItem.update({
-    where: { id },
+  await prisma.actionItem.updateMany({
+    where: { id, userId: session.user.id },
     data: { status: 'snoozed', snoozedUntil: localDate },
   })
 

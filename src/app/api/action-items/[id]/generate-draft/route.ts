@@ -20,8 +20,10 @@ export async function POST(
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
-  const tone = typeof body.tone === 'string' ? body.tone : 'polite'
-  const output_type = typeof body.output_type === 'string' ? body.output_type : 'email_reply'
+  const ALLOWED_TONES = ['polite', 'firm', 'short', 'executive', 'friendly', 'escalation']
+  const ALLOWED_OUTPUTS = ['email_reply', 'follow_up', 'summary']
+  const tone = typeof body.tone === 'string' && ALLOWED_TONES.includes(body.tone) ? body.tone : 'polite'
+  const output_type = typeof body.output_type === 'string' && ALLOWED_OUTPUTS.includes(body.output_type) ? body.output_type : 'email_reply'
 
   const item = await prisma.actionItem.findFirst({
     where: { id, userId: session.user.id },
@@ -59,7 +61,7 @@ export async function POST(
       threadSubject: item.title || item.emailThread?.subject || 'Email Thread',
       reason: item.reason || '',
       suggestedAction: item.suggestedAction || '',
-      messages: (item.emailThread?.messages || []).map((m: any) => ({
+      messages: (item.emailThread?.messages || []).map((m) => ({
         from: m.senderEmail || '',
         body: m.bodyExcerpt || m.snippet || '',
         isFromUser: m.isFromUser,

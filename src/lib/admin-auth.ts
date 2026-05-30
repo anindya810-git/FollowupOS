@@ -25,10 +25,14 @@ export function hashAdminPassword(password: string): string {
 export function verifyAdminPassword(password: string): boolean {
   const stored = getAdminPasswordHash()
   if (!stored) {
-    // Fallback: allow ADMIN_PASSWORD plaintext env var for quick dev setup
+    // Plaintext ADMIN_PASSWORD is a local-dev convenience only — never honoured
+    // in production, where a scrypt ADMIN_PASSWORD_HASH is required.
+    if (process.env.NODE_ENV === 'production') return false
     const plain = process.env.ADMIN_PASSWORD
-    if (plain) return password === plain
-    return false
+    if (!plain) return false
+    const a = Buffer.from(password)
+    const b = Buffer.from(plain)
+    return a.length === b.length && timingSafeEqual(a, b)
   }
   const [salt, hash] = stored.split(':')
   if (!salt || !hash) return false

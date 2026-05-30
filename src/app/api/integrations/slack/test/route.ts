@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { sendSlackDigest } from '@/lib/slack'
 import { isSlackWebhookUrl } from '@/lib/net-safety'
+import { safeLog } from '@/lib/safe-log'
 
 export async function POST(request: NextRequest) {
   const session = await auth()
@@ -19,6 +20,7 @@ export async function POST(request: NextRequest) {
     })
     return NextResponse.json({ ok: true })
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : 'Failed' }, { status: 500 })
+    safeLog('error', 'slack-test', e, { userId: session.user.id })
+    return NextResponse.json({ error: 'Test failed — check the webhook URL and try again.' }, { status: 500 })
   }
 }

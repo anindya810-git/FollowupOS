@@ -26,6 +26,13 @@ export async function POST(
   if (!body.content) {
     return NextResponse.json({ error: 'Content required' }, { status: 400 })
   }
+  // Bound inputs so a malformed/oversized client request can't be abused.
+  if (typeof body.content !== 'string' || body.content.length > 200_000) {
+    return NextResponse.json({ error: 'Content is too large' }, { status: 400 })
+  }
+  if (body.subject !== undefined && (typeof body.subject !== 'string' || body.subject.length > 2000)) {
+    return NextResponse.json({ error: 'Subject is too long' }, { status: 400 })
+  }
 
   const item = await prisma.actionItem.findFirst({
     where: { id, userId: session.user.id },
@@ -105,8 +112,8 @@ export async function POST(
       await sendSmtpReply(account.id, toEmail, subject, finalContent, inReplyTo)
     }
 
-    await prisma.actionItem.update({
-      where: { id },
+    await prisma.actionItem.updateMany({
+      where: { id, userId: session.user.id },
       data: { status: 'done', completedAt: new Date() },
     })
 

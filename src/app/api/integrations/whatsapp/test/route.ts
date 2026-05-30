@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { sendWhatsAppDigest } from '@/lib/whatsapp'
+import { safeLog } from '@/lib/safe-log'
 
 export async function POST() {
   const session = await auth()
@@ -28,6 +29,10 @@ export async function POST() {
     })
     return NextResponse.json({ success: true })
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : 'Failed' }, { status: 500 })
+    safeLog('error', 'whatsapp-test', e, { userId: session.user.id })
+    const msg = e instanceof Error && e.message.includes('not configured')
+      ? 'WhatsApp is not configured on the server.'
+      : 'Test failed — please try again.'
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }

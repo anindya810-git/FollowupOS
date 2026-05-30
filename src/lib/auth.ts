@@ -28,6 +28,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
   session: {
     strategy: 'database',
+    // Corporate-friendly session lifetime: expire after 7 days, refreshed
+    // at most once a day (default 30 days is too long for shared/managed devices).
+    maxAge: 7 * 24 * 60 * 60,
+    updateAge: 24 * 60 * 60,
   },
   callbacks: {
     async session({ session, user }) {

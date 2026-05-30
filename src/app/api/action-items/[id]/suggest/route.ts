@@ -46,7 +46,7 @@ export async function POST(
   const suggestion = await generateQuickSuggestion({
     threadSubject: item.title || item.emailThread?.subject || 'Email Thread',
     reason: item.reason || '',
-    messages: (item.emailThread?.messages || []).map((m: any) => ({
+    messages: (item.emailThread?.messages || []).map((m) => ({
       from: m.senderEmail || '',
       body: m.bodyExcerpt || m.snippet || '',
       isFromUser: m.isFromUser,
@@ -61,8 +61,8 @@ export async function POST(
     return NextResponse.json({ error: 'Suggestion generation failed' }, { status: 500 })
   }
 
-  await prisma.actionItem.update({
-    where: { id },
+  await prisma.actionItem.updateMany({
+    where: { id, userId: session.user.id },
     data: { autoReplySuggestion: suggestion },
   })
 

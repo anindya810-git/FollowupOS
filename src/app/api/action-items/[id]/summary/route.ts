@@ -74,7 +74,7 @@ export async function GET(
 
   if (summary) {
     // Cache it and meter the call.
-    await prisma.actionItem.update({ where: { id }, data: { threadSummary: summary } }).catch(() => {})
+    await prisma.actionItem.updateMany({ where: { id, userId: session.user.id }, data: { threadSummary: summary } }).catch(() => {})
     await prisma.aiClassificationLog.create({
       data: {
         userId: session.user.id,

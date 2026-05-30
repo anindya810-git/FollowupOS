@@ -1,3 +1,4 @@
+import type { gmail_v1 } from 'googleapis'
 import { prisma } from './prisma'
 import { getGmailClient, getGmailThreadUrl, isNoisyThread, getMessageBody } from './gmail'
 import { getOutlookAccessToken, getOutlookThreads, isNoisyOutlookMessage } from './outlook'
@@ -393,7 +394,6 @@ async function scanOutlookAccount(params: {
   maxThreads?: number
   aiConfig: AiConfig
   noiseFilterLevel?: number
-  scanInstructions?: string | null
 }) {
   const { jobId, userId, emailAccountId, userEmail, userTimezone, userPreferences, scanWindowDays, maxThreads, aiConfig, noiseFilterLevel, scanInstructions } = params
 
@@ -733,7 +733,6 @@ async function scanImapAccount(params: {
   maxThreads?: number
   aiConfig: AiConfig
   noiseFilterLevel?: number
-  scanInstructions?: string | null
 }) {
   const { jobId, userId, emailAccountId, userEmail, userTimezone, userPreferences, scanWindowDays, maxThreads, aiConfig, noiseFilterLevel, scanInstructions } = params
 
@@ -1052,11 +1051,10 @@ async function processThread(params: {
   provider?: string
   aiConfig: AiConfig
   noiseFilterLevel?: number
-  scanInstructions?: string | null
 }): Promise<'created' | 'skipped' | 'noise' | 'ai_failed'> {
   const { gmail, threadId, userId, emailAccountId, userEmail, userTimezone, userPreferences, provider = 'gmail', aiConfig, noiseFilterLevel, scanInstructions } = params
 
-  let threadRes: Awaited<ReturnType<typeof gmail.users.threads.get>>
+  let threadRes: { data: gmail_v1.Schema$Thread }
   try {
     threadRes = await gmail.users.threads.get({
       userId: 'me',
@@ -1110,7 +1108,7 @@ async function processThread(params: {
   if (existingThread?.threadHash === threadHash) return 'skipped'
 
   // Fetch full thread for classification
-  let fullThreadRes: Awaited<ReturnType<typeof gmail.users.threads.get>>
+  let fullThreadRes: { data: gmail_v1.Schema$Thread }
   try {
     fullThreadRes = await gmail.users.threads.get({
       userId: 'me',
