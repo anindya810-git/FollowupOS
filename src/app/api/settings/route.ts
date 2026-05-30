@@ -38,6 +38,7 @@ export async function PATCH(request: NextRequest) {
     calendarAutoCreate, defaultMeetingProvider, reminderPushEnabled,
     signatureHtml, emailSignatureEnabled,
     noiseFilterLevel,
+    scanInstructions,
     isEnabled, digestTime, timezone, slackWebhookUrl, slackEnabled,
     teamsWebhookUrl, teamsEnabled,
     whatsappEnabled,
@@ -85,6 +86,10 @@ export async function PATCH(request: NextRequest) {
   }
   if (reminderPushEnabled !== undefined) appData.reminderPushEnabled = !!reminderPushEnabled
   if (emailSignatureEnabled !== undefined) appData.emailSignatureEnabled = !!emailSignatureEnabled
+  if (scanInstructions !== undefined) {
+    const trimmed = typeof scanInstructions === 'string' ? scanInstructions.trim() : ''
+    appData.scanInstructions = trimmed.slice(0, 2000) || null
+  }
   if (signatureHtml !== undefined) {
     // Sanitise on save so we never store anything dangerous that would later
     // be rendered into the editor or emailed out.

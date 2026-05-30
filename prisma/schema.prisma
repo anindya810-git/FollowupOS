@@ -342,6 +342,8 @@ model AppSettings {
   // 1=Minimal … 5=Maximum. Controls how aggressively emails are pre-filtered
   // before reaching AI classification. Default 3 (Balanced).
   noiseFilterLevel       Int     @default(3)
+  // User-supplied free-text instructions injected into AI classification prompt.
+  scanInstructions       String?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 

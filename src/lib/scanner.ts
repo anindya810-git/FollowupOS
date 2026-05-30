@@ -61,6 +61,7 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
       conservative_mode: false,
     }
     const noiseFilterLevel: number = (appSettings as { noiseFilterLevel?: number } | null)?.noiseFilterLevel ?? 3
+    const scanInstructions: string | null = (appSettings as { scanInstructions?: string | null } | null)?.scanInstructions ?? null
 
     if (account.provider === 'outlook') {
       await scanOutlookAccount({
@@ -74,6 +75,7 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
         maxThreads,
         aiConfig,
         noiseFilterLevel,
+        scanInstructions,
       })
       return
     }
@@ -90,6 +92,7 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
         maxThreads,
         aiConfig,
         noiseFilterLevel,
+        scanInstructions,
       })
       return
     }
@@ -219,6 +222,7 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
           provider: account.provider,
           aiConfig,
           noiseFilterLevel,
+          scanInstructions,
         }))
       )
 
@@ -299,13 +303,15 @@ async function scanOutlookAccount(params: {
   emailAccountId: string
   userEmail: string
   userTimezone: string
+  scanInstructions?: string | null
   userPreferences: { default_followup_days: number; conservative_mode: boolean }
   scanWindowDays: number
   maxThreads?: number
   aiConfig: AiConfig
   noiseFilterLevel?: number
+  scanInstructions?: string | null
 }) {
-  const { jobId, userId, emailAccountId, userEmail, userTimezone, userPreferences, scanWindowDays, maxThreads, aiConfig, noiseFilterLevel } = params
+  const { jobId, userId, emailAccountId, userEmail, userTimezone, userPreferences, scanWindowDays, maxThreads, aiConfig, noiseFilterLevel, scanInstructions } = params
 
   let accessToken: string
   let threads
@@ -482,7 +488,7 @@ async function scanOutlookAccount(params: {
       }
 
       const inputHash = crypto.createHash('md5').update(JSON.stringify(classificationInput)).digest('hex')
-      const result = await classifyThread(classificationInput, aiConfig)
+      const result = await classifyThread(classificationInput, aiConfig, scanInstructions)
 
       // PII note: outputJson contains AI-extracted names/dates from email content.
       // Consider a retention policy (e.g. purge rows older than 90 days) for production.
@@ -609,11 +615,13 @@ async function scanImapAccount(params: {
   userTimezone: string
   userPreferences: { default_followup_days: number; conservative_mode: boolean }
   scanWindowDays: number
+  scanInstructions?: string | null
   maxThreads?: number
   aiConfig: AiConfig
   noiseFilterLevel?: number
+  scanInstructions?: string | null
 }) {
-  const { jobId, userId, emailAccountId, userEmail, userTimezone, userPreferences, scanWindowDays, maxThreads, aiConfig, noiseFilterLevel } = params
+  const { jobId, userId, emailAccountId, userEmail, userTimezone, userPreferences, scanWindowDays, maxThreads, aiConfig, noiseFilterLevel, scanInstructions } = params
 
   const account = await prisma.emailAccount.findUnique({ where: { id: emailAccountId } })
   if (!account) throw new Error('Email account not found')
@@ -774,7 +782,7 @@ async function scanImapAccount(params: {
       }
 
       const inputHash = crypto.createHash('md5').update(JSON.stringify(classificationInput)).digest('hex')
-      const result = await classifyThread(classificationInput, aiConfig)
+      const result = await classifyThread(classificationInput, aiConfig, scanInstructions)
 
       await prisma.aiClassificationLog.create({
         data: {
@@ -899,11 +907,13 @@ async function processThread(params: {
   userEmail: string
   userTimezone: string
   userPreferences: { default_followup_days: number; conservative_mode: boolean }
+  scanInstructions?: string | null
   provider?: string
   aiConfig: AiConfig
   noiseFilterLevel?: number
+  scanInstructions?: string | null
 }): Promise<'created' | 'skipped' | 'noise' | 'ai_failed'> {
-  const { gmail, threadId, userId, emailAccountId, userEmail, userTimezone, userPreferences, provider = 'gmail', aiConfig, noiseFilterLevel } = params
+  const { gmail, threadId, userId, emailAccountId, userEmail, userTimezone, userPreferences, provider = 'gmail', aiConfig, noiseFilterLevel, scanInstructions } = params
 
   let threadRes: Awaited<ReturnType<typeof gmail.users.threads.get>>
   try {
@@ -1128,7 +1138,7 @@ async function processThread(params: {
   let result = null
   let classifyError: string | null = null
   try {
-    result = await classifyThread(classificationInput, aiConfig)
+    result = await classifyThread(classificationInput, aiConfig, scanInstructions)
   } catch (e) {
     classifyError = e instanceof Error ? e.message : String(e)
   }

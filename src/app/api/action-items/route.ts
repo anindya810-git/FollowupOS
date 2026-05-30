@@ -20,6 +20,8 @@ export async function GET(request: NextRequest) {
   // Date-of-action range → filters on the action item's due date
   const actionFrom = searchParams.get('action_from')
   const actionTo = searchParams.get('action_to')
+  // Inbox filter → filters on the related email thread's emailAccountId
+  const inboxId = searchParams.get('inbox_id')
   const page = parseInt(searchParams.get('page') || '1')
   const limit = parseInt(searchParams.get('limit') || '20')
 
@@ -43,12 +45,17 @@ export async function GET(request: NextRequest) {
     where.dueDate = dueDate
   }
 
-  // Email date range filters on the related thread's lastMessageAt (DateTime).
-  if (emailFrom || emailTo) {
-    const lastMessageAt: Record<string, Date> = {}
-    if (emailFrom) lastMessageAt.gte = new Date(emailFrom)
-    if (emailTo) lastMessageAt.lte = new Date(`${emailTo}T23:59:59.999`)
-    where.emailThread = { is: { lastMessageAt } }
+  // Email date range and/or inbox filters on the related thread.
+  if (emailFrom || emailTo || inboxId) {
+    const threadFilter: Record<string, unknown> = {}
+    if (inboxId) threadFilter.emailAccountId = inboxId
+    if (emailFrom || emailTo) {
+      const lastMessageAt: Record<string, Date> = {}
+      if (emailFrom) lastMessageAt.gte = new Date(emailFrom)
+      if (emailTo) lastMessageAt.lte = new Date(`${emailTo}T23:59:59.999`)
+      threadFilter.lastMessageAt = lastMessageAt
+    }
+    where.emailThread = { is: threadFilter }
   }
 
   if (search) {
