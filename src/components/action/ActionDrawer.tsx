@@ -488,17 +488,15 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
             </div>
           )}
 
-          {/* Needs closure banner — gentle "you can let this go" nudge. Only for
-              categories where "resolved" is plausible: it makes no sense to say a
-              thread looks done when a reply is still needed or a commitment is overdue. */}
-          {active.needsClosure && active.status === 'open'
-            && (active.category === 'waiting_on_them' || active.category === 'followup_due')
+          {/* Closure nudge — shown only when the AI analysed the thread content
+              and produced a specific reason it can be closed (closureReason). */}
+          {active.closureReason && active.status === 'open'
             && !(active.repeatedAskCount && active.repeatedAskCount >= 2) && (
             <div className="flex items-start gap-2.5 bg-[rgb(11_18_32/4%)] border border-[rgb(11_18_32/10%)] rounded-lg p-3.5">
               <Archive className="h-4 w-4 text-[rgb(11_18_32/40%)] flex-shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-semibold text-ink">This thread looks done — you can let it go</p>
-                <p className="text-xs text-[rgb(11_18_32/55%)] mt-0.5">No reply seems needed here. Drop it to clear it from your queue, guilt-free.</p>
+                <p className="text-xs text-[rgb(11_18_32/55%)] mt-0.5">{active.closureReason}</p>
                 <Button
                   variant="outline"
                   size="sm"

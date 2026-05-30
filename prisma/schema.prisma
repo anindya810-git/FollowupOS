@@ -241,6 +241,10 @@ model ActionItem {
   lastAutoFollowupAt  DateTime?
   repeatedAskCount    Int       @default(0)
   needsClosure        Boolean   @default(false)
+  // AI-generated, content-specific reason this thread can be closed (only set
+  // when the thread genuinely looks resolved). Drives the "you can let this go"
+  // nudge — null means don't show it.
+  closureReason       String?
   autoReplySuggestion String?
   // The specific commitment text the AI extracted (e.g. "I'll send the deck by
   // Friday") — used for reply-deadline reminders so we can remind the user

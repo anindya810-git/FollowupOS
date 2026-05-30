@@ -134,6 +134,12 @@ For everything else — real conversations between real people — classify deci
 
 When in doubt about a real human conversation, prefer showing it (should_show_to_user=true) over silently hiding it.
 
+CLOSURE ANALYSIS (needs_closure + closure_reason):
+Independently judge — by reading the actual thread content — whether this shown thread genuinely looks wrapped up and safe to let go. Set needs_closure=true ONLY when the conversation has clearly reached its end with nothing pending from the user, for example: the other party confirmed completion / received what they needed, they thanked you and closed the loop, they explicitly said no further action is required, or the thread has plainly gone dead and is no longer worth pursuing.
+- When needs_closure=true, write closure_reason as ONE specific sentence grounded in this thread that explains why it can be closed (e.g. "SBI confirmed they received the scanned receipt and thanked you — nothing left to send."). Never use a generic phrase like "this thread looks resolved".
+- When needs_closure=false, set closure_reason to null.
+- NEVER set needs_closure=true while the user still owes a reply or action. If primary_category is reply_needed or overdue_commitment, needs_closure MUST be false — an unanswered request is not resolved.
+
 Use the current date and timezone to determine overdue commitments and follow-up thresholds.
 
 Return ONLY valid JSON matching this exact schema. Do not include markdown or explanations outside JSON:
@@ -151,7 +157,8 @@ Return ONLY valid JSON matching this exact schema. Do not include markdown or ex
   "commitment_text": "Relevant commitment text or null",
   "is_automated_or_marketing": false,
   "should_show_to_user": true,
-  "needs_closure": false
+  "needs_closure": false,
+  "closure_reason": "One specific sentence on why this thread can be closed, grounded in the thread — or null"
 }`
 
 const SUGGESTION_SYSTEM = `You are Pendingly, an AI assistant that writes intelligent, context-aware email replies.
@@ -200,6 +207,14 @@ function validateClassification(parsed: AiClassificationOutput): boolean {
   if (typeof parsed.confidence !== 'number') return false
   if (typeof parsed.should_show_to_user !== 'boolean') return false
   if (typeof parsed.needs_closure !== 'boolean') parsed.needs_closure = false
+  // A thread the user still owes a reply/action on can never be "resolved".
+  if (parsed.primary_category === 'reply_needed' || parsed.primary_category === 'overdue_commitment') {
+    parsed.needs_closure = false
+  }
+  // closure_reason is only meaningful when needs_closure is true.
+  if (typeof parsed.closure_reason !== 'string' || !parsed.closure_reason.trim() || !parsed.needs_closure) {
+    parsed.closure_reason = null
+  }
   return true
 }
 

@@ -24,6 +24,7 @@ export interface AiClassificationOutput {
   is_automated_or_marketing: boolean
   should_show_to_user: boolean
   needs_closure: boolean
+  closure_reason: string | null
 }
 
 export interface EmailMessageInput {
@@ -76,6 +77,7 @@ export interface ActionItemWithThread {
   completedAt: Date | null
   repeatedAskCount: number
   needsClosure: boolean
+  closureReason?: string | null
   autoReplySuggestion: string | null
   commitmentText?: string | null
   calendarEventId: string | null
