@@ -22,8 +22,20 @@ export async function POST(request: NextRequest) {
   }
   const account_id = typeof body.account_id === 'string' ? body.account_id : undefined
 
+  // Use an explicit select so adding new columns to the EmailAccount schema
+  // in the future does NOT break this route before the DB migration is applied.
+  // Without select, Prisma generates SELECT * (all columns) — if a new column
+  // exists in the schema but not the DB, the query throws and no scan job is
+  // ever created.
   const account = await prisma.emailAccount.findFirst({
     where: { id: account_id, userId: session.user.id, connectedStatus: 'connected' },
+    select: {
+      id: true,
+      provider: true,
+      emailAddress: true,
+      initialScanCompleted: true,
+      gmailHistoryId: true,
+    },
   })
   if (!account) {
     return NextResponse.json({ error: 'Account not found' }, { status: 404 })
@@ -51,6 +63,7 @@ export async function POST(request: NextRequest) {
       status: { in: ['queued', 'running'] },
     },
     orderBy: { createdAt: 'desc' },
+    select: { id: true, status: true, createdAt: true },
   })
   if (existing) {
     const ageMs = Date.now() - existing.createdAt.getTime()
