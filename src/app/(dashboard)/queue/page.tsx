@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useCallback, Suspense } from 'react'
+import { useEffect, useState, useCallback, useRef, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Header } from '@/components/layout/Header'
 import { ActionCard } from '@/components/action/ActionCard'
@@ -8,8 +8,8 @@ import { ActionDrawer } from '@/components/action/ActionDrawer'
 import { SnoozeMenu } from '@/components/action/SnoozeMenu'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { FilterSelect, type FilterOption } from '@/components/ui/filter-select'
-import { Search, X, SlidersHorizontal, ChevronDown, ChevronUp } from 'lucide-react'
+import { FilterSelect } from '@/components/ui/filter-select'
+import { Search, X, SlidersHorizontal, ChevronDown, ChevronUp, Check } from 'lucide-react'
 import type { ActionItemWithThread } from '@/types'
 
 function tomorrow(): string {
@@ -79,12 +79,13 @@ function QueueContent() {
   const [emailTo, setEmailTo] = useState('')
   const [actionFrom, setActionFrom] = useState('')
   const [actionTo, setActionTo] = useState('')
-  const [inboxId, setInboxId] = useState('')
+  const [selectedInboxIds, setSelectedInboxIds] = useState<Set<string>>(new Set())
   const [senderEmail, setSenderEmail] = useState('')
   const [senderDomain, setSenderDomain] = useState('')
   const [keywords, setKeywords] = useState('')
   const [hasAttachment, setHasAttachment] = useState(false)
   const [inboxes, setInboxes] = useState<EmailAccount[]>([])
+  const inboxInitRef = useRef(false)
 
   useEffect(() => {
     fetch('/api/integrations')
@@ -92,6 +93,22 @@ function QueueContent() {
       .then(d => { if (d?.accounts) setInboxes(d.accounts) })
       .catch(() => {})
   }, [])
+
+  // Default: every inbox selected. The user can then deselect specific ones.
+  useEffect(() => {
+    if (!inboxInitRef.current && inboxes.length > 0) {
+      inboxInitRef.current = true
+      setSelectedInboxIds(new Set(inboxes.map(i => i.id)))
+    }
+  }, [inboxes])
+
+  // Build the inbox_id query param: empty (= all) when every inbox is selected,
+  // otherwise the comma-joined subset.
+  const allInboxIds = inboxes.map(i => i.id)
+  const allInboxesSelected = allInboxIds.length > 0 && selectedInboxIds.size === allInboxIds.length
+  const inboxParam = (allInboxesSelected || selectedInboxIds.size === 0)
+    ? ''
+    : allInboxIds.filter(id => selectedInboxIds.has(id)).join(',')
 
   const fetchItems = useCallback(async () => {
     setLoading(true)
@@ -103,7 +120,7 @@ function QueueContent() {
     if (emailTo) params.set('email_to', emailTo)
     if (actionFrom) params.set('action_from', actionFrom)
     if (actionTo) params.set('action_to', actionTo)
-    if (inboxId) params.set('inbox_id', inboxId)
+    if (inboxParam) params.set('inbox_id', inboxParam)
     if (senderEmail) params.set('sender_email', senderEmail)
     if (senderDomain) params.set('sender_domain', senderDomain)
     if (keywords) params.set('keywords', keywords)
@@ -114,20 +131,20 @@ function QueueContent() {
     setItems(data.items || [])
     setTotal(data.total || 0)
     setLoading(false)
-  }, [status, category, priority, search, emailFrom, emailTo, actionFrom, actionTo, inboxId, senderEmail, senderDomain, keywords, hasAttachment, page])
+  }, [status, category, priority, search, emailFrom, emailTo, actionFrom, actionTo, inboxParam, senderEmail, senderDomain, keywords, hasAttachment, page])
 
   useEffect(() => { fetchItems() }, [fetchItems])
-  useEffect(() => { setPage(1) }, [status, category, priority, search, emailFrom, emailTo, actionFrom, actionTo, inboxId, senderEmail, senderDomain, keywords, hasAttachment])
-  useEffect(() => { setSelectedIds(new Set()) }, [status, category, priority, search, emailFrom, emailTo, actionFrom, actionTo, inboxId, senderEmail, senderDomain, keywords, hasAttachment, page])
+  useEffect(() => { setPage(1) }, [status, category, priority, search, emailFrom, emailTo, actionFrom, actionTo, inboxParam, senderEmail, senderDomain, keywords, hasAttachment])
+  useEffect(() => { setSelectedIds(new Set()) }, [status, category, priority, search, emailFrom, emailTo, actionFrom, actionTo, inboxParam, senderEmail, senderDomain, keywords, hasAttachment, page])
 
-  const hasAdvancedFilters = !!(priority || emailFrom || emailTo || actionFrom || actionTo || inboxId || senderEmail || senderDomain || keywords || hasAttachment)
+  const hasAdvancedFilters = !!(priority || emailFrom || emailTo || actionFrom || actionTo || inboxParam || senderEmail || senderDomain || keywords || hasAttachment)
   const clearAdvanced = () => {
     setPriority('')
     setEmailFrom('')
     setEmailTo('')
     setActionFrom('')
     setActionTo('')
-    setInboxId('')
+    setSelectedInboxIds(new Set(allInboxIds))  // back to all inboxes
     setSenderEmail('')
     setSenderDomain('')
     setKeywords('')
@@ -210,7 +227,7 @@ function QueueContent() {
               Advanced Filters
               {hasAdvancedFilters && (
                 <span className="h-4 w-4 rounded-full bg-action text-white text-[10px] font-bold flex items-center justify-center leading-none">
-                  {[priority, emailFrom, emailTo, actionFrom, actionTo, inboxId, senderEmail, senderDomain, keywords, hasAttachment ? '1' : ''].filter(Boolean).length}
+                  {[priority, emailFrom, emailTo, actionFrom, actionTo, inboxParam, senderEmail, senderDomain, keywords, hasAttachment ? '1' : ''].filter(Boolean).length}
                 </span>
               )}
               {showAdvanced ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
@@ -259,19 +276,10 @@ function QueueContent() {
 
               <div className="col-span-2 sm:col-span-1">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)] mb-1.5">Inbox</p>
-                <FilterSelect
-                  value={inboxId}
-                  onChange={setInboxId}
-                  options={[
-                    { value: '', label: 'All inboxes' },
-                    ...inboxes.map((acc): FilterOption => ({
-                      value: acc.id,
-                      label: acc.emailAddress,
-                      initials: acc.emailAddress.slice(0, 2).toUpperCase(),
-                      avatarColor: '#6366f1',
-                    })),
-                  ]}
-                  className="w-full"
+                <InboxMultiSelect
+                  inboxes={inboxes}
+                  selected={selectedInboxIds}
+                  onChange={setSelectedInboxIds}
                 />
               </div>
 
@@ -421,6 +429,98 @@ function QueueContent() {
         </div>
       )}
     </>
+  )
+}
+
+// Multi-select inbox filter: every inbox is checked by default; deselect to
+// narrow the queue to specific inboxes.
+function InboxMultiSelect({
+  inboxes,
+  selected,
+  onChange,
+}: {
+  inboxes: EmailAccount[]
+  selected: Set<string>
+  onChange: (s: Set<string>) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  const total = inboxes.length
+  const count = selected.size
+  const allSelected = total > 0 && count === total
+  const label = total === 0
+    ? 'No inboxes'
+    : allSelected || count === 0
+      ? 'All inboxes'
+      : count === 1
+        ? (inboxes.find(i => selected.has(i.id))?.emailAddress ?? '1 inbox')
+        : `${count} inboxes`
+
+  const toggle = (id: string) => {
+    const next = new Set(selected)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    onChange(next)
+  }
+
+  return (
+    <div ref={ref} className="relative w-full">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="flex h-8 w-full items-center justify-between gap-2 rounded-lg border border-rule bg-white px-2.5 text-sm text-ink shadow-sm hover:border-[rgb(11_18_32/22%)] transition-colors focus:outline-none focus:ring-2 focus:ring-action/40"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        <span className="truncate">{label}</span>
+        <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-[rgb(11_18_32/35%)] transition-transform duration-150 ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full z-50 mt-1.5 min-w-full rounded-xl border border-[rgb(11_18_32/10%)] bg-white shadow-lg overflow-hidden">
+          <div className="flex items-center justify-between px-3 py-1.5 border-b border-[rgb(11_18_32/8%)]">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)]">Inboxes</span>
+            <button
+              type="button"
+              onClick={() => onChange(allSelected ? new Set() : new Set(inboxes.map(i => i.id)))}
+              className="text-[11px] font-medium text-action hover:underline"
+            >
+              {allSelected ? 'Clear all' : 'Select all'}
+            </button>
+          </div>
+          <div className="p-1 max-h-60 overflow-y-auto">
+            {inboxes.map(acc => {
+              const checked = selected.has(acc.id)
+              return (
+                <button
+                  key={acc.id}
+                  type="button"
+                  onClick={() => toggle(acc.id)}
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-ink hover:bg-[rgb(11_18_32/4%)] transition-colors"
+                >
+                  <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${checked ? 'bg-action border-action' : 'border-[rgb(11_18_32/25%)] bg-white'}`}>
+                    {checked && <Check className="h-3 w-3 text-white" />}
+                  </span>
+                  <span className="flex-1 text-left truncate">{acc.emailAddress}</span>
+                </button>
+              )
+            })}
+            {inboxes.length === 0 && (
+              <p className="px-2.5 py-2 text-xs text-[rgb(11_18_32/40%)]">No connected inboxes</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 

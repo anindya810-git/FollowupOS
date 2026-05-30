@@ -56,7 +56,12 @@ export async function GET(request: NextRequest) {
   // Thread-level filters (inbox, dates, sender, domain, keywords, attachments).
   if (emailFrom || emailTo || inboxId || senderEmail || senderDomain || keywords || hasAttachment) {
     const threadFilter: Record<string, unknown> = {}
-    if (inboxId) threadFilter.emailAccountId = inboxId
+    if (inboxId) {
+      // inbox_id may be a single id or a comma-separated list (multi-select).
+      const ids = inboxId.split(',').map(s => s.trim()).filter(Boolean)
+      if (ids.length === 1) threadFilter.emailAccountId = ids[0]
+      else if (ids.length > 1) threadFilter.emailAccountId = { in: ids }
+    }
     if (emailFrom || emailTo) {
       const lastMessageAt: Record<string, Date> = {}
       if (emailFrom) lastMessageAt.gte = new Date(emailFrom)
