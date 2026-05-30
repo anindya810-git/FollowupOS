@@ -387,7 +387,12 @@ export default function SettingsPage() {
                                 )}
                               </div>
                             ) : (
-                              <span>Last scan: {scan.threadsProcessed} threads · {scan.actionItemsCreated} action items found{scan.errorMessage ? ` · ${scan.errorMessage}` : ''}</span>
+                              <span>
+                                {scan.threadsProcessed === 0
+                                  ? <>No new emails since last sync · use <strong>Reset &amp; rescan</strong> (▾ dropdown) to re-evaluate all</>
+                                  : <>Last scan: {scan.threadsProcessed} threads · {scan.actionItemsCreated} action items found{scan.errorMessage ? ` · ${scan.errorMessage}` : ''}</>
+                                }
+                              </span>
                             )}
                           </div>
                         )
