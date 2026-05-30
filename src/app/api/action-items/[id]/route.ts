@@ -18,7 +18,7 @@ export async function GET(
     include: {
       emailThread: {
         include: {
-          emailAccount: { select: { provider: true } },
+          emailAccount: { select: { provider: true, emailAddress: true } },
           messages: {
             orderBy: { sentAt: 'asc' },
             take: 10,

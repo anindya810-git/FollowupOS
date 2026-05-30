@@ -128,14 +128,24 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
   if (!item) return null
   const active = detail || item
 
-  // The "contact" is whoever sent the email — last inbound (non-user) message.
-  // ownerEmail is set by the AI classifier and can be the user's own address
-  // when owner_type=user, so we prefer the inbound message sender.
-  const lastInbound = active.emailThread?.messages?.find(m => !m.isFromUser)
-  const contactEmail = lastInbound?.senderEmail || ''
-  // Never fall back to ownerName — it's the AI's classification owner which
-  // is set to the user's own name when owner_type=user.
-  const contactName = lastInbound?.senderName || ''
+  // The "contact" is whoever sent the email — the most recent inbound
+  // (non-user) message. ownerEmail is set by the AI classifier and is often the
+  // user's own address when owner_type=user, so it must NEVER be used as a
+  // reply recipient. This mirrors the server logic in
+  // /api/action-items/[id]/send so the displayed "Send to …" matches what's
+  // actually sent. The self-comparison is case-insensitive.
+  const selfEmail = (active.emailThread?.emailAccount?.emailAddress || '').trim().toLowerCase()
+  const lastInbound = active.emailThread?.messages?.find(
+    m => !m.isFromUser && m.senderEmail && m.senderEmail.trim().toLowerCase() !== selfEmail,
+  )
+  // Guard: never surface the user's own address as the reply target, even if
+  // a message was stored with isFromUser=false due to a scanner quirk.
+  const rawContactEmail = lastInbound?.senderEmail || ''
+  const contactEmail = selfEmail && rawContactEmail.trim().toLowerCase() === selfEmail ? '' : rawContactEmail
+  const contactName = (selfEmail && rawContactEmail.trim().toLowerCase() === selfEmail) ? '' : (lastInbound?.senderName || '')
+  // Canonical reply recipient (label for display): inbound sender, never self.
+  const recipientLabel = contactName || contactEmail || 'sender'
+  const hasRecipient = !!contactEmail
 
   const ignoreSender = async (scope: 'email' | 'domain') => {
     const email = contactEmail
@@ -517,7 +527,6 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
               {!confirmingSend && !scheduleOpen ? (
                 <div className="flex items-center gap-2 flex-wrap">
                   {(() => {
-                    const hasRecipient = !!(active.ownerEmail || active.emailThread?.messages?.find(m => !m.isFromUser)?.senderEmail)
                     return (<>
                       <Button
                         size="sm"
@@ -549,12 +558,7 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
               ) : confirmingSend ? (
                 <div className="flex items-center gap-2 bg-paper-2 border border-rule rounded-md px-3 py-2 flex-wrap">
                   <span className="text-xs text-ink">
-                    Send to {(() => {
-                      const lastInbound = active.emailThread?.messages?.find(m => !m.isFromUser)
-                      return active.ownerEmail && active.ownerEmail !== active.emailThread?.emailAccount?.emailAddress
-                        ? active.ownerEmail
-                        : (lastInbound?.senderName || lastInbound?.senderEmail || 'sender')
-                    })()}?
+                    Send to {recipientLabel}?
                   </span>
                   <Button size="sm" onClick={sendReply} disabled={sending}>
                     {sending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Confirm send'}
