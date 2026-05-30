@@ -488,8 +488,12 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
             </div>
           )}
 
-          {/* Needs closure banner — gentle "you can let this go" nudge */}
-          {active.needsClosure && active.status === 'open' && !(active.repeatedAskCount && active.repeatedAskCount >= 2) && (
+          {/* Needs closure banner — gentle "you can let this go" nudge. Only for
+              categories where "resolved" is plausible: it makes no sense to say a
+              thread looks done when a reply is still needed or a commitment is overdue. */}
+          {active.needsClosure && active.status === 'open'
+            && (active.category === 'waiting_on_them' || active.category === 'followup_due')
+            && !(active.repeatedAskCount && active.repeatedAskCount >= 2) && (
             <div className="flex items-start gap-2.5 bg-[rgb(11_18_32/4%)] border border-[rgb(11_18_32/10%)] rounded-lg p-3.5">
               <Archive className="h-4 w-4 text-[rgb(11_18_32/40%)] flex-shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">

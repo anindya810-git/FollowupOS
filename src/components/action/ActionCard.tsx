@@ -168,7 +168,7 @@ export function ActionCard({ item, onStatusChange, onSelect, selected, onSelectC
                   {item.repeatedAskCount} asks
                 </span>
               )}
-              {item.needsClosure && (
+              {item.needsClosure && (item.category === 'waiting_on_them' || item.category === 'followup_due') && (
                 <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-[rgb(11_18_32/5%)] text-[rgb(11_18_32/50%)] border border-[rgb(11_18_32/10%)] px-1.5 py-0.5 rounded" style={{ fontFamily: 'var(--font-mono)' }}>
                   <Archive className="h-2.5 w-2.5" />
                   Ready to close
