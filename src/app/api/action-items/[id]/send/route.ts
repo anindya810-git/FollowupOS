@@ -41,8 +41,15 @@ export async function POST(
       },
     },
   })
-  if (!item || !item.emailThread) {
+  if (!item) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+
+  // Thread-less items (e.g. meeting follow-up drafts) send a brand-new email to
+  // the contact (ownerEmail) from the user's connected mailbox, rather than
+  // replying into a thread.
+  if (!item.emailThread) {
+    return sendNewEmail(item, session.user.id, body.content, body.subject, id)
   }
 
   const account = item.emailThread.emailAccount
@@ -108,6 +115,62 @@ export async function POST(
     safeLog('error', 'send-reply', e, { itemId: id })
     // Generic message — do not echo raw provider errors which may contain
     // tokens, ciphertext fragments, or other sensitive data.
+    return NextResponse.json(
+      { error: 'Failed to send. The account may need to be reconnected.' },
+      { status: 500 },
+    )
+  }
+}
+
+// Send a brand-new email (no thread) for thread-less items like meeting
+// follow-up drafts. Picks the user's first connected mailbox to send from.
+async function sendNewEmail(
+  item: { ownerEmail: string | null; title: string | null },
+  userId: string,
+  content: string | undefined,
+  subjectOverride: string | undefined,
+  id: string,
+) {
+  if (!content) {
+    return NextResponse.json({ error: 'Content required' }, { status: 400 })
+  }
+  const account = await prisma.emailAccount.findFirst({
+    where: { userId, connectedStatus: 'connected' },
+    orderBy: { createdAt: 'asc' },
+  })
+  if (!account) {
+    return NextResponse.json({ error: 'No connected email account to send from.' }, { status: 400 })
+  }
+  const toEmail = (item.ownerEmail || '').trim()
+  const selfEmail = account.emailAddress.trim().toLowerCase()
+  if (!toEmail || toEmail.toLowerCase() === selfEmail) {
+    return NextResponse.json({ error: 'No valid recipient for this draft.' }, { status: 400 })
+  }
+  const subject = subjectOverride || item.title || 'Following up'
+
+  const [userPlan, appSettings] = await Promise.all([
+    getUserPlan(userId),
+    prisma.appSettings.findUnique({ where: { userId }, select: { emailSignatureEnabled: true } }),
+  ])
+  const canDisable = PLAN_LIMITS[userPlan.type as keyof typeof PLAN_LIMITS].canDisableSignature
+  const sigEnabled = !canDisable || (appSettings?.emailSignatureEnabled ?? true)
+  const finalContent = sigEnabled ? `${content}${SIGNATURE_HTML}` : content
+
+  try {
+    if (account.provider === 'gmail') {
+      await sendGmailReply(account.id, '', toEmail, subject, finalContent)
+    } else if (account.provider === 'outlook') {
+      await sendOutlookReply(account.id, '', toEmail, subject, finalContent)
+    } else {
+      await sendSmtpReply(account.id, toEmail, subject, finalContent)
+    }
+    await prisma.actionItem.update({
+      where: { id },
+      data: { status: 'done', completedAt: new Date() },
+    })
+    return NextResponse.json({ ok: true })
+  } catch (e) {
+    safeLog('error', 'send-new-email', e, { itemId: id })
     return NextResponse.json(
       { error: 'Failed to send. The account may need to be reconnected.' },
       { status: 500 },

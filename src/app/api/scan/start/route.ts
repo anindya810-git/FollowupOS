@@ -144,6 +144,10 @@ async function triggerScan(jobId: string, userId: string, accountId: string, day
   try {
     const { runInitialScan } = await import('@/lib/scanner')
     await runInitialScan(jobId, userId, accountId, days, maxThreads)
+    // Refresh auto-detected VIP flags from the freshly-scanned history so VIP
+    // badges appear automatically — no need to open the Contacts page.
+    const { refreshVipFlags } = await import('@/lib/relationship')
+    await refreshVipFlags(userId)
   } catch (error) {
     safeLog('error', 'scan-start', error)
   }

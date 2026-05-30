@@ -183,7 +183,9 @@ export async function sendGmailReply(
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ raw, threadId }),
+    // Only attach threadId for true replies — an empty thread_id is rejected by
+    // Gmail, so a brand-new email (e.g. a meeting follow-up) omits it.
+    body: JSON.stringify({ raw, ...(threadId ? { threadId } : {}) }),
   })
 
   if (!res.ok) {

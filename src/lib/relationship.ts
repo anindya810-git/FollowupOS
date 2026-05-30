@@ -143,3 +143,26 @@ export async function computeContactInsights(userId: string): Promise<ContactIns
   insights.sort((x, y) => y.vipScore - x.vipScore)
   return insights
 }
+
+/**
+ * Recompute insights and persist the VIP flag onto Contact rows so VIP badges
+ * and prioritisation work everywhere without the user opening the Contacts
+ * page. Best-effort — never throws (called from the scanner on completion).
+ */
+export async function refreshVipFlags(userId: string): Promise<void> {
+  try {
+    const insights = await computeContactInsights(userId)
+    const vipSet = new Set(insights.filter(i => i.vip).map(i => i.email))
+    await Promise.all(
+      insights.slice(0, 200).map(i =>
+        prisma.contact.upsert({
+          where: { userId_email: { userId, email: i.email } },
+          create: { userId, email: i.email, name: i.name, vip: vipSet.has(i.email) },
+          update: { vip: vipSet.has(i.email), ...(i.name ? { name: i.name } : {}) },
+        }).catch(() => null),
+      ),
+    )
+  } catch {
+    // best-effort
+  }
+}

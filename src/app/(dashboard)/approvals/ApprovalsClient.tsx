@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { Header } from '@/components/layout/Header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Loader2, X, CheckCheck, Send } from 'lucide-react'
+import { Loader2, X, CheckCheck, Send, RotateCcw } from 'lucide-react'
 import { playChime } from '@/lib/sounds'
 
 interface Approval {
@@ -22,6 +22,8 @@ function stripHtml(html: string): string {
 export function ApprovalsClient() {
   const [approvals, setApprovals] = useState<Approval[] | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
+  // Armed approval with a 10-second undo window before it actually sends.
+  const [pending, setPending] = useState<{ id: string; secs: number } | null>(null)
 
   const load = () => {
     fetch('/api/approvals')
@@ -48,6 +50,14 @@ export function ApprovalsClient() {
       setBusy(null)
     }
   }
+
+  // Countdown for the armed approval; fires the send at zero.
+  useEffect(() => {
+    if (!pending) return
+    if (pending.secs <= 0) { const id = pending.id; setPending(null); act(id, 'approve'); return }
+    const t = setTimeout(() => setPending(p => (p ? { ...p, secs: p.secs - 1 } : null)), 1000)
+    return () => clearTimeout(t)
+  }, [pending])
 
   return (
     <>
@@ -88,14 +98,24 @@ export function ApprovalsClient() {
                   <div className="rounded-md bg-paper-2 border border-rule px-3 py-2">
                     <p className="text-xs text-[rgb(11_18_32/70%)] line-clamp-4 whitespace-pre-wrap">{stripHtml(a.contentHtml)}</p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button size="sm" onClick={() => act(a.id, 'approve')} disabled={busy === a.id}>
-                      {busy === a.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><Send className="h-3.5 w-3.5 mr-1.5" /> Approve &amp; send</>}
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => act(a.id, 'reject')} disabled={busy === a.id}>
-                      <X className="h-3.5 w-3.5 mr-1.5" /> Skip
-                    </Button>
-                  </div>
+                  {pending?.id === a.id ? (
+                    <div className="flex items-center gap-2 rounded-md bg-[rgb(26_143_94/8%)] border border-[rgb(26_143_94/25%)] px-3 py-2">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-done" />
+                      <span className="text-xs text-ink">Sending in {pending.secs}s…</span>
+                      <Button size="sm" variant="outline" className="ml-auto" onClick={() => setPending(null)}>
+                        <RotateCcw className="h-3 w-3 mr-1" /> Undo
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Button size="sm" onClick={() => setPending({ id: a.id, secs: 10 })} disabled={busy === a.id || !!pending}>
+                        {busy === a.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><Send className="h-3.5 w-3.5 mr-1.5" /> Approve &amp; send</>}
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => act(a.id, 'reject')} disabled={busy === a.id || !!pending}>
+                        <X className="h-3.5 w-3.5 mr-1.5" /> Skip
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}

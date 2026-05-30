@@ -260,9 +260,15 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
   const rawContactEmail = lastInbound?.senderEmail || ''
   const contactEmail = selfEmail && rawContactEmail.trim().toLowerCase() === selfEmail ? '' : rawContactEmail
   const contactName = (selfEmail && rawContactEmail.trim().toLowerCase() === selfEmail) ? '' : (lastInbound?.senderName || '')
-  // Canonical reply recipient (label for display): inbound sender, never self.
-  const recipientLabel = contactName || contactEmail || 'sender'
-  const hasRecipient = !!contactEmail
+  // Thread-less items (meeting follow-up drafts) have no inbound message — the
+  // recipient is the attendee stored as ownerEmail (ownerType 'other_person',
+  // never the user). This lets the draft be sent as a fresh email in one tap.
+  const threadlessRecipient = !active.emailThread && active.ownerType !== 'user' ? (active.ownerEmail || '') : ''
+  const effectiveContactEmail = contactEmail || threadlessRecipient
+  const effectiveContactName = contactName || (threadlessRecipient ? (active.ownerName || '') : '')
+  // Canonical reply recipient (label for display): inbound sender / attendee, never self.
+  const recipientLabel = effectiveContactName || effectiveContactEmail || 'sender'
+  const hasRecipient = !!effectiveContactEmail
 
   const ignoreSender = async (scope: 'email' | 'domain') => {
     const email = contactEmail
@@ -400,13 +406,13 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
             <h2 className="text-base font-semibold text-ink leading-snug">
               {active.title || active.emailThread?.subject}
             </h2>
-            {(contactName || contactEmail) && (
+            {(effectiveContactName || effectiveContactEmail) && (
               <div className="mt-1">
-                {contactName && (
-                  <p className="text-sm font-medium text-[rgb(11_18_32/70%)]">{contactName}</p>
+                {effectiveContactName && (
+                  <p className="text-sm font-medium text-[rgb(11_18_32/70%)]">{effectiveContactName}</p>
                 )}
-                {contactEmail && (
-                  <p className="text-xs text-[rgb(11_18_32/45%)]">{contactEmail}</p>
+                {effectiveContactEmail && (
+                  <p className="text-xs text-[rgb(11_18_32/45%)]">{effectiveContactEmail}</p>
                 )}
               </div>
             )}
