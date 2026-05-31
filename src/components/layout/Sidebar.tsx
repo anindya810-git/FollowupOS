@@ -17,6 +17,7 @@ import {
   Plug,
   Users,
   CheckCheck,
+  Eye,
 } from 'lucide-react'
 
 const navGroups = [
@@ -27,6 +28,7 @@ const navGroups = [
       { href: '/queue', label: 'All Items', icon: ListTodo },
       { href: '/contacts', label: 'Contacts', icon: Users },
       { href: '/approvals', label: 'Approvals', icon: CheckCheck },
+      { href: '/watchlist', label: 'WatchList', icon: Eye },
       { href: '/analytics', label: 'Analytics', icon: BarChart2 },
     ],
   },

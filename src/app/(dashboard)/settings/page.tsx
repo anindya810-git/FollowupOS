@@ -82,7 +82,6 @@ export default function SettingsPage() {
   })
   const [activeSection, setActiveSection] = useState<SectionId>('inboxes')
   const [newSender, setNewSender] = useState('')
-  const [newWatch, setNewWatch] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [openErrorLogs, setOpenErrorLogs] = useState<Set<string>>(new Set())
@@ -310,23 +309,6 @@ export default function SettingsPage() {
   const removeIgnoredSender = async (id: string) => {
     await fetch(`/api/settings/ignored-senders/${id}`, { method: 'DELETE' })
     setSettings(s => ({ ...s, ignoredSenders: s.ignoredSenders.filter(x => x.id !== id) }))
-  }
-
-  const addWatch = async () => {
-    if (!newWatch.trim()) return
-    const isDomain = !newWatch.includes('@')
-    await fetch('/api/settings/watchlist', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(isDomain ? { domain: newWatch } : { sender_email: newWatch }),
-    })
-    setNewWatch('')
-    fetch('/api/settings').then(r => r.json()).then(setSettings)
-  }
-
-  const removeWatch = async (id: string) => {
-    await fetch(`/api/settings/watchlist/${id}`, { method: 'DELETE' })
-    setSettings(s => ({ ...s, watchList: (s.watchList ?? []).filter(x => x.id !== id) }))
   }
 
   // "Pause everything" is a one-tap master switch — it saves immediately
@@ -624,47 +606,6 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          {/* WatchList */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Eye className="h-4 w-4 text-action" />WatchList</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <p className="text-sm text-[rgb(11_18_32/55%)]">
-                Get a push notification on every new email from anything you watch — a person, a whole domain, or a specific thread — on top of the urgent items Pendingly already flags. Add a thread from its detail view.
-              </p>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="email@example.com or domain.com"
-                  value={newWatch}
-                  onChange={e => setNewWatch(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && addWatch()}
-                />
-                <Button onClick={addWatch} size="icon" variant="outline">
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
-              {(settings.watchList ?? []).length === 0 ? (
-                <p className="text-xs text-[rgb(11_18_32/40%)]">Nothing on your watchlist yet.</p>
-              ) : (
-                (settings.watchList ?? []).map(w => (
-                  <div key={w.id} className="flex items-center justify-between rounded-md bg-paper px-3 py-2">
-                    <div className="min-w-0">
-                      <span className="text-sm text-ink truncate block">
-                        {w.senderEmail || (w.domain ? `@${w.domain}` : w.label || 'Watched thread')}
-                      </span>
-                      <span className="text-[10px] uppercase tracking-wide text-[rgb(11_18_32/40%)]">
-                        {w.senderEmail ? 'Person' : w.domain ? 'Domain' : 'Thread'}
-                      </span>
-                    </div>
-                    <Button variant="ghost" size="icon" onClick={() => removeWatch(w.id)}>
-                      <Trash2 className="h-4 w-4 text-action" />
-                    </Button>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
           </>)}
 
           {/* ── Notifications ── */}
@@ -721,6 +662,27 @@ export default function SettingsPage() {
                     Get push notifications on this device when follow-ups are pending.
                   </p>
                   <PushNotificationToggle />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Eye className="h-4 w-4 text-action" />WatchList
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-[rgb(11_18_32/55%)]">
+                    Get a push on every email from a specific person, company, or thread — on top of Pendingly&apos;s regular alerts. Manage who and what you&apos;re watching from the dedicated WatchList page.
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-3 gap-1.5"
+                    onClick={() => { window.location.href = '/watchlist' }}
+                  >
+                    <Eye className="h-3.5 w-3.5" /> Open WatchList
+                  </Button>
                 </CardContent>
               </Card>
 
