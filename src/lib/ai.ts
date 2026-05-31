@@ -209,13 +209,33 @@ function extractJson(text: string): string {
 
 function validateClassification(parsed: AiClassificationOutput): boolean {
   const validCategories = ['reply_needed', 'waiting_on_them', 'followup_due', 'commitment_detected', 'overdue_commitment', 'no_action_needed']
-  const validPriorities = ['high', 'medium', 'low']
   if (!validCategories.includes(parsed.primary_category)) return false
-  if (!validPriorities.includes(parsed.priority)) return false
-  if (typeof parsed.confidence !== 'number') return false
-  if (typeof parsed.should_show_to_user !== 'boolean') return false
+
+  // Coerce: models sometimes return confidence as a string ("0.85")
+  if (typeof parsed.confidence !== 'number') {
+    if (typeof parsed.confidence === 'string') {
+      const n = parseFloat(parsed.confidence as string)
+      if (isNaN(n)) return false
+      parsed.confidence = Math.max(0, Math.min(1, n))
+    } else {
+      return false
+    }
+  }
+
+  // Coerce: invalid priority → medium (don't fail on capitalisation or synonyms)
+  const validPriorities = ['high', 'medium', 'low']
+  if (!validPriorities.includes(parsed.priority)) {
+    const lower = String(parsed.priority ?? '').toLowerCase()
+    parsed.priority = lower === 'high' ? 'high' : lower === 'low' ? 'low' : 'medium'
+  }
+
+  // Coerce: non-boolean → derive from category
+  if (typeof parsed.should_show_to_user !== 'boolean') {
+    parsed.should_show_to_user = parsed.primary_category !== 'no_action_needed'
+  }
+
   if (typeof parsed.needs_closure !== 'boolean') parsed.needs_closure = false
-  // A thread the user still owes a reply/action on can never be "resolved".
+  // A thread the user still owes a reply on can never be "resolved".
   if (parsed.primary_category === 'reply_needed' || parsed.primary_category === 'overdue_commitment') {
     parsed.needs_closure = false
   }
@@ -304,26 +324,75 @@ function isGeminiDailyQuota(msg: string): boolean {
   return msg.includes('PerDay') || msg.includes('per_day') || msg.includes('PerModelPerDay')
 }
 
+// Gemini finish-reason values that indicate content was blocked by safety filters.
+// Treat these as no-action-needed rather than as scan failures.
+const GEMINI_SAFETY_REASONS = new Set(['SAFETY', 'RECITATION', 'PROHIBITED_CONTENT', 'SPII', 'BLOCKLIST'])
+
+const NO_ACTION_SAFE: AiClassificationOutput = {
+  primary_category: 'no_action_needed',
+  secondary_categories: [],
+  confidence: 0.5,
+  reason: 'Content blocked by safety filter.',
+  suggested_action: '',
+  priority: 'low',
+  due_date: null,
+  owner_type: 'unclear',
+  owner_name: null,
+  owner_email: null,
+  commitment_text: null,
+  is_automated_or_marketing: true,
+  should_show_to_user: false,
+  needs_closure: false,
+  closure_reason: null,
+}
+
 async function classifyGemini(input: ClassificationInput, config: AiConfig, customInstructions?: string | null): Promise<AiClassificationOutput | null> {
   const genAI = new GoogleGenerativeAI(config.apiKey)
   // Use v1beta (SDK default) — gemini-2.5-flash is a preview model and only
   // available on the v1beta endpoint. v1 returns 403 "access denied" for it.
-  // responseMimeType has been removed so v1beta works without issue.
   const model = genAI.getGenerativeModel({ model: config.model })
 
   for (let attempt = 0; attempt < 3; attempt++) {
     await geminiRateLimit(config.isDefaultKey)
     try {
-      const result = await withTimeout(
+      const res = await withTimeout(
         model.generateContent(
           `${buildClassificationSystem(customInstructions)}\n\nClassify this thread:\n${JSON.stringify(input)}`
         ),
         AI_CALL_TIMEOUT_MS,
         'Gemini classify',
       )
-      const text = result.response.text()
-      const parsed = JSON.parse(extractJson(text)) as AiClassificationOutput
-      return validateClassification(parsed) ? parsed : null
+
+      // Check finish reason before calling text() — safety blocks cause text() to throw
+      const finishReason = String(res.response.candidates?.[0]?.finishReason ?? '')
+      if (GEMINI_SAFETY_REASONS.has(finishReason)) return { ...NO_ACTION_SAFE }
+
+      // text() can still throw for safety-blocked content even when finishReason looks OK
+      let text: string
+      try {
+        text = res.response.text()
+      } catch (textErr) {
+        const m = textErr instanceof Error ? textErr.message : String(textErr)
+        if (/safety|block|prohibited|recitation/i.test(m)) return { ...NO_ACTION_SAFE }
+        // Unexpected text() error — retry
+        if (attempt < 2) { await new Promise(r => setTimeout(r, (attempt + 1) * 2_000)); continue }
+        return null
+      }
+
+      // Parse JSON — malformed output is transient, so retry
+      let parsed: AiClassificationOutput
+      try {
+        parsed = JSON.parse(extractJson(text)) as AiClassificationOutput
+      } catch {
+        if (attempt < 2) { await new Promise(r => setTimeout(r, (attempt + 1) * 2_000)); continue }
+        return null
+      }
+
+      // Validate/coerce — if the model produced an invalid schema, retry once
+      if (validateClassification(parsed)) return parsed
+      if (attempt < 2) { await new Promise(r => setTimeout(r, (attempt + 1) * 2_000)); continue }
+      return null
+
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       if (isGeminiDailyQuota(msg)) {
@@ -331,9 +400,8 @@ async function classifyGemini(input: ClassificationInput, config: AiConfig, cust
       }
       const is429 = msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED')
       const is503 = msg.includes('503') || msg.includes('Service Unavailable') || msg.includes('high demand')
-      // Transient network / availability blips: time-outs, "fetch failed",
-      // dropped connections, and intermittent 404s on preview models. These
-      // are common and should be retried rather than failing the thread.
+      // Transient network / availability blips: timeouts, "fetch failed",
+      // dropped connections, and intermittent 404s on preview models.
       const isTransient =
         msg.includes('timed out') || msg.includes('fetch failed') || msg.includes('ECONNRESET') ||
         msg.includes('ETIMEDOUT') || msg.includes('ENOTFOUND') || msg.includes('network') ||
