@@ -29,16 +29,18 @@ export async function buildContactsFromMessages(userId: string) {
     distinct: ['senderEmail'],
   })
 
-  const upserts = messages
-    .filter(m => m.senderEmail)
-    .map(m =>
+  const rows = messages.filter(m => m.senderEmail)
+
+  // Use allSettled so one failing row (e.g. missing DB column) doesn't abort the rest.
+  const results = await Promise.allSettled(
+    rows.map(m =>
       prisma.contact.upsert({
         where: { userId_email: { userId, email: m.senderEmail!.toLowerCase() } },
         create: { userId, email: m.senderEmail!.toLowerCase(), name: m.senderName || null },
         update: m.senderName ? { name: m.senderName } : {},
       })
     )
+  )
 
-  await prisma.$transaction(upserts)
-  return upserts.length
+  return results.filter(r => r.status === 'fulfilled').length
 }

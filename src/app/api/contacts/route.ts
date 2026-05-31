@@ -35,8 +35,13 @@ export async function POST(req: NextRequest) {
   }
 
   // Import all senders from stored messages
-  const count = await buildContactsFromMessages(session.user.id)
-  return NextResponse.json({ synced: count })
+  try {
+    const count = await buildContactsFromMessages(session.user.id)
+    return NextResponse.json({ synced: count })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return NextResponse.json({ error: msg }, { status: 500 })
+  }
 }
 
 export async function GET() {

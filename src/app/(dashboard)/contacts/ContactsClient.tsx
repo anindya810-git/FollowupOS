@@ -231,6 +231,7 @@ export function ContactsClient() {
     try {
       const res = await fetch('/api/contacts', { method: 'POST' })
       const d = await res.json()
+      if (!res.ok) { showToast(d.error || 'Import failed'); return }
       showToast(`Imported ${d.synced ?? 0} contacts from inbox`)
       fetchInsights()
     } catch { showToast('Import failed') } finally { setImporting(false) }
