@@ -1,9 +1,10 @@
 'use client'
 import { signIn } from 'next-auth/react'
-import { useState } from 'react'
+import { useState, useEffect, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { LogoMark } from '@/components/ui/Logo'
-import { Loader2 } from 'lucide-react'
+import { Loader2, AlertCircle } from 'lucide-react'
 
 const providers = [
   {
@@ -54,15 +55,39 @@ const providers = [
   },
 ]
 
-export default function SignupPage() {
+const ERROR_MESSAGES: Record<string, string> = {
+  OAuthAccountNotLinked: 'This email is already linked to a different sign-in method. Please use the same provider you signed up with.',
+  AccessDenied: 'Access was denied. Please try again and allow the requested permissions.',
+  Configuration: 'There was a server configuration issue. Please try again in a moment.',
+  CallbackRouteError: 'Something went wrong completing sign-in. Please try again.',
+  OAuthCallbackError: 'Something went wrong completing sign-in. Please try again.',
+  Default: 'Sign-in failed. Please try again.',
+}
+
+function SignupContent() {
+  const searchParams = useSearchParams()
   const [loading, setLoading] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const errorCode = searchParams.get('error')
+    if (errorCode) {
+      setError(ERROR_MESSAGES[errorCode] ?? ERROR_MESSAGES.Default)
+    }
+  }, [searchParams])
 
   const handleSignIn = async (providerId: string, available: boolean) => {
     if (!available) return
     setLoading(providerId)
-    // New users are redirected to /connect by the dashboard onboarding check.
-    // Returning users land directly on /dashboard.
-    await signIn(providerId, { callbackUrl: '/dashboard' })
+    setError(null)
+    try {
+      // New users are redirected to /connect by the dashboard onboarding check.
+      // Returning users land directly on /dashboard.
+      await signIn(providerId, { callbackUrl: '/dashboard' })
+    } catch {
+      setError(ERROR_MESSAGES.Default)
+      setLoading(null)
+    }
   }
 
   return (
@@ -82,6 +107,13 @@ export default function SignupPage() {
             <h1 className="text-3xl font-bold text-ink mb-2">Create your account</h1>
             <p className="text-[rgb(11_18_32/55%)]">Start your 3-month free trial. No credit card required.</p>
           </div>
+
+          {error && (
+            <div className="mb-6 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+              <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+          )}
 
           <div className="space-y-3">
             {providers.map(p => (
@@ -124,5 +156,13 @@ export default function SignupPage() {
         </div>
       </main>
     </div>
+  )
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense>
+      <SignupContent />
+    </Suspense>
   )
 }

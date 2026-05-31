@@ -2,7 +2,7 @@ import NextAuth from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 import { PrismaAdapter } from '@auth/prisma-adapter'
 import { prisma } from './prisma'
-// prisma used in createUser event below
+import { safeLog } from './safe-log'
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -43,15 +43,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   events: {
     async createUser({ user }) {
-      // Set the free trial expiry to 90 days from now
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { planExpiresAt: new Date(Date.now() + 90 * 86_400_000) },
-      })
+      // Set the free trial expiry to 90 days from now.
+      // Wrapped in try/catch so a transient DB error on cold start never
+      // prevents the sign-in from completing — the plan can be initialised
+      // on the next request if this fails.
+      try {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { planExpiresAt: new Date(Date.now() + 90 * 86_400_000) },
+        })
+      } catch (e) {
+        safeLog('warn', 'createUser-plan-init-failed', e)
+      }
     },
   },
   pages: {
-    signIn: '/',
-    error: '/',
+    signIn: '/signup',
+    // Send auth errors back to the sign-in page (with ?error=...) instead of
+    // the landing page, so users see actionable feedback and a retry button.
+    error: '/signup',
   },
 })
