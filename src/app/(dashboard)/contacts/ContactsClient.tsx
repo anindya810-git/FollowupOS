@@ -424,8 +424,10 @@ export function ContactsClient() {
                 ? `${c.unrepliedCount} of ${c.inboundCount} messages went unanswered.`
                 : c.cooling
                 ? `Usually reply in ${fmtDur(c.typicalReplyHours)}; waiting ${fmtDur(c.currentGapHours)}.`
-                : c.typicalReplyHours !== null
+                : c.exchangeCount > 0 && c.typicalReplyHours !== null
                 ? `Avg reply time ${fmtDur(c.typicalReplyHours)}.`
+                : c.exchangeCount === 0
+                ? 'No exchange history — imported or manually added.'
                 : 'Not enough history yet.'
 
               return (

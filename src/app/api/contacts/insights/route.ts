@@ -12,55 +12,71 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const insights = await computeContactInsights(session.user.id)
+  // Run both in parallel — insights computation and full DB contact list
+  const [insights, dbContacts] = await Promise.all([
+    computeContactInsights(session.user.id),
+    (async () => {
+      try {
+        return await prisma.contact.findMany({
+          where: { userId: session.user!.id },
+          select: {
+            id: true, email: true, name: true, vip: true,
+            phone: true, designation: true, company: true,
+            city: true, notes: true, linkedinUrl: true, aiEnriched: true,
+          },
+        })
+      } catch {
+        // New columns may not exist — fall back to base fields
+        try {
+          return await prisma.contact.findMany({
+            where: { userId: session.user!.id },
+            select: { id: true, email: true, name: true, vip: true },
+          })
+        } catch { return [] }
+      }
+    })(),
+  ])
 
-  // Fetch enriched contact records — gracefully degrade if new columns don't
-  // exist yet in the DB (i.e. SQL migration not run yet).
-  let dbContacts: Array<{
-    id: string; email: string; name: string | null; vip: boolean
-    phone?: string | null; designation?: string | null; company?: string | null
-    city?: string | null; notes?: string | null; linkedinUrl?: string | null
-    aiEnriched?: boolean
-  }> = []
-  try {
-    dbContacts = await prisma.contact.findMany({
-      where: { userId: session.user.id },
-      select: {
-        id: true, email: true, name: true, vip: true,
-        phone: true, designation: true, company: true,
-        city: true, notes: true, linkedinUrl: true, aiEnriched: true,
-      },
-    })
-  } catch {
-    // New columns may not exist yet — fall back to base fields only
-    try {
-      const base = await prisma.contact.findMany({
-        where: { userId: session.user.id },
-        select: { id: true, email: true, name: true, vip: true },
-      })
-      dbContacts = base
-    } catch { /* ignore — merged data will just lack stored profile */ }
-  }
+  // Build a map of computed insights keyed by email
+  const insightMap = new Map(insights.map(i => [i.email.toLowerCase(), i]))
 
-  // Merge computed insights with stored profile fields
-  const contactMap = new Map(dbContacts.map(c => [c.email.toLowerCase(), c]))
-  const merged = insights.map(i => {
-    const stored = contactMap.get(i.email.toLowerCase())
+  // Show ALL Contact DB records (includes manually added + imported contacts).
+  // Enrich with relationship metrics where available (i.e. contacts with exchanges).
+  const merged = dbContacts.map(c => {
+    const insight = insightMap.get(c.email.toLowerCase())
     return {
-      ...i,
-      id: stored?.id ?? null,
-      phone: stored?.phone ?? null,
-      designation: stored?.designation ?? null,
-      company: stored?.company ?? null,
-      city: stored?.city ?? null,
-      notes: stored?.notes ?? null,
-      linkedinUrl: stored?.linkedinUrl ?? null,
-      aiEnriched: stored?.aiEnriched ?? false,
-      name: stored?.name || i.name,
+      id: c.id,
+      email: c.email,
+      name: c.name || insight?.name || null,
+      phone: (c as { phone?: string | null }).phone ?? null,
+      designation: (c as { designation?: string | null }).designation ?? null,
+      company: (c as { company?: string | null }).company ?? null,
+      city: (c as { city?: string | null }).city ?? null,
+      notes: (c as { notes?: string | null }).notes ?? null,
+      linkedinUrl: (c as { linkedinUrl?: string | null }).linkedinUrl ?? null,
+      aiEnriched: (c as { aiEnriched?: boolean }).aiEnriched ?? false,
+      vip: c.vip,
+      // Relationship metrics — zero/null for contacts with no exchange history
+      inboundCount: insight?.inboundCount ?? 0,
+      exchangeCount: insight?.exchangeCount ?? 0,
+      unrepliedCount: insight?.unrepliedCount ?? 0,
+      lastInboundAt: insight?.lastInboundAt ?? null,
+      typicalReplyHours: insight?.typicalReplyHours ?? null,
+      currentGapHours: insight?.currentGapHours ?? null,
+      cooling: insight?.cooling ?? false,
+      ghosting: insight?.ghosting ?? false,
+      vipScore: insight?.vipScore ?? 0,
     }
   })
 
-  // Persist VIP flag and upsert top 200 contacts — best-effort, never fail the request.
+  // Sort: VIPs and most-engaged first, then alphabetically
+  merged.sort((a, b) => {
+    if (b.vipScore !== a.vipScore) return b.vipScore - a.vipScore
+    if (b.exchangeCount !== a.exchangeCount) return b.exchangeCount - a.exchangeCount
+    return (a.name || a.email).localeCompare(b.name || b.email)
+  })
+
+  // Persist VIP flag — best-effort, never fail the request
   try {
     const vipSet = new Set(insights.filter(i => i.vip).map(i => i.email))
     await Promise.all(
