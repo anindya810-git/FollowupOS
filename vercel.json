@@ -23,7 +23,7 @@
     },
     {
       "path": "/api/cron/proactive-nudges",
-      "schedule": "0 */4 * * *"
+      "schedule": "0 8 * * *"
     }
   ]
 }

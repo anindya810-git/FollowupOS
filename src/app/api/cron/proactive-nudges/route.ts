@@ -8,7 +8,10 @@ import { getRecentlyEndedGoogleEvents } from '@/lib/gmail'
 import { getRecentlyEndedOutlookEvents } from '@/lib/outlook'
 import { safeLog } from '@/lib/safe-log'
 
-const MEETING_LOOKBACK_HOURS = 5
+// Runs once a day (Vercel Hobby caps crons at daily), so look back ~26h to
+// catch every meeting that ended since the previous run. ProactiveNudge
+// de-dupes, so the overlap never produces a duplicate draft.
+const MEETING_LOOKBACK_HOURS = 26
 
 // Reserve a nudge atomically. Returns true if this is the first time (so we
 // should act), false if we've already nudged for it.
