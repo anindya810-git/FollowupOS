@@ -1639,23 +1639,27 @@ function ScanAggressivenessCard({
   const [scope, setScope] = useState<string>('all')
   const selectedInbox = inboxes.find(i => i.id === scope) ?? null
 
-  // Per-inbox local state. 0 = "use default" (inherit global), 1–5 = override.
-  const [level, setLevel] = useState<number>(0)
+  // 0 = inherit global, 1–5 = explicit per-inbox override
+  const [inboxLevel, setInboxLevel] = useState<number>(0)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [clearingAll, setClearingAll] = useState(false)
 
   useEffect(() => {
-    if (selectedInbox) setLevel(selectedInbox.noiseFilterLevel ?? 0)
+    if (selectedInbox) setInboxLevel(selectedInbox.noiseFilterLevel ?? 0)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scope])
 
-  const dirty = (level === 0 ? null : level) !== (selectedInbox?.noiseFilterLevel ?? null)
+  const isInheriting = inboxLevel === 0
+  // Slider always shows a real 1–5 value; when inheriting, mirror the global level
+  const displayLevel = scope === 'all' ? globalLevel : (isInheriting ? globalLevel : inboxLevel)
+  const dirty = (inboxLevel === 0 ? null : inboxLevel) !== (selectedInbox?.noiseFilterLevel ?? null)
 
   const saveInbox = async () => {
     if (!selectedInbox) return
     setSaving(true)
     try {
-      const payload = { noiseFilterLevel: level === 0 ? null : level }
+      const payload = { noiseFilterLevel: inboxLevel === 0 ? null : inboxLevel }
       const res = await fetch(`/api/integrations/${selectedInbox.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -1671,6 +1675,27 @@ function ScanAggressivenessCard({
     }
   }
 
+  // Save global level and clear all per-inbox overrides so every inbox inherits
+  const handleSaveGlobal = async () => {
+    setClearingAll(true)
+    try {
+      await onSaveGlobal()
+      await Promise.all(inboxes.map(async inbox => {
+        if (inbox.noiseFilterLevel !== null) {
+          await fetch(`/api/integrations/${inbox.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ noiseFilterLevel: null }),
+          }).catch(() => {})
+          onInboxSaved(inbox.id, null)
+        }
+      }))
+      if (scope !== 'all') setInboxLevel(0)
+    } finally {
+      setClearingAll(false)
+    }
+  }
+
   return (
     <Card>
       <CardHeader><CardTitle>Scan Aggressiveness</CardTitle></CardHeader>
@@ -1681,66 +1706,73 @@ function ScanAggressivenessCard({
 
         {inboxes.length > 0 && <ScopeSelect scope={scope} setScope={setScope} inboxes={inboxes} />}
 
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold text-ink">
+              Level {displayLevel} — {NOISE_LEVEL_LABELS[displayLevel]?.name}
+            </span>
+            <div className="flex items-center gap-2">
+              {scope !== 'all' && isInheriting && (
+                <span className="text-[11px] bg-[rgb(11_18_32/6%)] text-[rgb(11_18_32/50%)] px-2 py-0.5 rounded-full">
+                  Using global default
+                </span>
+              )}
+              {scope !== 'all' && !isInheriting && (
+                <button
+                  type="button"
+                  onClick={() => setInboxLevel(0)}
+                  className="text-[11px] text-action hover:underline"
+                >
+                  Reset to global
+                </button>
+              )}
+              <span className="text-xs text-[rgb(11_18_32/40%)] font-mono">
+                {displayLevel === 1 ? 'least filtered' : displayLevel === 5 ? 'most filtered' : ''}
+              </span>
+            </div>
+          </div>
+          <input
+            type="range"
+            min={1}
+            max={5}
+            step={1}
+            value={displayLevel}
+            onChange={e => {
+              const n = Number(e.target.value)
+              if (scope === 'all') onGlobalLevelChange(n)
+              else setInboxLevel(n)
+            }}
+            className="w-full accent-action"
+          />
+          <div className="flex justify-between text-[10px] text-[rgb(11_18_32/35%)] px-0.5">
+            {[1,2,3,4,5].map(n => (
+              <span key={n} className={n === displayLevel ? 'text-action font-semibold' : ''}>
+                {NOISE_LEVEL_LABELS[n]?.name}
+              </span>
+            ))}
+          </div>
+          <p className="text-xs text-[rgb(11_18_32/55%)] bg-paper-2 rounded-md px-3 py-2 border border-[rgb(11_18_32/8%)]">
+            {scope !== 'all' && isInheriting
+              ? `Inheriting the global default — ${NOISE_LEVEL_LABELS[globalLevel]?.description}`
+              : NOISE_LEVEL_LABELS[displayLevel]?.description}
+          </p>
+        </div>
+
         {scope === 'all' ? (
           <>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-ink">
-                  Level {globalLevel} — {NOISE_LEVEL_LABELS[globalLevel]?.name}
-                </span>
-                <span className="text-xs text-[rgb(11_18_32/40%)] font-mono">
-                  {globalLevel === 1 ? 'least filtered' : globalLevel === 5 ? 'most filtered' : ''}
-                </span>
-              </div>
-              <input
-                type="range"
-                min={1}
-                max={5}
-                step={1}
-                value={globalLevel}
-                onChange={e => onGlobalLevelChange(Number(e.target.value))}
-                className="w-full accent-action"
-              />
-              <div className="flex justify-between text-[10px] text-[rgb(11_18_32/35%)] px-0.5">
-                {[1,2,3,4,5].map(n => (
-                  <span key={n} className={n === globalLevel ? 'text-action font-semibold' : ''}>
-                    {NOISE_LEVEL_LABELS[n]?.name}
-                  </span>
-                ))}
-              </div>
-              <p className="text-xs text-[rgb(11_18_32/55%)] bg-paper-2 rounded-md px-3 py-2 border border-[rgb(11_18_32/8%)]">
-                {NOISE_LEVEL_LABELS[globalLevel]?.description}
-              </p>
-            </div>
             <p className="text-xs text-[rgb(11_18_32/40%)]">
-              Takes effect on the next sync. Changes to this setting do not affect existing action items.
+              Takes effect on the next sync. Saving will reset any per-inbox overrides so all inboxes inherit this level.
             </p>
-            <Button onClick={onSaveGlobal} disabled={savingGlobal} size="sm">
-              {savedGlobal ? 'Saved!' : savingGlobal ? 'Saving…' : 'Save Settings'}
+            <Button onClick={handleSaveGlobal} disabled={savingGlobal || clearingAll} size="sm">
+              {savedGlobal ? 'Saved!' : (savingGlobal || clearingAll) ? 'Saving…' : 'Save Settings'}
             </Button>
           </>
         ) : (
           <>
-            <div>
-              <select
-                value={level}
-                onChange={e => setLevel(Number(e.target.value))}
-                className="h-9 w-full rounded-md border border-rule bg-white px-2.5 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-action"
-                aria-label="Per-inbox scan aggressiveness"
-              >
-                <option value={0}>Use default (Level {globalLevel} — {NOISE_LEVEL_LABELS[globalLevel]?.name})</option>
-                {[1,2,3,4,5].map(n => (
-                  <option key={n} value={n}>Level {n} — {NOISE_LEVEL_LABELS[n]?.name}</option>
-                ))}
-              </select>
-              <p className="text-xs text-[rgb(11_18_32/55%)] bg-paper-2 rounded-md px-3 py-2 border border-[rgb(11_18_32/8%)] mt-2">
-                {level === 0
-                  ? `Inheriting the global default — ${NOISE_LEVEL_LABELS[globalLevel]?.description}`
-                  : NOISE_LEVEL_LABELS[level]?.description}
-              </p>
-            </div>
             <p className="text-xs text-[rgb(11_18_32/40%)]">
-              Overrides the global default for <span className="font-medium text-ink">{selectedInbox?.emailAddress}</span> only. Takes effect on the next sync.
+              {isInheriting
+                ? `Move the slider to set a custom level for ${selectedInbox?.emailAddress} only.`
+                : `Overrides the global default for ${selectedInbox?.emailAddress} only. Takes effect on the next sync.`}
             </p>
             <Button onClick={saveInbox} disabled={saving || !dirty} size="sm">
               {saved ? 'Saved!' : saving ? 'Saving…' : 'Save inbox settings'}
@@ -1775,6 +1807,7 @@ function TeachPendinglyCard({
   const [instructions, setInstructions] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [clearingAll, setClearingAll] = useState(false)
 
   useEffect(() => {
     if (selectedInbox) setInstructions(selectedInbox.scanInstructions ?? '')
@@ -1800,6 +1833,27 @@ function TeachPendinglyCard({
       }
     } finally {
       setSaving(false)
+    }
+  }
+
+  // Save global instructions and clear all per-inbox overrides so every inbox inherits
+  const handleSaveGlobal = async () => {
+    setClearingAll(true)
+    try {
+      await onSaveGlobal()
+      await Promise.all(inboxes.map(async inbox => {
+        if (inbox.scanInstructions !== null && inbox.scanInstructions !== undefined) {
+          await fetch(`/api/integrations/${inbox.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ scanInstructions: null }),
+          }).catch(() => {})
+          onInboxSaved(inbox.id, null)
+        }
+      }))
+      if (scope !== 'all') setInstructions('')
+    } finally {
+      setClearingAll(false)
     }
   }
 
@@ -1833,9 +1887,11 @@ function TeachPendinglyCard({
               className="w-full rounded-lg border border-rule bg-paper px-3.5 py-3 text-sm text-ink placeholder:text-[rgb(11_18_32/30%)] focus:outline-none focus:ring-1 focus:ring-action resize-y font-[inherit] leading-relaxed"
             />
             <div className="flex items-center justify-between">
-              <p className="text-[11px] text-[rgb(11_18_32/40%)]">{globalValue.length}/2000 characters</p>
-              <Button onClick={onSaveGlobal} disabled={savingGlobal} size="sm">
-                {savedGlobal ? 'Saved!' : savingGlobal ? 'Saving…' : 'Save instructions'}
+              <p className="text-[11px] text-[rgb(11_18_32/40%)]">
+                {globalValue.length}/2000 characters · saving will clear any per-inbox overrides
+              </p>
+              <Button onClick={handleSaveGlobal} disabled={savingGlobal || clearingAll} size="sm">
+                {savedGlobal ? 'Saved!' : (savingGlobal || clearingAll) ? 'Saving…' : 'Save instructions'}
               </Button>
             </div>
           </>
