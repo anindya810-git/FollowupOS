@@ -24,6 +24,8 @@ export async function GET(request: NextRequest) {
   const inboxId = searchParams.get('inbox_id')
   // Sender filter → partial match on sender name or email
   const senderEmail = searchParams.get('sender_email')
+  // Contact emails filter → exact match on one or more contact emails (comma-separated)
+  const contactEmails = searchParams.get('contact_emails')
   // Domain filter → suffix match on sender email domain
   const senderDomain = searchParams.get('sender_domain')
   // Keyword search → checks thread subject
@@ -54,7 +56,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Thread-level filters (inbox, dates, sender, domain, keywords, attachments).
-  if (emailFrom || emailTo || inboxId || senderEmail || senderDomain || keywords || hasAttachment) {
+  if (emailFrom || emailTo || inboxId || senderEmail || contactEmails || senderDomain || keywords || hasAttachment) {
     const threadFilter: Record<string, unknown> = {}
     if (inboxId) {
       // inbox_id may be a single id or a comma-separated list (multi-select).
@@ -69,9 +71,16 @@ export async function GET(request: NextRequest) {
       threadFilter.lastMessageAt = lastMessageAt
     }
     if (keywords) threadFilter.subject = { contains: keywords, mode: 'insensitive' }
-    if (senderEmail || senderDomain || hasAttachment) {
+    if (senderEmail || contactEmails || senderDomain || hasAttachment) {
       const msgFilter: Record<string, unknown> = { isFromUser: false }
-      if (senderEmail) {
+      if (contactEmails) {
+        const emails = contactEmails.split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
+        if (emails.length === 1) {
+          msgFilter.senderEmail = { equals: emails[0], mode: 'insensitive' }
+        } else if (emails.length > 1) {
+          msgFilter.senderEmail = { in: emails, mode: 'insensitive' }
+        }
+      } else if (senderEmail) {
         msgFilter.OR = [
           { senderEmail: { contains: senderEmail, mode: 'insensitive' } },
           { senderName: { contains: senderEmail, mode: 'insensitive' } },

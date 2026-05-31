@@ -84,7 +84,7 @@ function QueueContent() {
   const [senderDomain, setSenderDomain] = useState('')
   const [keywords, setKeywords] = useState('')
   const [hasAttachment, setHasAttachment] = useState(false)
-  const [contactEmail, setContactEmail] = useState('')
+  const [selectedContactEmails, setSelectedContactEmails] = useState<Set<string>>(new Set())
   const [contacts, setContacts] = useState<Array<{ email: string; name: string | null }>>([])
   const [inboxes, setInboxes] = useState<EmailAccount[]>([])
   const inboxInitRef = useRef(false)
@@ -131,7 +131,7 @@ function QueueContent() {
     if (actionTo) params.set('action_to', actionTo)
     if (inboxParam) params.set('inbox_id', inboxParam)
     if (senderEmail) params.set('sender_email', senderEmail)
-    if (contactEmail) params.set('sender_email', contactEmail)
+    if (selectedContactEmails.size > 0) params.set('contact_emails', Array.from(selectedContactEmails).join(','))
     if (senderDomain) params.set('sender_domain', senderDomain)
     if (keywords) params.set('keywords', keywords)
     if (hasAttachment) params.set('has_attachment', '1')
@@ -141,13 +141,13 @@ function QueueContent() {
     setItems(data.items || [])
     setTotal(data.total || 0)
     setLoading(false)
-  }, [status, category, priority, search, emailFrom, emailTo, actionFrom, actionTo, inboxParam, senderEmail, contactEmail, senderDomain, keywords, hasAttachment, page])
+  }, [status, category, priority, search, emailFrom, emailTo, actionFrom, actionTo, inboxParam, senderEmail, selectedContactEmails, senderDomain, keywords, hasAttachment, page])
 
   useEffect(() => { fetchItems() }, [fetchItems])
-  useEffect(() => { setPage(1) }, [status, category, priority, search, emailFrom, emailTo, actionFrom, actionTo, inboxParam, senderEmail, contactEmail, senderDomain, keywords, hasAttachment])
-  useEffect(() => { setSelectedIds(new Set()) }, [status, category, priority, search, emailFrom, emailTo, actionFrom, actionTo, inboxParam, senderEmail, contactEmail, senderDomain, keywords, hasAttachment, page])
+  useEffect(() => { setPage(1) }, [status, category, priority, search, emailFrom, emailTo, actionFrom, actionTo, inboxParam, senderEmail, selectedContactEmails, senderDomain, keywords, hasAttachment])
+  useEffect(() => { setSelectedIds(new Set()) }, [status, category, priority, search, emailFrom, emailTo, actionFrom, actionTo, inboxParam, senderEmail, selectedContactEmails, senderDomain, keywords, hasAttachment, page])
 
-  const hasAdvancedFilters = !!(priority || emailFrom || emailTo || actionFrom || actionTo || inboxParam || senderEmail || contactEmail || senderDomain || keywords || hasAttachment)
+  const hasAdvancedFilters = !!(priority || emailFrom || emailTo || actionFrom || actionTo || inboxParam || senderEmail || selectedContactEmails.size > 0 || senderDomain || keywords || hasAttachment)
   const clearAdvanced = () => {
     setPriority('')
     setEmailFrom('')
@@ -156,7 +156,7 @@ function QueueContent() {
     setActionTo('')
     setSelectedInboxIds(new Set(allInboxIds))  // back to all inboxes
     setSenderEmail('')
-    setContactEmail('')
+    setSelectedContactEmails(new Set())
     setSenderDomain('')
     setKeywords('')
     setHasAttachment(false)
@@ -247,7 +247,7 @@ function QueueContent() {
             Advanced Filters
             {hasAdvancedFilters && (
               <span className="h-4 w-4 rounded-full bg-action text-white text-[10px] font-bold flex items-center justify-center leading-none">
-                {[priority, emailFrom, emailTo, actionFrom, actionTo, inboxParam, senderEmail, contactEmail, senderDomain, keywords, hasAttachment ? '1' : ''].filter(Boolean).length}
+                {[priority, emailFrom, emailTo, actionFrom, actionTo, inboxParam, senderEmail, selectedContactEmails.size > 0 ? '1' : '', senderDomain, keywords, hasAttachment ? '1' : ''].filter(Boolean).length}
               </span>
             )}
             {showAdvanced ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
@@ -330,17 +330,11 @@ function QueueContent() {
               {/* Contact filter */}
               <div className="col-span-2 sm:col-span-2">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)] mb-1.5">Contact</p>
-                <select
-                  value={contactEmail}
-                  onChange={e => setContactEmail(e.target.value)}
-                  className={`${inputClass} w-full`}
-                  aria-label="Contact filter"
-                >
-                  <option value="">All contacts</option>
-                  {contacts.map(c => (
-                    <option key={c.email} value={c.email}>{c.name ? `${c.name} (${c.email})` : c.email}</option>
-                  ))}
-                </select>
+                <ContactMultiSelect
+                  contacts={contacts}
+                  selected={selectedContactEmails}
+                  onChange={setSelectedContactEmails}
+                />
               </div>
 
               {/* Row 3: Keywords + Has Attachment */}
@@ -551,6 +545,121 @@ function InboxMultiSelect({
             })}
             {inboxes.length === 0 && (
               <p className="px-2.5 py-2 text-xs text-[rgb(11_18_32/40%)]">No connected inboxes</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Searchable multi-select contact filter.
+function ContactMultiSelect({
+  contacts,
+  selected,
+  onChange,
+}: {
+  contacts: Array<{ email: string; name: string | null }>
+  selected: Set<string>
+  onChange: (s: Set<string>) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  const q = query.toLowerCase()
+  const filtered = contacts.filter(c =>
+    !q ||
+    c.email.toLowerCase().includes(q) ||
+    (c.name?.toLowerCase().includes(q) ?? false)
+  )
+
+  const count = selected.size
+  const label = count === 0
+    ? 'All contacts'
+    : count === 1
+      ? (() => { const e = Array.from(selected)[0]; const c = contacts.find(x => x.email === e); return c?.name || e })()
+      : `${count} contacts`
+
+  const toggle = (email: string) => {
+    const next = new Set(selected)
+    if (next.has(email)) next.delete(email)
+    else next.add(email)
+    onChange(next)
+  }
+
+  return (
+    <div ref={ref} className="relative w-full">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="flex h-8 w-full items-center justify-between gap-2 rounded-lg border border-rule bg-white px-2.5 text-sm text-ink shadow-sm hover:border-[rgb(11_18_32/22%)] transition-colors focus:outline-none focus:ring-2 focus:ring-action/40"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        <span className={`truncate ${count === 0 ? 'text-[rgb(11_18_32/45%)]' : ''}`}>{label}</span>
+        <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-[rgb(11_18_32/35%)] transition-transform duration-150 ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full z-50 mt-1.5 w-72 rounded-xl border border-[rgb(11_18_32/10%)] bg-white shadow-lg overflow-hidden">
+          <div className="p-2 border-b border-[rgb(11_18_32/8%)]">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[rgb(11_18_32/35%)]" />
+              <input
+                type="text"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder="Search contacts…"
+                className="w-full rounded-md border border-rule bg-white pl-8 pr-3 py-1.5 text-sm text-ink placeholder:text-[rgb(11_18_32/35%)] focus:outline-none focus:ring-1 focus:ring-action/40"
+                autoFocus
+              />
+            </div>
+          </div>
+          <div className="flex items-center justify-between px-3 py-1.5 border-b border-[rgb(11_18_32/8%)]">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)]">
+              {count > 0 ? `${count} selected` : 'Contacts'}
+            </span>
+            {count > 0 && (
+              <button
+                type="button"
+                onClick={() => onChange(new Set())}
+                className="text-[11px] font-medium text-action hover:underline"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          <div className="p-1 max-h-60 overflow-y-auto">
+            {filtered.map(c => {
+              const checked = selected.has(c.email)
+              return (
+                <button
+                  key={c.email}
+                  type="button"
+                  onClick={() => toggle(c.email)}
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-ink hover:bg-[rgb(11_18_32/4%)] transition-colors"
+                >
+                  <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${checked ? 'bg-action border-action' : 'border-[rgb(11_18_32/25%)] bg-white'}`}>
+                    {checked && <Check className="h-3 w-3 text-white" />}
+                  </span>
+                  <span className="flex-1 text-left min-w-0">
+                    {c.name && <span className="font-medium truncate block">{c.name}</span>}
+                    <span className={`truncate block ${c.name ? 'text-xs text-[rgb(11_18_32/45%)]' : ''}`}>{c.email}</span>
+                  </span>
+                </button>
+              )
+            })}
+            {filtered.length === 0 && (
+              <p className="px-2.5 py-2 text-xs text-[rgb(11_18_32/40%)]">No contacts match</p>
             )}
           </div>
         </div>
