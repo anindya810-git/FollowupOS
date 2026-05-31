@@ -84,6 +84,8 @@ function QueueContent() {
   const [senderDomain, setSenderDomain] = useState('')
   const [keywords, setKeywords] = useState('')
   const [hasAttachment, setHasAttachment] = useState(false)
+  const [contactEmail, setContactEmail] = useState('')
+  const [contacts, setContacts] = useState<Array<{ email: string; name: string | null }>>([])
   const [inboxes, setInboxes] = useState<EmailAccount[]>([])
   const inboxInitRef = useRef(false)
 
@@ -91,6 +93,13 @@ function QueueContent() {
     fetch('/api/integrations')
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d?.accounts) setInboxes(d.accounts) })
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    fetch('/api/contacts')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (Array.isArray(d?.contacts)) setContacts(d.contacts) })
       .catch(() => {})
   }, [])
 
@@ -122,6 +131,7 @@ function QueueContent() {
     if (actionTo) params.set('action_to', actionTo)
     if (inboxParam) params.set('inbox_id', inboxParam)
     if (senderEmail) params.set('sender_email', senderEmail)
+    if (contactEmail) params.set('sender_email', contactEmail)
     if (senderDomain) params.set('sender_domain', senderDomain)
     if (keywords) params.set('keywords', keywords)
     if (hasAttachment) params.set('has_attachment', '1')
@@ -131,13 +141,13 @@ function QueueContent() {
     setItems(data.items || [])
     setTotal(data.total || 0)
     setLoading(false)
-  }, [status, category, priority, search, emailFrom, emailTo, actionFrom, actionTo, inboxParam, senderEmail, senderDomain, keywords, hasAttachment, page])
+  }, [status, category, priority, search, emailFrom, emailTo, actionFrom, actionTo, inboxParam, senderEmail, contactEmail, senderDomain, keywords, hasAttachment, page])
 
   useEffect(() => { fetchItems() }, [fetchItems])
-  useEffect(() => { setPage(1) }, [status, category, priority, search, emailFrom, emailTo, actionFrom, actionTo, inboxParam, senderEmail, senderDomain, keywords, hasAttachment])
-  useEffect(() => { setSelectedIds(new Set()) }, [status, category, priority, search, emailFrom, emailTo, actionFrom, actionTo, inboxParam, senderEmail, senderDomain, keywords, hasAttachment, page])
+  useEffect(() => { setPage(1) }, [status, category, priority, search, emailFrom, emailTo, actionFrom, actionTo, inboxParam, senderEmail, contactEmail, senderDomain, keywords, hasAttachment])
+  useEffect(() => { setSelectedIds(new Set()) }, [status, category, priority, search, emailFrom, emailTo, actionFrom, actionTo, inboxParam, senderEmail, contactEmail, senderDomain, keywords, hasAttachment, page])
 
-  const hasAdvancedFilters = !!(priority || emailFrom || emailTo || actionFrom || actionTo || inboxParam || senderEmail || senderDomain || keywords || hasAttachment)
+  const hasAdvancedFilters = !!(priority || emailFrom || emailTo || actionFrom || actionTo || inboxParam || senderEmail || contactEmail || senderDomain || keywords || hasAttachment)
   const clearAdvanced = () => {
     setPriority('')
     setEmailFrom('')
@@ -146,6 +156,7 @@ function QueueContent() {
     setActionTo('')
     setSelectedInboxIds(new Set(allInboxIds))  // back to all inboxes
     setSenderEmail('')
+    setContactEmail('')
     setSenderDomain('')
     setKeywords('')
     setHasAttachment(false)
@@ -236,7 +247,7 @@ function QueueContent() {
             Advanced Filters
             {hasAdvancedFilters && (
               <span className="h-4 w-4 rounded-full bg-action text-white text-[10px] font-bold flex items-center justify-center leading-none">
-                {[priority, emailFrom, emailTo, actionFrom, actionTo, inboxParam, senderEmail, senderDomain, keywords, hasAttachment ? '1' : ''].filter(Boolean).length}
+                {[priority, emailFrom, emailTo, actionFrom, actionTo, inboxParam, senderEmail, contactEmail, senderDomain, keywords, hasAttachment ? '1' : ''].filter(Boolean).length}
               </span>
             )}
             {showAdvanced ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
@@ -314,6 +325,22 @@ function QueueContent() {
                   className={`${inputClass} w-full`}
                   aria-label="From domain filter"
                 />
+              </div>
+
+              {/* Contact filter */}
+              <div className="col-span-2 sm:col-span-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)] mb-1.5">Contact</p>
+                <select
+                  value={contactEmail}
+                  onChange={e => setContactEmail(e.target.value)}
+                  className={`${inputClass} w-full`}
+                  aria-label="Contact filter"
+                >
+                  <option value="">All contacts</option>
+                  {contacts.map(c => (
+                    <option key={c.email} value={c.email}>{c.name ? `${c.name} (${c.email})` : c.email}</option>
+                  ))}
+                </select>
               </div>
 
               {/* Row 3: Keywords + Has Attachment */}

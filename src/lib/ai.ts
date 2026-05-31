@@ -591,6 +591,86 @@ Summarise this thread.`
   return null
 }
 
+// ─── Contact profile extraction ───────────────────────────────────────────────
+
+export interface ContactProfile {
+  name: string | null
+  designation: string | null
+  company: string | null
+  phone: string | null
+  city: string | null
+  linkedinUrl: string | null
+}
+
+const CONTACT_PROFILE_SYSTEM = `You are Pendingly. Extract contact profile information from the email thread provided.
+
+Return ONLY valid JSON with these exact fields (use null when information is not present in the thread):
+{
+  "name": "Full name or null",
+  "designation": "Job title or professional role or null",
+  "company": "Company or organisation name or null",
+  "phone": "Phone number (any format found) or null",
+  "city": "City or location or null",
+  "linkedinUrl": "Full LinkedIn profile URL or null"
+}
+
+Only extract information explicitly present in email signatures, footers, or body text. Do NOT invent or infer anything not directly stated.`
+
+async function extractProfileGemini(userContent: string, config: AiConfig): Promise<ContactProfile | null> {
+  await geminiRateLimit(config.isDefaultKey)
+  const genAI = new GoogleGenerativeAI(config.apiKey)
+  const model = genAI.getGenerativeModel({ model: config.model })
+  const result = await withTimeout(
+    model.generateContent(`${CONTACT_PROFILE_SYSTEM}\n\n${userContent}`),
+    AI_CALL_TIMEOUT_MS,
+    'Gemini contact profile',
+  )
+  const text = result.response.text()
+  return JSON.parse(extractJson(text)) as ContactProfile
+}
+
+async function extractProfileAnthropic(userContent: string, config: AiConfig): Promise<ContactProfile | null> {
+  const client = new Anthropic({ apiKey: config.apiKey })
+  const response = await client.messages.create({
+    model: config.model,
+    max_tokens: 512,
+    system: CONTACT_PROFILE_SYSTEM,
+    messages: [{ role: 'user', content: userContent }],
+  })
+  const text = response.content[0].type === 'text' ? response.content[0].text : ''
+  return JSON.parse(extractJson(text)) as ContactProfile
+}
+
+async function extractProfileOpenAI(userContent: string, config: AiConfig): Promise<ContactProfile | null> {
+  const client = new OpenAI({ apiKey: config.apiKey })
+  const completion = await client.chat.completions.create({
+    model: config.model,
+    max_tokens: 512,
+    response_format: { type: 'json_object' },
+    messages: [
+      { role: 'system', content: CONTACT_PROFILE_SYSTEM },
+      { role: 'user', content: userContent },
+    ],
+  })
+  return JSON.parse(completion.choices[0].message.content || '{}') as ContactProfile
+}
+
+export async function extractContactProfile(
+  emailContent: string,
+  config: AiConfig | null,
+): Promise<ContactProfile | null> {
+  if (!config || !emailContent.trim()) return null
+  try {
+    switch (config.provider) {
+      case 'anthropic': return await extractProfileAnthropic(emailContent, config)
+      case 'openai':    return await extractProfileOpenAI(emailContent, config)
+      case 'gemini':    return await extractProfileGemini(emailContent, config)
+    }
+  } catch {
+    return null
+  }
+}
+
 export async function generateDraft(params: {
   threadSubject: string
   reason: string

@@ -12,14 +12,48 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const insights = await computeContactInsights(session.user.id)
+  const [insights, dbContacts] = await Promise.all([
+    computeContactInsights(session.user.id),
+    prisma.contact.findMany({
+      where: { userId: session.user.id },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        designation: true,
+        company: true,
+        city: true,
+        notes: true,
+        linkedinUrl: true,
+        aiEnriched: true,
+        vip: true,
+      },
+    }),
+  ])
 
-  // Persist the VIP flag so other surfaces (queue badges, prioritisation) can
-  // use it cheaply without recomputing. Best-effort — never fail the request.
+  // Merge computed insights with stored profile fields
+  const contactMap = new Map(dbContacts.map(c => [c.email.toLowerCase(), c]))
+  const merged = insights.map(i => {
+    const stored = contactMap.get(i.email.toLowerCase())
+    return {
+      ...i,
+      id: stored?.id ?? null,
+      phone: stored?.phone ?? null,
+      designation: stored?.designation ?? null,
+      company: stored?.company ?? null,
+      city: stored?.city ?? null,
+      notes: stored?.notes ?? null,
+      linkedinUrl: stored?.linkedinUrl ?? null,
+      aiEnriched: stored?.aiEnriched ?? false,
+      // Prefer stored name if set; fall back to insight name from email headers
+      name: stored?.name || i.name,
+    }
+  })
+
+  // Persist VIP flag and upsert top 200 contacts — best-effort, never fail the request.
   try {
-    const vipEmails = insights.filter(i => i.vip).map(i => i.email)
-    const vipSet = new Set(vipEmails)
-    // Upsert names + vip for everyone we have insight on.
+    const vipSet = new Set(insights.filter(i => i.vip).map(i => i.email))
     await Promise.all(
       insights.slice(0, 200).map(i =>
         prisma.contact.upsert({
@@ -33,5 +67,5 @@ export async function GET() {
     safeLog('warn', 'contact-insights-persist', e)
   }
 
-  return NextResponse.json({ insights })
+  return NextResponse.json({ insights: merged })
 }

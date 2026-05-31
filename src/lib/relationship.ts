@@ -123,6 +123,11 @@ export async function computeContactInsights(userId: string): Promise<ContactIns
       (fastReplies ? 8 : 0) +
       Math.min(a.inboundCount, 20)
 
+    // Skip contacts with 0 exchanges — they're one-way senders (promotional, automated,
+    // newsletters) that the user has never replied to. Real contacts get added once the
+    // user sends at least one message to them.
+    if (exchangeCount === 0) continue
+
     insights.push({
       email,
       name: a.name,

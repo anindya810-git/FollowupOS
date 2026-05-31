@@ -437,15 +437,21 @@ model ScanJob {
 }
 
 model Contact {
-  id        String   @id @default(cuid())
-  userId    String
-  email     String
-  name      String?
+  id          String   @id @default(cuid())
+  userId      String
+  email       String
+  name        String?
+  phone       String?
+  designation String?
+  company     String?
+  city        String?
+  notes       String?
+  linkedinUrl String?
+  aiEnriched  Boolean  @default(false)
   // Auto-detected VIP: someone the user engages with often and replies to
-  // quickly. Recomputed whenever contact insights are calculated, and used to
-  // auto-prioritise their items without manual watchlisting.
-  vip       Boolean  @default(false)
-  updatedAt DateTime @updatedAt
+  // quickly. Recomputed whenever contact insights are calculated.
+  vip         Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
