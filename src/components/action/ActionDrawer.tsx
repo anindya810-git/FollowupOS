@@ -80,6 +80,7 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
   const [installedConnectors, setInstalledConnectors] = useState<string[]>([])
   const [summary, setSummary] = useState<string | null>(null)
   const [summaryLoading, setSummaryLoading] = useState(false)
+  const summaryCache = useRef<Map<string, string | null>>(new Map())
   const [ignoreFooterOpen, setIgnoreFooterOpen] = useState(false)
   const ignoreFooterRef = useRef<HTMLDivElement>(null)
   const [watchOpen, setWatchOpen] = useState(false)
@@ -112,14 +113,28 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
           }
         })
         .catch(() => {})
-      // AI thread summary (cached server-side after first view).
-      setSummary(null)
-      setSummaryLoading(true)
-      fetch(`/api/action-items/${item.id}/summary`)
-        .then(r => r.ok ? r.json() : null)
-        .then(d => setSummary(d?.summary ?? null))
-        .catch(() => setSummary(null))
-        .finally(() => setSummaryLoading(false))
+      // AI thread summary — use client-side cache to avoid a spinner on repeat opens.
+      // The server also caches after the first AI call, so the network round-trip is
+      // cheap after the first generation.
+      if (summaryCache.current.has(item.id)) {
+        setSummary(summaryCache.current.get(item.id) ?? null)
+        setSummaryLoading(false)
+      } else {
+        setSummary(null)
+        setSummaryLoading(true)
+        fetch(`/api/action-items/${item.id}/summary`)
+          .then(r => r.ok ? r.json() : null)
+          .then(d => {
+            const s = d?.summary ?? null
+            setSummary(s)
+            summaryCache.current.set(item.id, s)
+          })
+          .catch(() => {
+            setSummary(null)
+            summaryCache.current.set(item.id, null)
+          })
+          .finally(() => setSummaryLoading(false))
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item?.id])
@@ -545,7 +560,7 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
                   <Loader2 className="h-3.5 w-3.5 animate-spin" /> Summarising the conversation…
                 </div>
               ) : summary ? (
-                <p className="text-sm text-ink leading-relaxed">{summary}</p>
+                <ThreadSummaryDisplay text={summary} />
               ) : (
                 <p className="text-xs text-[rgb(11_18_32/45%)]">Summary unavailable for this thread.</p>
               )}
@@ -974,6 +989,57 @@ function ThreadResources({ messages, inboxUrl }: ThreadResourcesProps) {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// Renders a structured "Topic / Key points / Next step" summary from the AI.
+// Falls back to plain text if the AI didn't follow the labelled format.
+function ThreadSummaryDisplay({ text }: { text: string }) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
+
+  const parsed = lines.map(line => {
+    const colonIdx = line.indexOf(':')
+    if (colonIdx > 0 && colonIdx <= 12) {
+      return { label: line.slice(0, colonIdx).trim(), value: line.slice(colonIdx + 1).trim() }
+    }
+    return { label: null, value: line }
+  })
+
+  const hasLabels = parsed.some(l => l.label !== null)
+
+  if (!hasLabels) {
+    return (
+      <div className="space-y-1.5">
+        {parsed.map((l, i) => (
+          <p key={i} className="text-sm text-ink leading-relaxed">{l.value}</p>
+        ))}
+      </div>
+    )
+  }
+
+  const LABEL_COLOR: Record<string, string> = {
+    'topic':      'bg-blue-50 text-blue-700 border-blue-100',
+    'key points': 'bg-amber-50 text-amber-700 border-amber-100',
+    'next step':  'bg-green-50 text-green-700 border-green-100',
+  }
+
+  return (
+    <div className="space-y-2.5">
+      {parsed.map((l, i) => {
+        const key = l.label?.toLowerCase() ?? ''
+        const chip = LABEL_COLOR[key] ?? 'bg-[rgb(11_18_32/6%)] text-[rgb(11_18_32/55%)] border-[rgb(11_18_32/10%)]'
+        return l.label ? (
+          <div key={i} className="flex gap-2.5 items-baseline">
+            <span className={`inline-flex shrink-0 items-center rounded-md border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide mt-0.5 ${chip}`}>
+              {l.label}
+            </span>
+            <span className="text-sm text-ink leading-relaxed">{l.value}</span>
+          </div>
+        ) : (
+          <p key={i} className="text-sm text-ink leading-relaxed">{l.value}</p>
+        )
+      })}
     </div>
   )
 }

@@ -179,9 +179,13 @@ Return ONLY valid JSON:
   "draft": "Full email body including greeting and sign-off"
 }`
 
-const SUMMARY_SYSTEM = `You are Pendingly. Summarise an email thread for a busy professional who needs to get up to speed in seconds.
+const SUMMARY_SYSTEM = `You are Pendingly. Read the email thread carefully and write a concise summary in exactly this format — three labelled lines, nothing else:
 
-Read the ENTIRE thread carefully, in order. Write 2-4 short, plain sentences that cover: what the thread is about, the key points / decisions made so far, and what (if anything) is still outstanding or expected next. Be specific — use names and concrete details from the thread. Do NOT invent anything not in the thread. Write in neutral third person. No greeting, no sign-off, no markdown, no bullet points — just the summary prose.`
+Topic: [One sentence — what this thread is about and who the main participants are]
+Key points: [One or two sentences — the main exchanges, any decisions or agreements made so far]
+Next step: [One sentence — what is still open or expected next; if nothing is outstanding write "Nothing outstanding."]
+
+Rules: Be specific — use names and concrete details from the thread. Do NOT invent anything not in the thread. Output only these three labelled lines with no extra text, greeting, or sign-off.`
 
 function buildClassificationSystem(customInstructions?: string | null): string {
   if (!customInstructions?.trim()) return CLASSIFICATION_SYSTEM
