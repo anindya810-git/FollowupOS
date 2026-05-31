@@ -123,8 +123,26 @@ export function ContactsClient() {
   const [adding, setAdding] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
   const [showImportModal, setShowImportModal] = useState(false)
-  const [connectedInboxes, setConnectedInboxes] = useState<Array<{ id: string; emailAddress: string; provider: string }>>([])
-  const [selectedInboxIds, setSelectedInboxIds] = useState<Set<string>>(new Set())
+  // Seed from the cache the Settings page already populates so the import
+  // modal shows connected inboxes instantly instead of waiting on the network.
+  const [connectedInboxes, setConnectedInboxes] = useState<Array<{ id: string; emailAddress: string; provider: string }>>(() => {
+    try {
+      const cached = localStorage.getItem('pendingly_integrations')
+      const parsed = cached ? JSON.parse(cached) : []
+      return Array.isArray(parsed)
+        ? parsed.map((a: { id: string; emailAddress: string; provider: string }) => ({ id: a.id, emailAddress: a.emailAddress, provider: a.provider }))
+        : []
+    } catch { return [] }
+  })
+  const [selectedInboxIds, setSelectedInboxIds] = useState<Set<string>>(() => new Set(
+    (function () {
+      try {
+        const cached = localStorage.getItem('pendingly_integrations')
+        const parsed = cached ? JSON.parse(cached) : []
+        return Array.isArray(parsed) ? parsed.map((a: { id: string }) => a.id) : []
+      } catch { return [] }
+    })()
+  ))
   const [importing, setImporting] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -145,12 +163,15 @@ export function ContactsClient() {
   useEffect(() => { fetchInsights() }, [])
 
   useEffect(() => {
-    fetch('/api/integrations')
+    // ?basic=1 skips the per-account scan-job lookup on the server — we only
+    // need the inbox list here, so this returns much faster.
+    fetch('/api/integrations?basic=1')
       .then(r => r.ok ? r.json() : null)
       .then(d => {
         if (Array.isArray(d?.accounts)) {
           setConnectedInboxes(d.accounts)
           setSelectedInboxIds(new Set(d.accounts.map((a: { id: string }) => a.id)))
+          try { localStorage.setItem('pendingly_integrations', JSON.stringify(d.accounts)) } catch {}
         }
       })
       .catch(() => {})

@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
@@ -7,7 +7,7 @@ import { prisma } from '@/lib/prisma'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await auth()
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -29,6 +29,13 @@ export async function GET() {
     },
     orderBy: { createdAt: 'asc' },
   })
+
+  // Callers that only need the inbox list (e.g. the contacts import modal and
+  // inbox pickers) pass ?basic=1 to skip the per-account scan-job lookup —
+  // that N+1 query is the slow part and is irrelevant outside Settings.
+  if (req.nextUrl.searchParams.get('basic') === '1') {
+    return NextResponse.json({ accounts })
+  }
 
   const accountsWithScan = await Promise.all(accounts.map(async (account) => {
     const lastScan = await prisma.scanJob.findFirst({
