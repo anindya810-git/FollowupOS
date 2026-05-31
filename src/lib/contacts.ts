@@ -21,17 +21,25 @@ export async function resolveContactName(userId: string, email: string): Promise
   return contact?.name ?? null
 }
 
-export async function buildContactsFromMessages(userId: string) {
-  // Extract all unique sender name/email pairs from stored messages for this user
+export async function buildContactsFromMessages(userId: string, emailAccountIds?: string[]) {
+  // Extract all unique sender name/email pairs from stored messages for this user,
+  // optionally filtered to specific connected inboxes.
   const messages = await prisma.emailMessage.findMany({
-    where: { userId, senderEmail: { not: null } },
+    where: {
+      userId,
+      senderEmail: { not: null },
+      isFromUser: false,
+      ...(emailAccountIds?.length
+        ? { emailThread: { emailAccountId: { in: emailAccountIds } } }
+        : {}),
+    },
     select: { senderEmail: true, senderName: true },
     distinct: ['senderEmail'],
   })
 
   const rows = messages.filter(m => m.senderEmail)
 
-  // Use allSettled so one failing row (e.g. missing DB column) doesn't abort the rest.
+  // Use allSettled so one failing row doesn't abort the rest.
   const results = await Promise.allSettled(
     rows.map(m =>
       prisma.contact.upsert({

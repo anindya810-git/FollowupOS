@@ -12,13 +12,15 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Run both in parallel — insights computation and full DB contact list
+  const userId = session.user.id
+
+  // Run insights computation and DB contact list in parallel
   const [insights, dbContacts] = await Promise.all([
-    computeContactInsights(session.user.id),
+    computeContactInsights(userId),
     (async () => {
       try {
         return await prisma.contact.findMany({
-          where: { userId: session.user!.id },
+          where: { userId },
           select: {
             id: true, email: true, name: true, vip: true,
             phone: true, designation: true, company: true,
@@ -37,11 +39,42 @@ export async function GET() {
     })(),
   ])
 
+  // Fetch which inbox(es) each contact has been seen in via a single SQL query.
+  // Returns distinct (senderEmail, emailAccountId, emailAddress, provider) tuples.
+  type InboxRow = { senderEmail: string; emailAccountId: string; emailAddress: string; provider: string }
+  let senderInboxRows: InboxRow[] = []
+  try {
+    senderInboxRows = await prisma.$queryRaw<InboxRow[]>`
+      SELECT DISTINCT
+        LOWER(em."senderEmail") AS "senderEmail",
+        et."emailAccountId",
+        ea."emailAddress",
+        ea.provider
+      FROM "EmailMessage" em
+      JOIN "EmailThread" et ON em."emailThreadId" = et.id
+      JOIN "EmailAccount" ea ON et."emailAccountId" = ea.id
+      WHERE em."userId" = ${userId}
+        AND em."isFromUser" = false
+        AND em."senderEmail" IS NOT NULL
+    `
+  } catch { /* ignore — inbox data is supplemental */ }
+
+  // Build map: senderEmail → inbox list
+  const inboxMap = new Map<string, Array<{ id: string; emailAddress: string; provider: string }>>()
+  for (const row of senderInboxRows) {
+    const key = row.senderEmail.toLowerCase()
+    if (!inboxMap.has(key)) inboxMap.set(key, [])
+    const list = inboxMap.get(key)!
+    if (!list.find(i => i.id === row.emailAccountId)) {
+      list.push({ id: row.emailAccountId, emailAddress: row.emailAddress, provider: row.provider })
+    }
+  }
+
   // Build a map of computed insights keyed by email
   const insightMap = new Map(insights.map(i => [i.email.toLowerCase(), i]))
 
   // Show ALL Contact DB records (includes manually added + imported contacts).
-  // Enrich with relationship metrics where available (i.e. contacts with exchanges).
+  // Enrich with relationship metrics and inbox origin where available.
   const merged = dbContacts.map(c => {
     const insight = insightMap.get(c.email.toLowerCase())
     return {
@@ -56,6 +89,8 @@ export async function GET() {
       linkedinUrl: (c as { linkedinUrl?: string | null }).linkedinUrl ?? null,
       aiEnriched: (c as { aiEnriched?: boolean }).aiEnriched ?? false,
       vip: c.vip,
+      // Which connected inbox(es) this contact has sent email to
+      inboxes: inboxMap.get(c.email.toLowerCase()) ?? [],
       // Relationship metrics — zero/null for contacts with no exchange history
       inboundCount: insight?.inboundCount ?? 0,
       exchangeCount: insight?.exchangeCount ?? 0,
@@ -82,8 +117,8 @@ export async function GET() {
     await Promise.all(
       insights.slice(0, 200).map(i =>
         prisma.contact.upsert({
-          where: { userId_email: { userId: session.user!.id, email: i.email } },
-          create: { userId: session.user!.id, email: i.email, name: i.name, vip: vipSet.has(i.email) },
+          where: { userId_email: { userId, email: i.email } },
+          create: { userId, email: i.email, name: i.name, vip: vipSet.has(i.email) },
           update: { vip: vipSet.has(i.email), ...(i.name ? { name: i.name } : {}) },
         }).catch(() => null),
       ),

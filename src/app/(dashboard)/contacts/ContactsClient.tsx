@@ -11,6 +11,12 @@ import {
   ChevronDown, Check, Copy,
 } from 'lucide-react'
 
+interface ContactInbox {
+  id: string
+  emailAddress: string
+  provider: string
+}
+
 interface ContactInsight {
   id: string | null
   email: string
@@ -22,6 +28,7 @@ interface ContactInsight {
   notes: string | null
   linkedinUrl: string | null
   aiEnriched: boolean
+  inboxes: ContactInbox[]
   inboundCount: number
   exchangeCount: number
   unrepliedCount: number
@@ -115,6 +122,9 @@ export function ContactsClient() {
   const [newContact, setNewContact] = useState<NewContactForm>(EMPTY_NEW)
   const [adding, setAdding] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [connectedInboxes, setConnectedInboxes] = useState<Array<{ id: string; emailAddress: string; provider: string }>>([])
+  const [selectedInboxIds, setSelectedInboxIds] = useState<Set<string>>(new Set())
   const [importing, setImporting] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -133,6 +143,18 @@ export function ContactsClient() {
   }
 
   useEffect(() => { fetchInsights() }, [])
+
+  useEffect(() => {
+    fetch('/api/integrations')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (Array.isArray(d?.accounts)) {
+          setConnectedInboxes(d.accounts)
+          setSelectedInboxIds(new Set(d.accounts.map((a: { id: string }) => a.id)))
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (drawer && insights) {
@@ -227,12 +249,18 @@ export function ContactsClient() {
   }
 
   const importContacts = async () => {
+    const ids = Array.from(selectedInboxIds)
     setImporting(true)
+    setShowImportModal(false)
     try {
-      const res = await fetch('/api/contacts', { method: 'POST' })
+      const res = await fetch('/api/contacts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inbox_ids: ids }),
+      })
       const d = await res.json()
       if (!res.ok) { showToast(d.error || 'Import failed'); return }
-      showToast(`Imported ${d.synced ?? 0} contacts from inbox`)
+      showToast(`Imported ${d.synced ?? 0} contacts`)
       fetchInsights()
     } catch { showToast('Import failed') } finally { setImporting(false) }
   }
@@ -303,7 +331,7 @@ export function ContactsClient() {
             <UserPlus className="h-3.5 w-3.5" /> Add Contact
           </Button>
           <Button
-            onClick={importContacts}
+            onClick={() => setShowImportModal(true)}
             disabled={importing}
             variant="outline"
             size="sm"
@@ -446,6 +474,15 @@ export function ContactsClient() {
                       {c.name && <p className="text-xs text-[rgb(11_18_32/45%)] truncate">{c.email}</p>}
                       {(c.designation || c.company) && <p className="text-xs text-[rgb(11_18_32/50%)] mt-0.5 truncate">{[c.designation, c.company].filter(Boolean).join(' · ')}</p>}
                       <p className={`text-xs mt-1 ${c.ghosting || c.cooling ? 'text-ink' : 'text-[rgb(11_18_32/50%)]'}`}>{health}</p>
+                      {c.inboxes && c.inboxes.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                          {c.inboxes.map(inbox => (
+                            <span key={inbox.id} className="inline-flex items-center gap-1 text-[10px] bg-[rgb(11_18_32/5%)] text-[rgb(11_18_32/45%)] border border-[rgb(11_18_32/8%)] px-1.5 py-0.5 rounded-md">
+                              <Mail className="h-2.5 w-2.5" />{inbox.emailAddress}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                       <div className="flex items-center gap-3 mt-1 text-[11px] text-[rgb(11_18_32/40%)]" style={{ fontFamily: 'var(--font-mono)' }}>
                         <span className="inline-flex items-center gap-1"><Clock className="h-2.5 w-2.5" />reply ~{fmtDur(c.typicalReplyHours)}</span>
                         <span>{c.exchangeCount} exchanges</span>
@@ -525,6 +562,69 @@ export function ContactsClient() {
           </div>
         )}
       </main>
+
+      {/* Import from Inbox Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/30" onClick={() => setShowImportModal(false)} />
+          <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[rgb(11_18_32/8%)]">
+              <p className="font-semibold text-ink">Import from Inbox</p>
+              <button onClick={() => setShowImportModal(false)} className="text-[rgb(11_18_32/35%)] hover:text-ink transition-colors">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-5 space-y-3">
+              <p className="text-sm text-[rgb(11_18_32/55%)]">Select which connected inboxes to import contacts from.</p>
+              {connectedInboxes.length === 0 ? (
+                <p className="text-sm text-[rgb(11_18_32/40%)]">No connected inboxes found.</p>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)]">Inboxes</span>
+                    <button
+                      onClick={() => setSelectedInboxIds(
+                        selectedInboxIds.size === connectedInboxes.length
+                          ? new Set()
+                          : new Set(connectedInboxes.map(i => i.id))
+                      )}
+                      className="text-[11px] font-medium text-action hover:underline"
+                    >
+                      {selectedInboxIds.size === connectedInboxes.length ? 'Deselect all' : 'Select all'}
+                    </button>
+                  </div>
+                  {connectedInboxes.map(inbox => {
+                    const checked = selectedInboxIds.has(inbox.id)
+                    return (
+                      <label key={inbox.id} className="flex items-center gap-3 rounded-lg border border-[rgb(11_18_32/10%)] px-3 py-2.5 cursor-pointer hover:bg-[rgb(11_18_32/2%)] transition-colors">
+                        <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${checked ? 'bg-action border-action' : 'border-[rgb(11_18_32/25%)]'}`}>
+                          {checked && <Check className="h-3 w-3 text-white" />}
+                        </span>
+                        <input type="checkbox" className="sr-only" checked={checked} onChange={() => {
+                          const next = new Set(selectedInboxIds)
+                          if (next.has(inbox.id)) next.delete(inbox.id)
+                          else next.add(inbox.id)
+                          setSelectedInboxIds(next)
+                        }} />
+                        <div className="min-w-0">
+                          <p className="text-sm text-ink truncate">{inbox.emailAddress}</p>
+                          <p className="text-[10px] text-[rgb(11_18_32/40%)] capitalize">{inbox.provider}</p>
+                        </div>
+                      </label>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 px-5 py-4 border-t border-[rgb(11_18_32/8%)]">
+              <Button variant="outline" size="sm" onClick={() => setShowImportModal(false)}>Cancel</Button>
+              <Button size="sm" onClick={importContacts} disabled={selectedInboxIds.size === 0} className="gap-1.5">
+                <Download className="h-3.5 w-3.5" /> Import
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Contact Modal */}
       {showAddModal && (

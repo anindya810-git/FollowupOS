@@ -34,9 +34,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ contact })
   }
 
-  // Import all senders from stored messages
+  // Import senders from stored messages — optionally filtered to specific inboxes
   try {
-    const count = await buildContactsFromMessages(session.user.id)
+    const inboxIds = Array.isArray(body?.inbox_ids) ? (body.inbox_ids as string[]) : undefined
+    const count = await buildContactsFromMessages(session.user.id, inboxIds)
     return NextResponse.json({ synced: count })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
