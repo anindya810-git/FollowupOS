@@ -354,14 +354,14 @@ export default function SettingsPage() {
   return (
     <>
       <Header title="Settings" />
-      <main className="p-6 max-w-4xl flex gap-8">
-        {/* Sidebar */}
-        <nav className="w-48 shrink-0 space-y-0.5">
+      <main className="p-4 md:p-6 max-w-4xl flex flex-col md:flex-row gap-4 md:gap-8">
+        {/* Section nav — horizontal scroll on mobile, sidebar on desktop */}
+        <nav className="flex md:flex-col md:w-48 shrink-0 gap-1 md:gap-0.5 overflow-x-auto md:overflow-visible -mx-4 px-4 md:mx-0 md:px-0 pb-1 md:pb-0">
           {SECTIONS.map(s => (
             <button
               key={s.id}
               onClick={() => setActiveSection(s.id)}
-              className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+              className={`shrink-0 md:w-full text-left whitespace-nowrap px-3 py-2 rounded-lg text-sm transition-colors ${
                 activeSection === s.id
                   ? 'bg-[rgb(11_18_32/8%)] font-medium text-ink'
                   : 'text-[rgb(11_18_32/55%)] hover:text-ink hover:bg-[rgb(11_18_32/4%)]'
@@ -417,9 +417,9 @@ export default function SettingsPage() {
                     const isImapStyle = ['zoho', 'apple', 'imap'].includes(account.provider)
                     return (
                     <div key={account.id} className="rounded-lg border border-[rgb(11_18_32/8%)] bg-paper px-4 py-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-ink">{account.emailAddress}</p>
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-medium text-ink break-all">{account.emailAddress}</p>
                           <div className="flex items-center gap-2 mt-0.5">
                             <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium bg-[rgb(11_18_32/8%)] text-ink">
                               {account.provider === 'outlook' ? 'Outlook' : account.provider === 'zoho' ? 'Zoho Mail' : account.provider === 'apple' ? 'Apple Mail' : account.provider === 'imap' ? 'IMAP' : 'Gmail'}
@@ -427,7 +427,7 @@ export default function SettingsPage() {
                             <span className="text-xs text-[rgb(11_18_32/55%)] capitalize">{account.connectedStatus}</span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 shrink-0">
                           <InboxSyncButton accountId={account.id} scanning={account.lastScan?.status === 'running' || account.lastScan?.status === 'queued'} onCancelled={fetchIntegrations} onStarted={fetchIntegrations} onSyncStart={() => markScanStarting([account.id])} />
                           <Button variant="outline" size="sm" onClick={() => disconnectAccount(account)}>
                             Disconnect

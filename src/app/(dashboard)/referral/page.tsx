@@ -72,7 +72,7 @@ export default function ReferralPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-6 py-10">
+    <div className="max-w-2xl mx-auto px-4 md:px-6 py-10">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-[#0b1220]">Referral program</h1>
         <p className="text-sm text-[rgba(11,18,32,0.5)] mt-1">
@@ -98,7 +98,7 @@ export default function ReferralPage() {
         {info?.referralUrl && (
           <div className="mt-3 space-y-2">
             {/* Row 1: X, LinkedIn, Facebook */}
-            <div className="flex gap-2">
+            <div className="flex gap-1.5 sm:gap-2">
               <a
                 href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`I use Pendingly to stay on top of email. Get started free → ${info.referralUrl}`)}`}
                 target="_blank" rel="noopener noreferrer"
@@ -123,7 +123,7 @@ export default function ReferralPage() {
               </a>
             </div>
             {/* Row 2: Instagram, Snapchat — copy to clipboard */}
-            <div className="flex gap-2">
+            <div className="flex gap-1.5 sm:gap-2">
               <button
                 onClick={() => copyForPlatform('instagram')}
                 className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border border-[rgba(11,18,32,0.12)] text-xs font-medium text-[#0b1220] hover:bg-[rgba(11,18,32,0.04)] transition-colors"
@@ -151,7 +151,7 @@ export default function ReferralPage() {
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-3 gap-3 mb-5">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-5">
         <div className="bg-white border border-[rgba(11,18,32,0.1)] rounded-xl p-4 text-center">
           <Users className="h-4 w-4 text-[rgba(11,18,32,0.35)] mx-auto mb-2" />
           <p className="text-2xl font-bold text-[#0b1220]">{info?.totalReferrals ?? 0}</p>

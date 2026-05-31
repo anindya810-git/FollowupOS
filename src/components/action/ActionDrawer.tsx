@@ -412,7 +412,7 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
           </Button>
         </div>
 
-        <div className="flex-1 p-6 space-y-5">
+        <div className="flex-1 p-4 sm:p-6 space-y-5">
           {/* Category + priority */}
           <div className="flex items-center gap-2">
             <span className="text-xs font-medium bg-[rgb(11_18_32/6%)] text-ink px-2.5 py-1 rounded">
@@ -663,7 +663,7 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
                 <FilterSelect
                   value={tone}
                   onChange={setTone}
-                  className="w-32"
+                  className="w-24 sm:w-32"
                   options={[
                     { value: 'polite', label: 'Polite' },
                     { value: 'firm', label: 'Firm' },
@@ -799,7 +799,7 @@ export function ActionDrawer({ item, onClose, onStatusChange }: ActionDrawerProp
         </div>
 
         {/* Footer actions */}
-        <div className="sticky bottom-0 bg-white border-t border-rule px-6 py-4 flex items-center gap-2">
+        <div className="sticky bottom-0 bg-white border-t border-rule px-6 py-4 flex items-center gap-2 flex-wrap">
           {active.emailThread?.providerUrl && (
             <Button variant="ghost" size="sm" onClick={() => window.open(active.emailThread!.providerUrl!, '_blank')}>
               <ExternalLink className="h-3.5 w-3.5 mr-1" />

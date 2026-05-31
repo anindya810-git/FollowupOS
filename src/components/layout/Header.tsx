@@ -125,7 +125,7 @@ export function Header({ title, onSync }: HeaderProps) {
     : '?'
 
   return (
-    <div className="flex h-14 items-center justify-between border-b border-rule bg-paper-2 px-6">
+    <div className="flex h-14 items-center justify-between border-b border-rule bg-paper-2 px-4 md:px-6">
       <h1 className="text-sm font-semibold text-ink tracking-tight">{title}</h1>
 
       <div className="flex items-center gap-3">
@@ -169,7 +169,7 @@ export function Header({ title, onSync }: HeaderProps) {
               <ChevronDown className="h-3 w-3" />
             </Button>
             {menuOpen && (
-              <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-[rgb(11_18_32/12%)] rounded-lg shadow-lg w-64 overflow-hidden">
+              <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-[rgb(11_18_32/12%)] rounded-lg shadow-lg w-64 max-w-[calc(100vw-1rem)] overflow-hidden">
                 <div className="px-3 pt-2.5 pb-1">
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/35%)]">Sync options</p>
                 </div>
@@ -218,7 +218,7 @@ export function Header({ title, onSync }: HeaderProps) {
           </button>
 
           {avatarMenuOpen && (
-            <div className="absolute right-0 top-full mt-2 z-50 bg-ink rounded-xl shadow-2xl w-60 overflow-hidden border border-[rgb(255_255_255/8%)]">
+            <div className="absolute right-0 top-full mt-2 z-50 bg-ink rounded-xl shadow-2xl w-60 max-w-[calc(100vw-1rem)] overflow-hidden border border-[rgb(255_255_255/8%)]">
               {/* User info */}
               <div className="px-4 py-3.5 border-b border-[rgb(255_255_255/8%)]">
                 <div className="flex items-center gap-3">

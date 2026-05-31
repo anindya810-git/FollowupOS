@@ -83,9 +83,9 @@ export default function ScanLogsPage() {
   return (
     <>
       <Header title="Scan Logs" />
-      <main className="p-6 max-w-4xl space-y-5">
-        <div className="flex items-center justify-between gap-3">
-          <div>
+      <main className="p-4 md:p-6 max-w-4xl space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
             <a href="/settings" className="inline-flex items-center gap-1.5 text-xs text-[rgb(11_18_32/55%)] hover:text-ink transition-colors mb-1.5">
               <ArrowLeft className="h-3.5 w-3.5" /> Back to Settings
             </a>

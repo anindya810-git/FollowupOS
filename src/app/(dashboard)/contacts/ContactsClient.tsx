@@ -320,7 +320,7 @@ export function ContactsClient() {
   return (
     <>
       <Header title="Contacts" />
-      <main className="p-6 max-w-3xl">
+      <main className="p-4 md:p-6 max-w-3xl">
         <p className="text-sm text-[rgb(11_18_32/55%)] mb-4 max-w-2xl">
           Relationship intelligence from your email history. People you&apos;ve had two-way conversations with.
         </p>
@@ -387,7 +387,7 @@ export function ContactsClient() {
         {/* Advanced filters panel */}
         {showAdvanced && (
           <div className="mb-4 rounded-xl border border-[rgb(11_18_32/8%)] bg-[rgb(11_18_32/2%)] p-4 space-y-3">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)] mb-1.5">Company</p>
                 <input value={filterCompany} onChange={e => setFilterCompany(e.target.value)} placeholder="Filter by company…" className={`${inputCls} w-full`} />
@@ -502,7 +502,7 @@ export function ContactsClient() {
                           <Share2 className="h-3.5 w-3.5" />
                         </button>
                         {shareContact === c.email && (
-                          <div className="absolute right-0 top-full mt-1 z-30 min-w-[160px] rounded-xl border border-[rgb(11_18_32/10%)] bg-white shadow-lg overflow-hidden">
+                          <div className="absolute right-0 top-full mt-1 z-30 min-w-[160px] max-w-[calc(100vw-1rem)] rounded-xl border border-[rgb(11_18_32/10%)] bg-white shadow-lg overflow-hidden">
                             <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)] border-b border-[rgb(11_18_32/8%)]">Share via</p>
                             <a
                               href={`https://wa.me/?text=${encodeURIComponent(buildShareText(c))}`}
@@ -646,7 +646,7 @@ export function ContactsClient() {
                 <label className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)]">Name</label>
                 <Input value={newContact.name} onChange={e => setNewContact(p => ({ ...p, name: e.target.value }))} placeholder="Full name" className="mt-1" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)]">Job Title</label>
                   <Input value={newContact.designation} onChange={e => setNewContact(p => ({ ...p, designation: e.target.value }))} placeholder="Title" className="mt-1" />

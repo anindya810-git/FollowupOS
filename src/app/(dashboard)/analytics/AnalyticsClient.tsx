@@ -379,7 +379,7 @@ export function AnalyticsClient({ userEmail }: { userEmail: string }) {
     <>
       <Header title="Analytics" userEmail={userEmail} onSync={fetchAll} />
 
-      <main className="p-6 bg-paper min-h-screen">
+      <main className="p-4 md:p-6 bg-paper min-h-screen">
         {/* Share your stats card */}
         <div className="max-w-sm mb-8">
           <StatsShareCard />

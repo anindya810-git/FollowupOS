@@ -97,7 +97,7 @@ export function WatchlistClient() {
   return (
     <>
       <Header title="WatchList" />
-      <main className="p-6 max-w-2xl space-y-6">
+      <main className="p-4 md:p-6 max-w-2xl space-y-6">
 
         {/* Hero description */}
         <div className="flex items-start gap-3 rounded-xl border border-[rgb(11_18_32/8%)] bg-paper-2 px-5 py-4">

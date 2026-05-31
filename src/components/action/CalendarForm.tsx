@@ -190,7 +190,7 @@ export function CalendarForm({
         </div>
 
         {kind === 'event' && (
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div>
               <label className="block text-[11px] font-medium text-[rgb(11_18_32/55%)] mb-1">Duration</label>
               <Select value={String(durationMin)} onChange={e => setDurationMin(parseInt(e.target.value))} className="text-sm h-8">

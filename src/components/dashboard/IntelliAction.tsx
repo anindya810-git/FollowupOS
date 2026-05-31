@@ -65,7 +65,7 @@ function formatMeetingTime(iso: string): string {
 function InboxChip({ email }: { email: string }) {
   return (
     <span
-      className="text-[10px] text-[rgb(11_18_32/40%)] bg-[rgb(11_18_32/4%)] border border-[rgb(11_18_32/8%)] px-1.5 py-0.5 rounded font-mono truncate max-w-[150px]"
+      className="text-[10px] text-[rgb(11_18_32/40%)] bg-[rgb(11_18_32/4%)] border border-[rgb(11_18_32/8%)] px-1.5 py-0.5 rounded font-mono truncate min-w-0 max-w-[150px]"
       title={`Inbox: ${email}`}
     >
       {email}
@@ -103,7 +103,7 @@ function IntelliItem({
           <p className="text-sm text-ink truncate">{item.title}</p>
           <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
             {item.ownerName && (
-              <span className="text-xs text-mute truncate">{item.ownerName}</span>
+              <span className="text-xs text-mute truncate min-w-0">{item.ownerName}</span>
             )}
             {item.inboxEmail && <InboxChip email={item.inboxEmail} />}
           </div>

@@ -199,7 +199,7 @@ function QueueContent() {
   return (
     <>
       <Header title="All Items" onSync={fetchItems} />
-      <main className="p-6">
+      <main className="p-4 md:p-6">
 
         {/* ── Prominent search bar ── */}
         <div className="relative mx-auto mb-4 w-full max-w-3xl">
@@ -279,7 +279,7 @@ function QueueContent() {
         {/* ── Advanced filters panel ── */}
         {showAdvanced && (
           <div className="mb-5 p-4 rounded-xl bg-[rgb(11_18_32/3%)] border border-rule space-y-4">
-            <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+            <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 md:grid-cols-4">
 
               {/* Row 1: Priority + Inbox */}
               <div className="col-span-2 sm:col-span-1">
@@ -370,9 +370,9 @@ function QueueContent() {
               <div className="col-span-2">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)] mb-1.5">Email date</p>
                 <div className="flex items-center gap-1.5">
-                  <input type="date" value={emailFrom} onChange={e => setEmailFrom(e.target.value)} className={inputClass} aria-label="Email date from" />
-                  <span className="text-xs text-[rgb(11_18_32/40%)]">to</span>
-                  <input type="date" value={emailTo} onChange={e => setEmailTo(e.target.value)} className={inputClass} aria-label="Email date to" />
+                  <input type="date" value={emailFrom} onChange={e => setEmailFrom(e.target.value)} className={`${inputClass} min-w-0 flex-1`} aria-label="Email date from" />
+                  <span className="text-xs text-[rgb(11_18_32/40%)] shrink-0">to</span>
+                  <input type="date" value={emailTo} onChange={e => setEmailTo(e.target.value)} className={`${inputClass} min-w-0 flex-1`} aria-label="Email date to" />
                 </div>
               </div>
 
@@ -380,9 +380,9 @@ function QueueContent() {
               <div className="col-span-2">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)] mb-1.5">Action due date</p>
                 <div className="flex items-center gap-1.5">
-                  <input type="date" value={actionFrom} onChange={e => setActionFrom(e.target.value)} className={inputClass} aria-label="Action date from" />
-                  <span className="text-xs text-[rgb(11_18_32/40%)]">to</span>
-                  <input type="date" value={actionTo} onChange={e => setActionTo(e.target.value)} className={inputClass} aria-label="Action date to" />
+                  <input type="date" value={actionFrom} onChange={e => setActionFrom(e.target.value)} className={`${inputClass} min-w-0 flex-1`} aria-label="Action date from" />
+                  <span className="text-xs text-[rgb(11_18_32/40%)] shrink-0">to</span>
+                  <input type="date" value={actionTo} onChange={e => setActionTo(e.target.value)} className={`${inputClass} min-w-0 flex-1`} aria-label="Action date to" />
                 </div>
               </div>
             </div>
@@ -448,7 +448,7 @@ function QueueContent() {
       />
 
       {selectedIds.size > 0 && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 bg-ink text-white rounded-lg shadow-lg px-4 py-3 flex items-center gap-3 animate-fade-up">
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 bg-ink text-white rounded-lg shadow-lg px-4 py-3 flex items-center justify-center gap-x-3 gap-y-2 flex-wrap max-w-[calc(100vw-1.5rem)] animate-fade-up">
           <span className="text-sm font-medium">{selectedIds.size} selected</span>
           <div className="h-4 w-px bg-white/20" />
           <button onClick={() => bulk('done')} className="text-sm hover:text-action transition-colors">Mark Done</button>
@@ -614,7 +614,7 @@ function ContactMultiSelect({
         <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-[rgb(11_18_32/35%)] transition-transform duration-150 ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-1.5 w-72 rounded-xl border border-[rgb(11_18_32/10%)] bg-white shadow-lg overflow-hidden">
+        <div className="absolute left-0 top-full z-50 mt-1.5 w-[min(18rem,calc(100vw-2rem))] rounded-xl border border-[rgb(11_18_32/10%)] bg-white shadow-lg overflow-hidden">
           <div className="p-2 border-b border-[rgb(11_18_32/8%)]">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[rgb(11_18_32/35%)]" />

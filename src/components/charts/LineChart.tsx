@@ -77,6 +77,8 @@ export function LineChart({
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio="xMidYMid meet"
+      className="w-full"
       style={{ width: '100%', height }}
       aria-label="Line chart"
     >

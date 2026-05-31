@@ -98,7 +98,7 @@ function ConnectorRow({
   state: ConnectorState
 }) {
   return (
-    <div className="flex items-center gap-4 px-5 py-4">
+    <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 px-4 sm:px-5 py-4">
       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-rule bg-white shadow-sm">
         {logo}
       </div>
@@ -130,7 +130,7 @@ function NotificationRow({
   const [open, setOpen] = useState(false)
   return (
     <div>
-      <div className="flex items-center gap-4 px-5 py-4">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 px-4 sm:px-5 py-4">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-rule bg-white shadow-sm">
           {logo}
         </div>
@@ -303,7 +303,7 @@ function ConnectorsInner() {
   return (
     <>
       <Header title="Connectors" />
-      <main className="p-6 max-w-3xl">
+      <main className="p-4 md:p-6 max-w-3xl">
         <p className="text-sm text-[rgb(11_18_32/55%)] mb-6 max-w-2xl">
           Wire up video conferencing, calendars, chat notifications, and other tools. When enabled, Pendingly
           can schedule meetings, create calendar events, and push your daily digest to the channels you use.

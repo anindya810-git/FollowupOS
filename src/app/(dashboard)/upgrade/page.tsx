@@ -61,7 +61,7 @@ function PlanCard({
   highlight?: boolean
 }) {
   return (
-    <div className={`rounded-xl border p-6 flex flex-col gap-5 ${highlight ? 'border-[#0b1220] ring-1 ring-[#0b1220]' : 'border-[rgba(11,18,32,0.1)]'} bg-white`}>
+    <div className={`rounded-xl border p-4 md:p-6 flex flex-col gap-5 ${highlight ? 'border-[#0b1220] ring-1 ring-[#0b1220]' : 'border-[rgba(11,18,32,0.1)]'} bg-white`}>
       {badge && (
         <span className="self-start text-[10px] font-semibold tracking-widest uppercase bg-[#0b1220] text-white px-2.5 py-1 rounded-full">
           {badge}
@@ -110,7 +110,7 @@ export default function UpgradePage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-6 py-10">
+    <div className="max-w-4xl mx-auto px-4 md:px-6 py-10">
       <div className="mb-10 text-center">
         <h1 className="text-2xl font-bold text-[#0b1220]">Choose your plan</h1>
         <p className="text-[rgba(11,18,32,0.5)] mt-2 text-sm">

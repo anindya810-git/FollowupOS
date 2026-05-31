@@ -130,7 +130,7 @@ export function ActionCard({ item, onStatusChange, onSelect, selected, onSelectC
                 </span>
               )}
               {item.emailThread?.emailAccount?.emailAddress && (
-                <span className="text-[10px] text-[rgb(11_18_32/40%)] bg-[rgb(11_18_32/4%)] border border-[rgb(11_18_32/8%)] px-1.5 py-0.5 rounded font-mono truncate max-w-[160px]" title={item.emailThread.emailAccount.emailAddress}>
+                <span className="text-[10px] text-[rgb(11_18_32/40%)] bg-[rgb(11_18_32/4%)] border border-[rgb(11_18_32/8%)] px-1.5 py-0.5 rounded font-mono truncate max-w-[100px] sm:max-w-[160px]" title={item.emailThread.emailAccount.emailAddress}>
                   {item.emailThread.emailAccount.emailAddress}
                 </span>
               )}
@@ -268,7 +268,7 @@ export function ActionCard({ item, onStatusChange, onSelect, selected, onSelectC
             <ChevronDown className="h-3 w-3 ml-0.5" />
           </Button>
           {ignoreOpen && (
-            <div className="absolute bottom-full left-0 mb-1 bg-white border border-rule rounded-lg shadow-lg z-50 min-w-[200px] py-1 text-xs">
+            <div className="absolute bottom-full left-0 mb-1 bg-white border border-rule rounded-lg shadow-lg z-50 min-w-[180px] max-w-[calc(100vw-1rem)] py-1 text-xs">
               <button
                 className="w-full text-left px-3 py-2 hover:bg-paper-2 text-ink"
                 onClick={(e) => { e.stopPropagation(); ignoreSender('email') }}

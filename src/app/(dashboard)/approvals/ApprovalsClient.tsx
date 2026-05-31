@@ -62,7 +62,7 @@ export function ApprovalsClient() {
   return (
     <>
       <Header title="Approvals" />
-      <main className="p-6 max-w-3xl">
+      <main className="p-4 md:p-6 max-w-3xl">
         <p className="text-sm text-[rgb(11_18_32/55%)] mb-6 max-w-2xl">
           With approval mode on, Pendingly drafts your follow-ups but never sends them automatically.
           Review each one and approve with a single tap — or skip it.
