@@ -5,20 +5,20 @@ import { resolveAiConfig, extractContactProfile } from '@/lib/ai'
 
 export async function POST(
   _req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await auth()
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const { id } = await params
   const contact = await prisma.contact.findFirst({
-    where: { id: params.id, userId: session.user.id },
+    where: { id, userId: session.user.id },
   })
   if (!contact) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const config = await resolveAiConfig(session.user.id)
   if (!config) return NextResponse.json({ error: 'No AI provider configured' }, { status: 400 })
 
-  // Gather recent message bodies from this contact for AI to analyse
   const messages = await prisma.emailMessage.findMany({
     where: { userId: session.user.id, senderEmail: { equals: contact.email, mode: 'insensitive' } },
     select: { bodyExcerpt: true, snippet: true, senderName: true, sentAt: true },
@@ -37,7 +37,7 @@ export async function POST(
   const profile = await extractContactProfile(emailContent, config)
   if (!profile) return NextResponse.json({ error: 'AI extraction failed' }, { status: 500 })
 
-  // Update contact with extracted fields (only overwrite nulls unless user cleared a field)
+  // Only fill empty fields — don't overwrite what the user has already set
   const updates: Record<string, string | null | boolean> = { aiEnriched: true }
   if (profile.name && !contact.name) updates.name = profile.name
   if (profile.designation && !contact.designation) updates.designation = profile.designation
@@ -47,10 +47,10 @@ export async function POST(
   if (profile.linkedinUrl && !contact.linkedinUrl) updates.linkedinUrl = profile.linkedinUrl
 
   await prisma.contact.update({
-    where: { id: params.id },
+    where: { id },
     data: updates,
   })
 
-  const updated = await prisma.contact.findUnique({ where: { id: params.id } })
+  const updated = await prisma.contact.findUnique({ where: { id } })
   return NextResponse.json({ contact: updated, extracted: profile })
 }

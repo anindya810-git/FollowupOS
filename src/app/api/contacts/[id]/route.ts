@@ -4,17 +4,17 @@ import { prisma } from '@/lib/prisma'
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await auth()
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const { id } = await params
   const contact = await prisma.contact.findFirst({
-    where: { id: params.id, userId: session.user.id },
+    where: { id, userId: session.user.id },
   })
   if (!contact) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  // Fetch recent messages from this contact for context
   const messages = await prisma.emailMessage.findMany({
     where: { userId: session.user.id, senderEmail: { equals: contact.email, mode: 'insensitive' } },
     select: { id: true, snippet: true, bodyExcerpt: true, sentAt: true, emailThreadId: true },
@@ -27,11 +27,12 @@ export async function GET(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await auth()
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const { id } = await params
   const body = await req.json().catch(() => ({}))
   const allowed = ['name', 'designation', 'company', 'phone', 'city', 'notes', 'linkedinUrl'] as const
   const updates: Record<string, string | null> = {}
@@ -41,24 +42,25 @@ export async function PATCH(
     }
   }
 
-  const contact = await prisma.contact.updateMany({
-    where: { id: params.id, userId: session.user.id },
+  const result = await prisma.contact.updateMany({
+    where: { id, userId: session.user.id },
     data: updates,
   })
 
-  if (contact.count === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  if (result.count === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   return NextResponse.json({ ok: true })
 }
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await auth()
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const { id } = await params
   await prisma.contact.deleteMany({
-    where: { id: params.id, userId: session.user.id },
+    where: { id, userId: session.user.id },
   })
 
   return NextResponse.json({ ok: true })
