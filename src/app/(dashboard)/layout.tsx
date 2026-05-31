@@ -6,6 +6,7 @@ import { Sidebar } from '@/components/layout/Sidebar'
 import { LogoMark } from '@/components/ui/Logo'
 import { OpenInboxButton } from '@/components/layout/OpenInboxButton'
 import { PendinglyLoader } from '@/components/ui/PendinglyLoader'
+import { AutoScanner } from '@/components/layout/AutoScanner'
 
 interface PlanInfo { type: string; isActive: boolean; daysLeft: number | null }
 
@@ -58,6 +59,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex h-screen overflow-hidden bg-paper">
+      <AutoScanner />
       {sidebarOpen && (
         <div
           className="fixed inset-0 z-40 bg-ink/40 md:hidden animate-fade-in"

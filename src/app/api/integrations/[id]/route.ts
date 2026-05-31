@@ -18,6 +18,7 @@ export async function PATCH(
     webmailSearchUrlTemplate?: string | null
     noiseFilterLevel?: number | null
     scanInstructions?: string | null
+    autoScanIntervalMinutes?: number | null
   }
   try {
     body = await request.json()
@@ -45,6 +46,19 @@ export async function PATCH(
         return NextResponse.json({ error: 'noiseFilterLevel must be 1–5 or null' }, { status: 400 })
       }
       data.noiseFilterLevel = lvl
+    }
+  }
+
+  // Per-inbox auto-scan interval override. null = inherit global setting.
+  if (body.autoScanIntervalMinutes !== undefined) {
+    if (body.autoScanIntervalMinutes === null) {
+      data.autoScanIntervalMinutes = null
+    } else {
+      const mins = Number(body.autoScanIntervalMinutes)
+      if (!Number.isInteger(mins) || mins < 1 || mins > 1440) {
+        return NextResponse.json({ error: 'autoScanIntervalMinutes must be 1–1440 or null' }, { status: 400 })
+      }
+      data.autoScanIntervalMinutes = mins
     }
   }
 
@@ -107,7 +121,7 @@ export async function PATCH(
   const updated = await prisma.emailAccount.update({
     where: { id },
     data,
-    select: { webmailBaseUrl: true, webmailSearchUrlTemplate: true, noiseFilterLevel: true, scanInstructions: true },
+    select: { webmailBaseUrl: true, webmailSearchUrlTemplate: true, noiseFilterLevel: true, scanInstructions: true, autoScanIntervalMinutes: true },
   })
 
   return NextResponse.json({ ok: true, ...updated })

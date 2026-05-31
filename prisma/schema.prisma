@@ -153,6 +153,8 @@ model EmailAccount {
   // scanInstructions is appended to the global "Teach Pendingly" instructions
   // for this inbox only (additive, not a replacement).
   scanInstructions      String?
+  // Auto-scan interval override in minutes. null = use AppSettings default.
+  autoScanIntervalMinutes Int?
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
@@ -405,6 +407,9 @@ model AppSettings {
   noiseFilterLevel       Int     @default(3)
   // User-supplied free-text instructions injected into AI classification prompt.
   scanInstructions       String?
+  // How often (minutes) the client-side AutoScanner should trigger a background
+  // scan for each connected inbox. Per-inbox override lives on EmailAccount.
+  autoScanIntervalMinutes Int     @default(1)
   // "Pause everything" / vacation mode. When true, all automation (auto
   // follow-ups, scheduled sends, snooze wake-ups, digests, nudges) is held.
   automationPaused       Boolean @default(false)

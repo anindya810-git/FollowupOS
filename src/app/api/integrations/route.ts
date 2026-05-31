@@ -26,6 +26,7 @@ export async function GET(req: NextRequest) {
       webmailSearchUrlTemplate: true,
       noiseFilterLevel: true,
       scanInstructions: true,
+      autoScanIntervalMinutes: true,
     },
     orderBy: { createdAt: 'asc' },
   })

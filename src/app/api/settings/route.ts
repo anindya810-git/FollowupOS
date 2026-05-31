@@ -45,6 +45,7 @@ export async function PATCH(request: NextRequest) {
     signatureHtml, emailSignatureEnabled,
     noiseFilterLevel,
     scanInstructions,
+    autoScanIntervalMinutes,
     enabledConnectors,
     automationPaused,
     followupApprovalMode,
@@ -97,6 +98,13 @@ export async function PATCH(request: NextRequest) {
   if (automationPaused !== undefined) appData.automationPaused = !!automationPaused
   if (followupApprovalMode !== undefined) appData.followupApprovalMode = !!followupApprovalMode
   if (emailSignatureEnabled !== undefined) appData.emailSignatureEnabled = !!emailSignatureEnabled
+  if (autoScanIntervalMinutes !== undefined) {
+    const mins = Number(autoScanIntervalMinutes)
+    if (!Number.isInteger(mins) || mins < 1 || mins > 1440) {
+      return NextResponse.json({ error: 'autoScanIntervalMinutes must be 1–1440' }, { status: 400 })
+    }
+    appData.autoScanIntervalMinutes = mins
+  }
   if (scanInstructions !== undefined) {
     const trimmed = typeof scanInstructions === 'string' ? scanInstructions.trim() : ''
     appData.scanInstructions = trimmed.slice(0, 2000) || null

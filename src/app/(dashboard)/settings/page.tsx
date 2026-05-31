@@ -37,6 +37,7 @@ interface EmailAccount {
   webmailSearchUrlTemplate?: string | null
   noiseFilterLevel?: number | null
   scanInstructions?: string | null
+  autoScanIntervalMinutes?: number | null
   lastScan?: LastScan | null
 }
 
@@ -67,6 +68,7 @@ export default function SettingsPage() {
       emailSignatureEnabled?: boolean;
       noiseFilterLevel?: number;
       scanInstructions?: string | null;
+      autoScanIntervalMinutes?: number;
       automationPaused?: boolean;
       followupApprovalMode?: boolean;
     } | null
@@ -247,6 +249,7 @@ export default function SettingsPage() {
         emailSignatureEnabled: settings.appSettings?.emailSignatureEnabled ?? true,
         noiseFilterLevel: settings.appSettings?.noiseFilterLevel ?? 3,
         scanInstructions: settings.appSettings?.scanInstructions ?? null,
+        autoScanIntervalMinutes: settings.appSettings?.autoScanIntervalMinutes ?? 1,
         followupApprovalMode: settings.appSettings?.followupApprovalMode ?? false,
       }),
     })
@@ -507,6 +510,31 @@ export default function SettingsPage() {
                           </div>
                         )
                       })()}
+                      <div className="mt-2 flex items-center gap-2 flex-wrap">
+                        <span className="text-xs text-[rgb(11_18_32/50%)]">Scan every</span>
+                        <select
+                          value={String(account.autoScanIntervalMinutes ?? '')}
+                          onChange={async e => {
+                            const val = e.target.value === '' ? null : Number(e.target.value)
+                            setIntegrations(prev => prev.map(a => a.id === account.id ? { ...a, autoScanIntervalMinutes: val } : a))
+                            await fetch(`/api/integrations/${account.id}`, {
+                              method: 'PATCH',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ autoScanIntervalMinutes: val }),
+                            }).catch(() => {})
+                          }}
+                          className="h-7 rounded border border-[rgb(11_18_32/12%)] bg-white px-2 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-action"
+                        >
+                          <option value="">Default ({settings.appSettings?.autoScanIntervalMinutes ?? 1} min)</option>
+                          <option value="1">1 min</option>
+                          <option value="2">2 min</option>
+                          <option value="5">5 min</option>
+                          <option value="10">10 min</option>
+                          <option value="15">15 min</option>
+                          <option value="30">30 min</option>
+                          <option value="60">1 hour</option>
+                        </select>
+                      </div>
                       {isImapStyle && (
                         <WebmailUrlField
                           account={account}
@@ -518,6 +546,23 @@ export default function SettingsPage() {
                   })}
                 </div>
               )}
+              <div className="flex items-center gap-2 mb-4 pb-4 border-t border-[rgb(11_18_32/6%)] pt-4 flex-wrap">
+                <span className="text-xs font-medium text-ink shrink-0">Default scan interval</span>
+                <select
+                  value={String(settings.appSettings?.autoScanIntervalMinutes ?? 1)}
+                  onChange={e => setSettings(s => ({ ...s, appSettings: { ...s.appSettings!, autoScanIntervalMinutes: Number(e.target.value) } }))}
+                  className="h-7 rounded border border-[rgb(11_18_32/12%)] bg-white px-2 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-action"
+                >
+                  <option value="1">1 min</option>
+                  <option value="2">2 min</option>
+                  <option value="5">5 min</option>
+                  <option value="10">10 min</option>
+                  <option value="15">15 min</option>
+                  <option value="30">30 min</option>
+                  <option value="60">1 hour</option>
+                </select>
+                <span className="text-xs text-[rgb(11_18_32/40%)]">— applies to all inboxes unless overridden above (saved with Settings)</span>
+              </div>
               <div className="flex gap-2 flex-wrap">
                 <Button
                   variant="outline"
