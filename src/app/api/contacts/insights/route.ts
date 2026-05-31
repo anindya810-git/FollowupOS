@@ -12,25 +12,35 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const [insights, dbContacts] = await Promise.all([
-    computeContactInsights(session.user.id),
-    prisma.contact.findMany({
+  const insights = await computeContactInsights(session.user.id)
+
+  // Fetch enriched contact records — gracefully degrade if new columns don't
+  // exist yet in the DB (i.e. SQL migration not run yet).
+  let dbContacts: Array<{
+    id: string; email: string; name: string | null; vip: boolean
+    phone?: string | null; designation?: string | null; company?: string | null
+    city?: string | null; notes?: string | null; linkedinUrl?: string | null
+    aiEnriched?: boolean
+  }> = []
+  try {
+    dbContacts = await prisma.contact.findMany({
       where: { userId: session.user.id },
       select: {
-        id: true,
-        email: true,
-        name: true,
-        phone: true,
-        designation: true,
-        company: true,
-        city: true,
-        notes: true,
-        linkedinUrl: true,
-        aiEnriched: true,
-        vip: true,
+        id: true, email: true, name: true, vip: true,
+        phone: true, designation: true, company: true,
+        city: true, notes: true, linkedinUrl: true, aiEnriched: true,
       },
-    }),
-  ])
+    })
+  } catch {
+    // New columns may not exist yet — fall back to base fields only
+    try {
+      const base = await prisma.contact.findMany({
+        where: { userId: session.user.id },
+        select: { id: true, email: true, name: true, vip: true },
+      })
+      dbContacts = base
+    } catch { /* ignore — merged data will just lack stored profile */ }
+  }
 
   // Merge computed insights with stored profile fields
   const contactMap = new Map(dbContacts.map(c => [c.email.toLowerCase(), c]))
@@ -46,7 +56,6 @@ export async function GET() {
       notes: stored?.notes ?? null,
       linkedinUrl: stored?.linkedinUrl ?? null,
       aiEnriched: stored?.aiEnriched ?? false,
-      // Prefer stored name if set; fall back to insight name from email headers
       name: stored?.name || i.name,
     }
   })
