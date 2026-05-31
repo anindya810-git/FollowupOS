@@ -258,7 +258,7 @@ export function Header({ title, onSync }: HeaderProps) {
                   </button>
                 ))}
                 <button
-                  onClick={() => { setAvatarMenuOpen(false); router.push('/settings/connectors') }}
+                  onClick={() => { setAvatarMenuOpen(false); router.push('/settings') }}
                   className="w-full text-left px-4 py-1.5 hover:bg-[rgb(255_255_255/6%)] transition-colors flex items-center gap-2.5 group"
                 >
                   <span className="inline-flex items-center justify-center w-4 h-4 shrink-0">
