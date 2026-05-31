@@ -97,9 +97,13 @@ function QueueContent() {
   }, [])
 
   useEffect(() => {
-    fetch('/api/contacts')
+    fetch('/api/contacts/insights')
       .then(r => r.ok ? r.json() : null)
-      .then(d => { if (Array.isArray(d?.contacts)) setContacts(d.contacts) })
+      .then(d => {
+        if (Array.isArray(d?.insights)) {
+          setContacts(d.insights.map((i: { email: string; name: string | null }) => ({ email: i.email, name: i.name })))
+        }
+      })
       .catch(() => {})
   }, [])
 
