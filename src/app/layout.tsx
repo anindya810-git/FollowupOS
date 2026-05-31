@@ -15,8 +15,8 @@ const mono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Pendingly — Your follow-up radar',
-  description: 'Know exactly who you need to reply to, who needs to reply to you, and what follow-ups are overdue — every day.',
+  title: 'Pendingly — AI Email Follow-Up Reminder',
+  description: 'Know exactly who you need to reply to, who owes you a reply, and which follow-up emails are overdue — every day. AI-powered email tracker for Gmail, Outlook & IMAP.',
   icons: {
     icon: '/favicon.svg',
     shortcut: '/favicon.svg',

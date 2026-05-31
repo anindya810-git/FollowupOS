@@ -1,6 +1,7 @@
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import type { Metadata } from 'next'
 import { SignInButton } from '@/components/auth/SignInButton'
 import { LogoMark } from '@/components/ui/Logo'
 import {
@@ -10,10 +11,148 @@ import {
   HeartPulse, CalendarClock,
 } from 'lucide-react'
 
-export const metadata = {
-  title: 'Pendingly — AI follow-up & relationship radar for your inbox',
+const SITE_URL = 'https://pendingly.com'
+
+export const metadata: Metadata = {
+  title: 'Pendingly — AI Email Follow-Up Reminder & Relationship Tracker',
   description:
-    'Pendingly reads your inbox and tells you who needs a reply, who owes you one, and which relationships are cooling — with you in control of everything that sends. Built with enterprise-grade security.',
+    'Never miss a follow-up email again. Pendingly tracks unanswered emails, reminds you when to follow up, shows who owes you a reply, and alerts you when relationships cool — all without auto-sending anything. Works with Gmail, Outlook & IMAP.',
+  keywords: [
+    'email follow-up reminder',
+    'never miss a follow-up email',
+    'unanswered email tracker',
+    'automatic email follow-up tool',
+    'AI email assistant',
+    'email response tracker',
+    'follow up on emails',
+    'email relationship management',
+    'inbox follow-up organizer',
+    'Gmail follow-up reminder',
+    'Outlook follow-up reminder',
+    'email productivity tool',
+    'relationship health email',
+    'who needs a reply inbox',
+    'follow up email tool',
+    'email accountability',
+    'lost deal follow-up',
+    'sales follow-up email reminder',
+  ],
+  alternates: {
+    canonical: SITE_URL,
+  },
+  openGraph: {
+    title: 'Pendingly — AI Email Follow-Up Reminder & Relationship Tracker',
+    description:
+      'Stop losing deals and relationships to forgotten emails. Pendingly shows you who needs a reply, who owes you one, and which contacts are going cold — with full control over everything that sends.',
+    url: SITE_URL,
+    siteName: 'Pendingly',
+    type: 'website',
+    locale: 'en_US',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Pendingly — Never miss a follow-up email again',
+    description:
+      'AI-powered email follow-up tracker. See who needs a reply, who owes you one, and which relationships are cooling. Works with Gmail, Outlook & IMAP.',
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, 'max-snippet': -1, 'max-image-preview': 'large' },
+  },
+}
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'SoftwareApplication',
+      name: 'Pendingly',
+      url: SITE_URL,
+      applicationCategory: 'BusinessApplication',
+      operatingSystem: 'Web',
+      description:
+        'Pendingly is an AI email follow-up reminder and relationship tracker. It scans your Gmail, Outlook, or IMAP inbox and surfaces who needs a reply, who owes you one, and which relationships are going cold — helping you never miss a follow-up email again.',
+      featureList: [
+        'Email follow-up reminders',
+        'Unanswered email tracker',
+        'Relationship health monitoring',
+        'AI email triage and classification',
+        'Automatic follow-up sequences with approval mode',
+        'VIP contact detection',
+        'Reply deadline reminders',
+        'Snooze and scheduled send',
+        'Gmail, Outlook, and IMAP integration',
+        'WatchList for important threads and contacts',
+      ].join(', '),
+      offers: [
+        { '@type': 'Offer', price: '0', priceCurrency: 'USD', name: 'Free Trial — 3 months' },
+        { '@type': 'Offer', price: '9', priceCurrency: 'USD', name: 'Pendingly Lite', billingPeriod: 'P1M' },
+        { '@type': 'Offer', price: '15', priceCurrency: 'USD', name: 'Pendingly Pro', billingPeriod: 'P1M' },
+      ],
+    },
+    {
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'How do I track email follow-ups automatically?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'Pendingly connects to your Gmail or Outlook inbox (read-only OAuth) and automatically identifies threads where a reply is overdue, you\'re waiting on someone else, or a follow-up commitment is due. It surfaces these daily so you never manually hunt for forgotten emails again.',
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'Will Pendingly send emails on my behalf?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'Only when you choose to. The classification scan is fully read-only. Replies send only when you hit send, and follow-up sequences can be set to "approval mode," where every message waits for a one-tap approval. Every send also has a 10-second undo window.',
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'How is my email data protected?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'We store only what we need — thread metadata, short snippets and sender info; bodies are excerpted, not archived. OAuth tokens and AI keys are encrypted with AES-256-GCM at rest. Every database query is scoped to your account. We never sell data or train on your email.',
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'What email clients does Pendingly support?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'Pendingly works with Gmail, Outlook, Zoho Mail, Apple Mail, and any standard IMAP account. You can connect multiple inboxes on paid plans and filter your follow-up queue to any combination.',
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'What relationship data does Pendingly use?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'Pendingly analyses the timing of messages you\'ve already exchanged to estimate your typical reply speed per contact — powering relationship health, VIP detection, and "cooling" alerts. It\'s computed from metadata you already have; nothing is shared or sold.',
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'Which AI model does Pendingly use?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'By default a Pendingly-managed provider. On Lite and Pro plans you can bring your own Anthropic, OpenAI or Gemini API key, so classification runs under your own provider agreement. We don\'t train models on your email.',
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'What happens after the free trial?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'Upgrade to Lite ($9/mo) or Pro ($15/mo), or earn more free time via referrals (30 days each) and stat shares (7 days each). No credit card to start. Cancel anytime from Settings — you keep access until the end of the period, and you can delete all your data in one click.',
+          },
+        },
+      ],
+    },
+  ],
 }
 
 // ── Feature groups ───────────────────────────────────────────────────────────
@@ -75,6 +214,10 @@ export default async function HomePage() {
 
   return (
     <div className="min-h-screen bg-paper">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {/* Sticky nav */}
       <header className="sticky top-0 z-50 bg-paper/80 backdrop-blur-md border-b border-[rgb(11_18_32/6%)]">
         <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-4">
@@ -98,17 +241,17 @@ export default async function HomePage() {
         <div className="px-6 pt-20 pb-24 max-w-5xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-[rgb(11_18_32/10%)] shadow-sm mb-7">
             <Sparkles className="h-3.5 w-3.5 text-action" />
-            <span className="text-xs font-medium text-[rgb(11_18_32/65%)]">AI follow-up + relationship radar · Gmail & Outlook</span>
+            <span className="text-xs font-medium text-[rgb(11_18_32/65%)]">AI email follow-up reminder · Gmail, Outlook & IMAP</span>
           </div>
 
           <h1 className="text-5xl md:text-6xl font-bold text-ink leading-[1.05] tracking-tight mb-7">
-            Never drop a follow-up<br />
-            <span className="text-[rgb(11_18_32/45%)]">or let a relationship cool.</span>
+            Never miss a follow-up email<br />
+            <span className="text-[rgb(11_18_32/45%)]">or let a relationship go cold.</span>
           </h1>
 
           <p className="text-lg md:text-xl text-[rgb(11_18_32/55%)] max-w-2xl mx-auto leading-relaxed mb-10">
-            Pendingly reads your inbox and tells you who needs a reply, who owes you one, and which
-            relationships are slipping — while you stay in control of everything that sends.
+            Pendingly scans your inbox and surfaces who needs a reply, who owes you one, and which
+            relationships are cooling — so you follow up before the moment passes, not after it's gone.
           </p>
 
           <div className="flex flex-col items-center gap-4">
@@ -143,11 +286,12 @@ export default async function HomePage() {
           <div className="text-center mb-12">
             <p className="text-xs uppercase tracking-widest text-action font-semibold mb-3">The problem</p>
             <h2 className="text-3xl md:text-4xl font-bold text-ink mb-4">
-              The most important emails are the ones you forget.
+              Deals die in the emails you meant to follow up on.
             </h2>
             <p className="text-lg text-[rgb(11_18_32/55%)] max-w-2xl mx-auto">
               You read it on your phone, meant to reply later, and it slid 200 emails down.
               A week passes. The deal goes quiet. The relationship cools.
+              No tool reminded you — until now.
             </p>
           </div>
 
@@ -170,8 +314,8 @@ export default async function HomePage() {
       <section id="how" className="px-6 py-24 max-w-5xl mx-auto">
         <div className="text-center mb-14">
           <p className="text-xs uppercase tracking-widest text-[rgb(11_18_32/45%)] font-semibold mb-3">How it works</p>
-          <h2 className="text-3xl md:text-4xl font-bold text-ink mb-4">Set it up in 60 seconds.</h2>
-          <p className="text-lg text-[rgb(11_18_32/55%)]">Connect, let it read, work the queue. No spreadsheets, no journaling.</p>
+          <h2 className="text-3xl md:text-4xl font-bold text-ink mb-4">Your email follow-up tracker, live in 60 seconds.</h2>
+          <p className="text-lg text-[rgb(11_18_32/55%)]">Connect your inbox, let it scan, work the follow-up queue. No spreadsheets, no reminders app, no journaling.</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -197,9 +341,9 @@ export default async function HomePage() {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
             <p className="text-xs uppercase tracking-widest text-[rgb(11_18_32/45%)] font-semibold mb-3">Features</p>
-            <h2 className="text-3xl md:text-4xl font-bold text-ink mb-4">Built to close loops, not organise folders.</h2>
+            <h2 className="text-3xl md:text-4xl font-bold text-ink mb-4">Every follow-up tool you need — none of the noise.</h2>
             <p className="text-lg text-[rgb(11_18_32/55%)] max-w-2xl mx-auto">
-              Everything you need to stay on top of email — and on top of the relationships behind it.
+              Track unanswered emails, automate follow-up sequences, and keep your most important relationships warm — all from one inbox view.
             </p>
           </div>
 
@@ -235,7 +379,7 @@ export default async function HomePage() {
               <Shield className="h-3.5 w-3.5 text-[rgb(255_255_255/70%)]" />
               <span className="text-xs font-medium text-[rgb(255_255_255/70%)]">Security &amp; privacy</span>
             </div>
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Safe enough for the inbox you can’t afford to lose.</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Enterprise-grade security for your most sensitive data — your inbox.</h2>
             <p className="text-lg text-[rgb(255_255_255/55%)] max-w-2xl mx-auto">
               Your inbox is your most sensitive data. We treat it that way — with security built in from the database to the browser.
             </p>
@@ -361,13 +505,14 @@ export default async function HomePage() {
 
         <div className="space-y-4">
           {[
-            { q: 'Will Pendingly send emails on my behalf?', a: 'Only when you choose to. The classification scan is fully read-only. Replies send only when you hit send, and follow-up sequences can be set to “approval mode,” where every message waits for a one-tap approval. Every send also has a 10-second undo.' },
-            { q: 'How is my email data protected?', a: 'We store only what we need — thread metadata, short snippets and sender info; bodies are excerpted, not archived. OAuth tokens, mailbox passwords and AI keys are encrypted with AES-256-GCM at rest. Every database query is scoped to your account, the site ships a strict Content-Security-Policy, and no secrets or source maps reach the browser.' },
-            { q: 'What relationship data do you derive?', a: 'Pendingly looks at the timing of messages you’ve already exchanged to estimate your typical reply speed per contact — powering health, VIP and “cooling” signals. It’s computed from metadata you already have; we don’t share or sell it.' },
-            { q: 'Which AI model do you use?', a: 'By default a Pendingly-managed provider. On Lite and Pro you can bring your own Anthropic, OpenAI or Gemini key, so classification runs under your own provider agreement and doesn’t count toward your quota. We don’t train models on your email.' },
-            { q: 'Can I use it across multiple inboxes?', a: 'Yes — Gmail, Outlook, Zoho, Apple Mail or any IMAP, multiple accounts on paid plans. The queue can be filtered to any combination of inboxes.' },
-            { q: 'Can I roll this out to my company?', a: 'Yes. We offer volume pricing, a Data Processing Agreement, and support for your security review. Email sales@pendingly.com and we’ll work with your team.' },
-            { q: 'What happens after the free trial, and can I cancel?', a: 'Upgrade to Lite ($9/mo) or Pro ($15/mo), or earn more free time via referrals and shares. No card to start. Cancel anytime from Settings — you keep access until the end of the period, and you can delete everything in one click.' },
+            { q: "How do I automatically track email follow-ups?", a: "Pendingly connects to your Gmail or Outlook inbox (read-only OAuth) and automatically identifies threads where a reply is overdue, you're waiting on someone else, or a follow-up commitment is due. It surfaces these daily so you never manually hunt for forgotten emails again." },
+            { q: "Will Pendingly send follow-up emails on my behalf?", a: "Only when you choose to. The scan is fully read-only. Replies send only when you hit send, and automated follow-up sequences can be set to approval mode — every draft waits for a one-tap approval. Every send also has a 10-second undo window." },
+            { q: "How is my email data protected?", a: "We store only what we need — thread metadata, short snippets and sender info; bodies are excerpted, not archived. OAuth tokens, mailbox passwords and AI keys are encrypted with AES-256-GCM at rest. Every database query is scoped to your account and no secrets reach the browser." },
+            { q: "What email relationship data does Pendingly track?", a: "Pendingly analyses the timing of messages you've already exchanged to estimate your typical reply speed per contact — powering relationship health scores, VIP detection, and cooling alerts when a key contact has gone quiet. Nothing is shared or sold." },
+            { q: "Which AI model does Pendingly use for email classification?", a: "By default a Pendingly-managed provider. On Lite and Pro plans you can bring your own Anthropic, OpenAI or Gemini API key, so classification runs under your own provider agreement. We never train models on your email content." },
+            { q: "Does Pendingly work with Gmail and Outlook?", a: "Yes — Gmail, Outlook, Zoho Mail, Apple Mail, or any IMAP account, including multiple inboxes on paid plans. The follow-up queue can be filtered to any combination of connected accounts." },
+            { q: "Can I roll this out to my company?", a: "Yes. We offer volume pricing, a Data Processing Agreement, and support for your security review. Email sales@pendingly.com and we'll work with your team." },
+            { q: "What happens after the free trial?", a: "Upgrade to Lite ($9/mo) or Pro ($15/mo), or earn more free time via referrals (30 days each) and stat shares (7 days each). No card to start. Cancel anytime from Settings — you keep access until the end of the period, and you can delete all your data in one click." },
           ].map(({ q, a }) => (
             <details key={q} className="group rounded-xl border border-[rgb(11_18_32/10%)] bg-white p-5">
               <summary className="font-semibold text-ink cursor-pointer flex items-center justify-between list-none">
@@ -385,10 +530,10 @@ export default async function HomePage() {
         <div className="max-w-2xl mx-auto text-center">
           <LogoMark className="h-12 w-14 mx-auto mb-5" />
           <h2 className="text-3xl md:text-4xl font-bold text-ink mb-4">
-            Stop losing follow-ups. Keep relationships warm.
+            Stop losing deals to forgotten follow-up emails.
           </h2>
           <p className="text-lg text-[rgb(11_18_32/55%)] mb-8">
-            Free for 3 months. Set up in under a minute. No credit card.
+            Your AI follow-up tracker is free for 3 months. Set up in under a minute. No credit card.
           </p>
           <SignInButton />
         </div>
@@ -404,7 +549,7 @@ export default async function HomePage() {
                 <span className="text-xl font-semibold tracking-[-0.02em]">Pendingly</span>
               </div>
               <p className="text-sm text-[rgb(255_255_255/45%)] leading-relaxed">
-                Your follow-up radar — built for people who close loops, not folders.
+                AI email follow-up reminders and relationship tracking — built for people who close loops, not folders.
               </p>
             </div>
             <div>
