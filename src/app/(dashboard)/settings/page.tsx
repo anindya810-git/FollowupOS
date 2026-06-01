@@ -33,6 +33,7 @@ interface EmailAccount {
   emailAddress: string
   provider: string
   connectedStatus: string
+  lastSyncedAt?: string | null
   webmailBaseUrl?: string | null
   webmailSearchUrlTemplate?: string | null
   noiseFilterLevel?: number | null
@@ -428,6 +429,17 @@ export default function SettingsPage() {
                               {account.provider === 'outlook' ? 'Outlook' : account.provider === 'zoho' ? 'Zoho Mail' : account.provider === 'apple' ? 'Apple Mail' : account.provider === 'imap' ? 'IMAP' : 'Gmail'}
                             </span>
                             <span className="text-xs text-[rgb(11_18_32/55%)] capitalize">{account.connectedStatus}</span>
+                            {account.lastSyncedAt && (
+                              <span className="text-xs text-[rgb(11_18_32/38%)]">· synced {(() => {
+                                const diff = Date.now() - new Date(account.lastSyncedAt).getTime()
+                                const mins = Math.floor(diff / 60_000)
+                                if (mins < 1) return 'just now'
+                                if (mins < 60) return `${mins}m ago`
+                                const hrs = Math.floor(mins / 60)
+                                if (hrs < 24) return `${hrs}h ago`
+                                return `${Math.floor(hrs / 24)}d ago`
+                              })()}</span>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
