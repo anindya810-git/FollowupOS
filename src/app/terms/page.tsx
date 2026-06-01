@@ -142,6 +142,8 @@ export default function TermsPage() {
       <footer className="border-t border-[rgb(11_18_32/8%)] py-8 px-6 text-center text-xs text-[rgb(11_18_32/40%)]">
         <Link href="/privacy" className="underline hover:text-ink">Privacy Policy</Link>
         <span className="mx-3">·</span>
+        <Link href="/refund" className="underline hover:text-ink">Payment &amp; Refund Policy</Link>
+        <span className="mx-3">·</span>
         <Link href="/" className="underline hover:text-ink">Back to Pendingly</Link>
       </footer>
     </div>

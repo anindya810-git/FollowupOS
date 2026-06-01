@@ -567,6 +567,7 @@ export default async function HomePage() {
               <ul className="space-y-2 text-sm text-[rgb(255_255_255/70%)]">
                 <li><Link href="/privacy" className="hover:text-white">Privacy Policy</Link></li>
                 <li><Link href="/terms" className="hover:text-white">Terms of Service</Link></li>
+                <li><Link href="/refund" className="hover:text-white">Payment &amp; Refund Policy</Link></li>
                 <li><a href="mailto:support@pendingly.com" className="hover:text-white">Support</a></li>
                 <li><a href="mailto:sales@pendingly.com" className="hover:text-white">Sales &amp; teams</a></li>
               </ul>

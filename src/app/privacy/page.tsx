@@ -145,6 +145,8 @@ export default function PrivacyPage() {
       <footer className="border-t border-[rgb(11_18_32/8%)] py-8 px-6 text-center text-xs text-[rgb(11_18_32/40%)]">
         <Link href="/terms" className="underline hover:text-ink">Terms of Service</Link>
         <span className="mx-3">·</span>
+        <Link href="/refund" className="underline hover:text-ink">Payment &amp; Refund Policy</Link>
+        <span className="mx-3">·</span>
         <Link href="/" className="underline hover:text-ink">Back to Pendingly</Link>
       </footer>
     </div>
