@@ -63,91 +63,40 @@ export function WhatsAppLogo({ className }: { className?: string }) {
   )
 }
 
+// Google G multicolor logo
 export function GoogleCalendarLogo({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 48 48" className={className} xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <defs>
-        <clipPath id="gcal-r">
-          <rect width="48" height="48" rx="8"/>
-        </clipPath>
-      </defs>
-      {/* White base */}
-      <rect width="48" height="48" rx="8" fill="#fff"/>
-      <g clipPath="url(#gcal-r)">
-        {/* Blue header */}
-        <rect width="48" height="16" fill="#1a73e8"/>
-        {/* Google-color stripes at bottom corners */}
-        <rect x="0" y="40" width="12" height="8" fill="#34a853"/>
-        <rect x="36" y="40" width="12" height="8" fill="#ea4335"/>
-        <rect x="0" y="32" width="12" height="8" fill="#fbbc04"/>
-        <rect x="36" y="32" width="12" height="8" fill="#4285f4"/>
-      </g>
-      {/* Ring holes in blue header */}
-      <circle cx="13" cy="4" r="4.5" fill="white"/>
-      <circle cx="13" cy="4" r="2.2" fill="#1a73e8"/>
-      <circle cx="35" cy="4" r="4.5" fill="white"/>
-      <circle cx="35" cy="4" r="2.2" fill="#1a73e8"/>
-      {/* Large bold date */}
-      <text x="24" y="38" textAnchor="middle" fill="#1a73e8" fontSize="20" fontWeight="700" fontFamily="Arial,Helvetica,sans-serif">31</text>
+    <svg viewBox="0 0 24 24" className={className} xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
     </svg>
   )
 }
 
+// Microsoft Outlook logo — blue bg, white O-envelope mark
 export function OutlookCalendarLogo({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 48 48" className={className} xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <defs>
-        <clipPath id="ocal-r">
-          <rect width="48" height="48" rx="8"/>
-        </clipPath>
-      </defs>
-      <rect width="48" height="48" rx="8" fill="#fff"/>
-      <g clipPath="url(#ocal-r)">
-        {/* Microsoft blue header */}
-        <rect width="48" height="16" fill="#0078D4"/>
-        {/* White calendar body */}
-        <rect y="16" width="48" height="32" fill="#fff"/>
-        {/* Subtle grid lines */}
-        <line x1="0" y1="26" x2="48" y2="26" stroke="#e8f0fe" strokeWidth="0.8"/>
-        <line x1="0" y1="36" x2="48" y2="36" stroke="#e8f0fe" strokeWidth="0.8"/>
-        <line x1="16" y1="16" x2="16" y2="48" stroke="#e8f0fe" strokeWidth="0.8"/>
-        <line x1="32" y1="16" x2="32" y2="48" stroke="#e8f0fe" strokeWidth="0.8"/>
-      </g>
-      {/* Ring holes */}
-      <circle cx="13" cy="4" r="4.5" fill="white" opacity="0.9"/>
-      <circle cx="35" cy="4" r="4.5" fill="white" opacity="0.9"/>
-      {/* Outlook "O" lettermark in header */}
-      <text x="24" y="13" textAnchor="middle" fill="white" fontSize="8" fontWeight="700" fontFamily="'Segoe UI',Arial,sans-serif">Outlook</text>
-      {/* Large date in Microsoft blue */}
-      <text x="24" y="39" textAnchor="middle" fill="#0078D4" fontSize="20" fontWeight="700" fontFamily="'Segoe UI',Arial,sans-serif">31</text>
+      <rect width="48" height="48" rx="8" fill="#0078D4"/>
+      {/* Envelope body (right panel) */}
+      <rect x="22" y="13" width="20" height="16" rx="2" fill="white"/>
+      {/* Envelope flap crease */}
+      <polyline points="22,13 32,21 42,13" fill="none" stroke="#0078D4" strokeWidth="1.5" strokeLinejoin="round"/>
+      {/* Large white circle — the Outlook "O" */}
+      <circle cx="18" cy="28" r="11" fill="white"/>
+      {/* Blue inner circle (the O ring) */}
+      <circle cx="18" cy="28" r="6.5" fill="#0078D4"/>
     </svg>
   )
 }
 
+// Apple logo — bitten apple silhouette in black on transparent (white container shows through)
 export function AppleCalendarLogo({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 48 48" className={className} xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <defs>
-        <clipPath id="acal-r">
-          <rect width="48" height="48" rx="10"/>
-        </clipPath>
-      </defs>
-      <rect width="48" height="48" rx="10" fill="#fff"/>
-      <g clipPath="url(#acal-r)">
-        {/* Red top band */}
-        <rect width="48" height="17" fill="#FF3B30"/>
-        {/* White calendar body */}
-        <rect y="17" width="48" height="31" fill="#fff"/>
-      </g>
-      {/* Binder rings — small dark pins on red */}
-      <circle cx="13" cy="5" r="3.5" fill="#C0302A"/>
-      <circle cx="13" cy="5" r="1.8" fill="#fff" opacity="0.5"/>
-      <circle cx="35" cy="5" r="3.5" fill="#C0302A"/>
-      <circle cx="35" cy="5" r="1.8" fill="#fff" opacity="0.5"/>
-      {/* Day abbreviation in white on red */}
-      <text x="24" y="14" textAnchor="middle" fill="white" fontSize="7" fontWeight="600" fontFamily="-apple-system,'SF Pro Text',Arial,sans-serif" letterSpacing="0.5">CALENDAR</text>
-      {/* Large date in near-black */}
-      <text x="24" y="40" textAnchor="middle" fill="#1c1c1e" fontSize="21" fontWeight="300" fontFamily="-apple-system,'SF Pro Display',Arial,sans-serif">31</text>
+    <svg viewBox="0 0 24 24" className={className} xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path fill="#000" d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
     </svg>
   )
 }
