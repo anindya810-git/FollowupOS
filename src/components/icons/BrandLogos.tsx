@@ -63,6 +63,17 @@ export function WhatsAppLogo({ className }: { className?: string }) {
   )
 }
 
+// Zoho Mail logo — orange Z lettermark
+export function ZohoMailLogo({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 48 48" className={className} xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect width="48" height="48" rx="8" fill="#E42527"/>
+      <path fill="white" d="M10 13h20l-14 22h16" strokeWidth="0" fillRule="evenodd"/>
+      <path fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" d="M10 13h20l-14 22h16"/>
+    </svg>
+  )
+}
+
 // Google G multicolor logo
 export function GoogleCalendarLogo({ className }: { className?: string }) {
   return (

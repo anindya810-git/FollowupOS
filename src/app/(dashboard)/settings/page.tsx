@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Trash2, Plus, AlertTriangle, LogOut, RefreshCw, Loader2, Check, ChevronDown, RotateCcw, Sparkles, Camera, RotateCw, Plug, Eye, Pause, Play } from 'lucide-react'
+import { Trash2, Plus, AlertTriangle, LogOut, RefreshCw, Loader2, Check, ChevronDown, RotateCcw, Sparkles, Camera, RotateCw, Plug, Eye, Pause, Play, Server, Users } from 'lucide-react'
+import { GoogleCalendarLogo, OutlookCalendarLogo, AppleCalendarLogo, ZohoMailLogo } from '@/components/icons/BrandLogos'
+import { ImapConnectForm } from '@/components/auth/ImapConnectForm'
 import { PushNotificationToggle } from '@/components/PushNotificationToggle'
 import { DEFAULT_FOLLOWUP_TEMPLATE } from '@/lib/templates'
 import { RichTextEditor } from '@/components/editor/RichTextEditor'
@@ -90,6 +92,11 @@ export default function SettingsPage() {
   const [openErrorLogs, setOpenErrorLogs] = useState<Set<string>>(new Set())
   const [syncingContacts, setSyncingContacts] = useState(false)
   const [contactsSynced, setContactsSynced] = useState<number | null>(null)
+  const [addInboxOpen, setAddInboxOpen] = useState(false)
+  const [imapProvider, setImapProvider] = useState<'zoho' | 'apple' | 'imap' | null>(null)
+  const [syncingContactsFor, setSyncingContactsFor] = useState<string | null>(null)
+  const [syncedContactsFor, setSyncedContactsFor] = useState<Record<string, number>>({})
+  const addInboxRef = React.useRef<HTMLDivElement>(null)
   const [generatingSig, setGeneratingSig] = useState(false)
   const [sigGenError, setSigGenError] = useState<string | null>(null)
   const [justConnected, setJustConnected] = useState<string | null>(null)
@@ -338,6 +345,32 @@ export default function SettingsPage() {
     }
   }
 
+  const syncContactsForInbox = async (accountId: string) => {
+    setSyncingContactsFor(accountId)
+    try {
+      const res = await fetch('/api/contacts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inbox_ids: [accountId] }),
+      })
+      const data = await res.json()
+      setSyncedContactsFor(prev => ({ ...prev, [accountId]: data.synced ?? 0 }))
+      setTimeout(() => setSyncedContactsFor(prev => { const next = { ...prev }; delete next[accountId]; return next }), 3000)
+    } finally {
+      setSyncingContactsFor(null)
+    }
+  }
+
+  // Close "Add Inbox" dropdown on outside click
+  React.useEffect(() => {
+    if (!addInboxOpen) return
+    const handler = (e: MouseEvent) => {
+      if (addInboxRef.current && !addInboxRef.current.contains(e.target as Node)) setAddInboxOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [addInboxOpen])
+
   const replayTour = async () => {
     await fetch('/api/onboarding/reset', { method: 'POST' })
     window.location.href = '/dashboard'
@@ -553,6 +586,21 @@ export default function SettingsPage() {
                           onSaved={(url, template) => setIntegrations(prev => prev.map(a => a.id === account.id ? { ...a, webmailBaseUrl: url, webmailSearchUrlTemplate: template ?? a.webmailSearchUrlTemplate } : a))}
                         />
                       )}
+                      <div className="mt-2 flex items-center gap-2">
+                        <button
+                          onClick={() => syncContactsForInbox(account.id)}
+                          disabled={syncingContactsFor === account.id}
+                          className="flex items-center gap-1 text-xs text-[rgb(11_18_32/45%)] hover:text-ink transition-colors disabled:opacity-50"
+                        >
+                          {syncingContactsFor === account.id
+                            ? <><Loader2 className="h-3 w-3 animate-spin" /> Syncing contacts…</>
+                            : <><Users className="h-3 w-3" /> Sync contacts</>
+                          }
+                        </button>
+                        {syncedContactsFor[account.id] !== undefined && (
+                          <span className="text-xs text-[rgb(11_18_32/40%)]">· {syncedContactsFor[account.id]} synced</span>
+                        )}
+                      </div>
                     </div>
                     )
                   })}
@@ -575,36 +623,41 @@ export default function SettingsPage() {
                 </select>
                 <span className="text-xs text-[rgb(11_18_32/40%)]">— applies to all inboxes unless overridden above (saved with Settings)</span>
               </div>
-              <div className="flex gap-2 flex-wrap">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => { window.location.href = '/api/integrations/gmail/connect' }}
-                >
-                  + Add Gmail
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => { window.location.href = '/api/integrations/outlook/connect' }}
-                >
-                  + Add Outlook
-                </Button>
-              </div>
-              <div className="mt-4 flex items-center gap-3 flex-wrap">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={syncContacts}
-                  disabled={syncingContacts}
-                >
-                  {syncingContacts ? 'Syncing...' : 'Sync Contact Names'}
-                </Button>
-                {contactsSynced !== null && (
-                  <span className="text-xs text-[rgb(11_18_32/55%)]">
-                    Synced {contactsSynced} contact{contactsSynced !== 1 ? 's' : ''}
-                  </span>
-                )}
+              <div className="flex items-center gap-3 flex-wrap">
+                {/* Add Inbox dropdown */}
+                <div className="relative" ref={addInboxRef}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAddInboxOpen(o => !o)}
+                    className="gap-1.5"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add Inbox
+                    <ChevronDown className={`h-3 w-3 transition-transform ${addInboxOpen ? 'rotate-180' : ''}`} />
+                  </Button>
+                  {addInboxOpen && (
+                    <div className="absolute left-0 top-full mt-1.5 z-50 min-w-[210px] bg-white border border-[rgb(11_18_32/10%)] rounded-xl shadow-lg overflow-hidden">
+                      <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)] border-b border-[rgb(11_18_32/8%)]">Choose provider</p>
+                      {[
+                        { label: 'Gmail', icon: <GoogleCalendarLogo className="h-4 w-4" />, action: () => { window.location.href = '/api/integrations/gmail/connect' } },
+                        { label: 'Outlook', icon: <OutlookCalendarLogo className="h-4 w-4" />, action: () => { window.location.href = '/api/integrations/outlook/connect' } },
+                        { label: 'Apple Mail', icon: <AppleCalendarLogo className="h-4 w-4" />, action: () => setImapProvider('apple') },
+                        { label: 'Zoho Mail', icon: <ZohoMailLogo className="h-4 w-4" />, action: () => setImapProvider('zoho') },
+                        { label: 'Custom Inbox (IMAP)', icon: <Server className="h-4 w-4 text-[rgb(11_18_32/50%)]" />, action: () => setImapProvider('imap') },
+                      ].map(opt => (
+                        <button
+                          key={opt.label}
+                          onClick={() => { setAddInboxOpen(false); opt.action() }}
+                          className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-ink hover:bg-[rgb(11_18_32/4%)] transition-colors"
+                        >
+                          {opt.icon}
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <a
                   href="/settings/scan-logs"
                   className="ml-auto text-xs text-[rgb(11_18_32/55%)] hover:text-ink underline transition-colors"
@@ -612,6 +665,19 @@ export default function SettingsPage() {
                   View scan logs →
                 </a>
               </div>
+
+              {/* Inline IMAP connect form */}
+              {imapProvider && (
+                <div className="mt-4 rounded-xl border border-[rgb(11_18_32/10%)] bg-[rgb(11_18_32/2%)] p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm font-semibold text-ink">
+                      Connect {imapProvider === 'apple' ? 'Apple Mail' : imapProvider === 'zoho' ? 'Zoho Mail' : 'Custom Inbox (IMAP)'}
+                    </p>
+                    <button onClick={() => setImapProvider(null)} className="text-[rgb(11_18_32/35%)] hover:text-ink text-xs underline">Cancel</button>
+                  </div>
+                  <ImapConnectForm initialProvider={imapProvider} />
+                </div>
+              )}
             </CardContent>
           </Card>
 
