@@ -97,7 +97,7 @@ function PlanCard({
         <div className="space-y-2">
           <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 text-amber-800 text-xs px-3 py-2 rounded-lg">
             <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-            <span>Payment gateways not configured yet. Email <a href="mailto:billing@pendingly.app" className="underline">billing@pendingly.app</a> to upgrade.</span>
+            <span>Payment gateways not configured yet. Email <a href="mailto:sales@pendingly.com" className="underline">sales@pendingly.com</a> to upgrade.</span>
           </div>
         </div>
       ) : (
@@ -195,7 +195,7 @@ export default function PaymentsPage() {
           </p>
           <p className="text-xs text-[rgba(11,18,32,0.4)] bg-[rgba(11,18,32,0.03)] px-3 py-2 rounded-lg">
             Live payment integration is being activated. In the meantime, email{' '}
-            <a href="mailto:billing@pendingly.app" className="underline">billing@pendingly.app</a>{' '}
+            <a href="mailto:sales@pendingly.com" className="underline">sales@pendingly.com</a>{' '}
             to upgrade to <strong>{PLANS.find(p => p.key === selectedPlan)?.name}</strong> — we'll activate your plan within 24h.
           </p>
           <button onClick={() => { setSelectedPlan(null); setGateway(null) }}

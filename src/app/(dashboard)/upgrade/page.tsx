@@ -130,7 +130,7 @@ export default function UpgradePage() {
           <p className="font-semibold text-[#0b1220] mb-1">Payment coming soon</p>
           <p className="text-sm text-[rgba(11,18,32,0.5)]">
             Stripe integration is on the way. In the meantime, email{' '}
-            <a href="mailto:billing@pendingly.app" className="underline">billing@pendingly.app</a>{' '}
+            <a href="mailto:sales@pendingly.com" className="underline">sales@pendingly.com</a>{' '}
             to upgrade to <strong>{showPayment}</strong>.
           </p>
           <button onClick={() => setShowPayment(null)} className="mt-4 text-xs text-[rgba(11,18,32,0.4)] hover:text-[#0b1220]">Dismiss</button>

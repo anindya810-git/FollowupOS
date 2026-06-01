@@ -204,7 +204,7 @@ export function HelpClient({ userEmail }: { userEmail: string }) {
           <div>
             <p className="text-sm font-semibold text-ink mb-1">Still stuck?</p>
             <p className="text-sm text-mute leading-relaxed">
-              Email us at <a href="mailto:support@pendingly.app" className="text-ink underline hover:text-action">support@pendingly.app</a> — we read every message and reply within a business day.
+              Email us at <a href="mailto:support@pendingly.com" className="text-ink underline hover:text-action">support@pendingly.com</a> — we read every message and reply within a business day.
             </p>
           </div>
         </div>

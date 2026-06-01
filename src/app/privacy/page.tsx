@@ -21,7 +21,7 @@ export default function PrivacyPage() {
         <div className="prose-legal">
 
           <Section title="1. Who We Are">
-            <p>Pendingly (&ldquo;we&rdquo;, &ldquo;our&rdquo;, &ldquo;us&rdquo;) operates the email follow-up and relationship-management service known as Pendingly. This Privacy Policy explains what we collect, how we use it, and the choices you have. Questions? <a href="mailto:privacy@pendingly.com">privacy@pendingly.com</a>.</p>
+            <p>Pendingly (&ldquo;we&rdquo;, &ldquo;our&rdquo;, &ldquo;us&rdquo;) operates the email follow-up and relationship-management service known as Pendingly. This Privacy Policy explains what we collect, how we use it, and the choices you have. Questions? <a href="mailto:support@pendingly.com">support@pendingly.com</a>.</p>
           </Section>
 
           <Section title="2. Information We Collect">
@@ -116,7 +116,7 @@ export default function PrivacyPage() {
               <li><strong>Object</strong> to processing based on legitimate interests;</li>
               <li><strong>Revoke email access</strong> by disconnecting any inbox at any time.</li>
             </ul>
-            <p>To exercise a right, email <a href="mailto:privacy@pendingly.com">privacy@pendingly.com</a>. We respond within 30 days.</p>
+            <p>To exercise a right, email <a href="mailto:support@pendingly.com">support@pendingly.com</a>. We respond within 30 days.</p>
           </Section>
 
           <Section title="10. Cookies">
@@ -136,7 +136,7 @@ export default function PrivacyPage() {
           </Section>
 
           <Section title="14. Contact">
-            <p>For privacy questions or data requests: <a href="mailto:privacy@pendingly.com">privacy@pendingly.com</a>. For team/enterprise data-processing agreements: <a href="mailto:sales@pendingly.com">sales@pendingly.com</a>.</p>
+            <p>For privacy questions or data requests: <a href="mailto:support@pendingly.com">support@pendingly.com</a>. For team/enterprise data-processing agreements: <a href="mailto:sales@pendingly.com">sales@pendingly.com</a>.</p>
           </Section>
 
         </div>
