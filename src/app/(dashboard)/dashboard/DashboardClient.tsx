@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Header } from '@/components/layout/Header'
 import { ActionCard } from '@/components/action/ActionCard'
 import { ActionDrawer } from '@/components/action/ActionDrawer'
@@ -36,8 +36,19 @@ export function DashboardClient({ userEmail, showOnboarding = false }: { userEma
     setDemandsItems(all.filter((i: ActionItemWithThread) => (i.repeatedAskCount ?? 0) >= 2))
   }
 
+  // Keep a ref so the event listener always calls the latest fetchData
+  const fetchDataRef = useRef(fetchData)
+  fetchDataRef.current = fetchData
+
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { fetchData() }, [])
+
+  // Refresh data automatically when AutoScanner detects a scan completed
+  useEffect(() => {
+    const handler = () => { fetchDataRef.current() }
+    window.addEventListener('pendingly:scan-complete', handler)
+    return () => window.removeEventListener('pendingly:scan-complete', handler)
+  }, [])
 
   useEffect(() => {
     fetch('/api/calendar/meetings')
