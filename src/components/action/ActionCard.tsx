@@ -249,11 +249,11 @@ export function ActionCard({ item, onStatusChange, onSelect, selected, onSelectC
           variant="ghost"
           size="sm"
           className="transition-all duration-150"
-          onClick={() => { playChime('done'); handle('done') }}
+          onClick={(e) => { e.stopPropagation(); onSelect(item) }}
           disabled={loading}
         >
           <Check className="h-3 w-3 mr-1" />
-          Done
+          Open
         </Button>
         <div ref={ignoreRef} className="relative">
           <Button
