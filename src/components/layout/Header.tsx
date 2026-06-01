@@ -10,6 +10,7 @@ interface ConnectedAccount {
   emailAddress: string
   provider: string
   connectedStatus: string
+  lastSyncedAt?: string | null
 }
 
 interface UserProfile {
@@ -22,6 +23,17 @@ interface HeaderProps {
   title: string
   userEmail?: string
   onSync?: () => void
+}
+
+function fmtSynced(iso: string | null | undefined): string {
+  if (!iso) return 'never'
+  const diff = Date.now() - new Date(iso).getTime()
+  const mins = Math.floor(diff / 60_000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  return `${Math.floor(hrs / 24)}d ago`
 }
 
 const PROVIDER_SHORT: Record<string, string> = {
@@ -254,7 +266,8 @@ export function Header({ title, onSync }: HeaderProps) {
                     <span className={`inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold shrink-0 ${PROVIDER_COLOR[a.provider] ?? 'bg-zinc-100 text-zinc-600'}`}>
                       {PROVIDER_SHORT[a.provider] ?? 'M'}
                     </span>
-                    <span className="text-[13px] text-[rgb(255_255_255/70%)] truncate">{a.emailAddress}</span>
+                    <span className="text-[13px] text-[rgb(255_255_255/70%)] truncate flex-1 min-w-0">{a.emailAddress}</span>
+                    <span className="text-[10px] text-[rgb(255_255_255/30%)] shrink-0 tabular-nums">{fmtSynced(a.lastSyncedAt)}</span>
                   </button>
                 ))}
                 <button
