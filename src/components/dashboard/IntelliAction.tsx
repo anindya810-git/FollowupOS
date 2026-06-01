@@ -4,6 +4,16 @@ import { Clock, Check, ExternalLink, Calendar as CalendarIcon, ChevronRight } fr
 import { playChime } from '@/lib/sounds'
 import { SnoozeMenu } from '@/components/action/SnoozeMenu'
 
+function timeAgo(iso: string | null): string {
+  if (!iso) return ''
+  const diff = Date.now() - new Date(iso).getTime()
+  const mins = Math.floor(diff / 60_000)
+  if (mins < 60) return `${Math.max(1, mins)}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  return `${Math.floor(hrs / 24)}d ago`
+}
+
 export interface SerializedItem {
   id: string
   title: string
@@ -109,14 +119,10 @@ function IntelliItem({
           </div>
         </div>
         <button
-          onClick={() => {
-            playChime('done')
-            handle('done')
-          }}
-          disabled={loading}
-          className="ml-2 text-xs px-2.5 py-1 rounded bg-ink text-white hover:opacity-90 transition disabled:opacity-50"
+          onClick={onOpen}
+          className="ml-2 text-xs px-2.5 py-1 rounded bg-ink text-white hover:opacity-90 transition"
         >
-          Done
+          Open
         </button>
       </div>
     )
@@ -150,26 +156,20 @@ function IntelliItem({
               </span>
             )}
           </div>
-          {item.dueDate && (
-            <p className="text-[11px] text-ink flex-shrink-0">Due {item.dueDate}</p>
-          )}
+          <div className="text-right flex-shrink-0">
+            {item.lastActivityAt && (
+              <p className="text-[11px] text-[rgb(11_18_32/30%)]">{timeAgo(item.lastActivityAt)}</p>
+            )}
+            {item.dueDate && (
+              <p className="text-[11px] text-ink mt-0.5">Due {item.dueDate}</p>
+            )}
+          </div>
         </div>
       </div>
       <div
         className="flex items-center gap-1 px-3 pb-2 pt-2 border-t border-rule"
         onClick={e => e.stopPropagation()}
       >
-        <button
-          onClick={() => {
-            playChime('done')
-            handle('done')
-          }}
-          disabled={loading}
-          className="text-xs px-2 py-1 rounded text-ink hover:bg-paper-2 transition disabled:opacity-50 inline-flex items-center"
-        >
-          <Check className="h-3 w-3 mr-1" />
-          Done
-        </button>
         <SnoozeMenu
           onSelect={d => {
             playChime('info')
@@ -190,9 +190,16 @@ function IntelliItem({
             className="text-xs px-2 py-1 rounded text-ink hover:bg-paper-2 transition inline-flex items-center"
           >
             <ExternalLink className="h-3 w-3 mr-1" />
-            Open
+            View in Inbox
           </button>
         )}
+        <button
+          onClick={onOpen}
+          className="text-xs px-2 py-1 rounded text-ink hover:bg-paper-2 transition inline-flex items-center"
+        >
+          <Check className="h-3 w-3 mr-1" />
+          Open
+        </button>
       </div>
     </div>
   )
