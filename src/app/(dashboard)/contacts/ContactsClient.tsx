@@ -679,7 +679,7 @@ export function ContactsClient() {
               ] as const).map(f => (
                 <div key={f.field} className={`flex items-center gap-2.5 rounded-lg border bg-[rgb(11_18_32/2%)] px-3 py-2.5 ${f.field === 'email' && addError ? 'border-action/50' : 'border-[rgb(11_18_32/10%)]'}`}>
                   <span className="text-[rgb(11_18_32/35%)] shrink-0">{f.icon}</span>
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)] w-14 shrink-0">{f.label}{f.required && <span className="text-action ml-0.5">*</span>}</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)] w-14 shrink-0">{f.label}{('required' in f && f.required) && <span className="text-action ml-0.5">*</span>}</span>
                   <input
                     className="flex-1 min-w-0 border-0 bg-transparent text-sm text-ink focus:outline-none placeholder:text-[rgb(11_18_32/30%)]"
                     placeholder={f.placeholder}
