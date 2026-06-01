@@ -66,23 +66,29 @@ export function WhatsAppLogo({ className }: { className?: string }) {
 export function GoogleCalendarLogo({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 48 48" className={className} xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <rect x="6" y="6" width="36" height="36" rx="4" fill="#fff" stroke="#e0e0e0" strokeWidth="1" />
-      <rect x="6" y="6" width="36" height="11" rx="4" fill="#fff" />
-      <rect x="6" y="13" width="36" height="4" fill="#fff" />
-      {/* Top bar */}
-      <rect x="6" y="6" width="36" height="11" rx="0" fill="#1a73e8" />
-      <rect x="6" y="6" width="36" height="11" rx="4" fill="#1a73e8" />
-      <rect x="6" y="11" width="36" height="6" fill="#1a73e8" />
-      {/* Date number */}
-      <text x="24" y="35" textAnchor="middle" fill="#1a73e8" fontSize="14" fontWeight="700" fontFamily="sans-serif">24</text>
-      {/* Pin circles */}
-      <circle cx="16" cy="7" r="2" fill="#fff" />
-      <circle cx="32" cy="7" r="2" fill="#fff" />
-      {/* Grid lines */}
-      <line x1="6" y1="24" x2="42" y2="24" stroke="#e0e0e0" strokeWidth="0.8" />
-      <line x1="6" y1="32" x2="42" y2="32" stroke="#e0e0e0" strokeWidth="0.8" />
-      <line x1="18" y1="17" x2="18" y2="42" stroke="#e0e0e0" strokeWidth="0.8" />
-      <line x1="30" y1="17" x2="30" y2="42" stroke="#e0e0e0" strokeWidth="0.8" />
+      <defs>
+        <clipPath id="gcal-r">
+          <rect width="48" height="48" rx="8"/>
+        </clipPath>
+      </defs>
+      {/* White base */}
+      <rect width="48" height="48" rx="8" fill="#fff"/>
+      <g clipPath="url(#gcal-r)">
+        {/* Blue header */}
+        <rect width="48" height="16" fill="#1a73e8"/>
+        {/* Google-color stripes at bottom corners */}
+        <rect x="0" y="40" width="12" height="8" fill="#34a853"/>
+        <rect x="36" y="40" width="12" height="8" fill="#ea4335"/>
+        <rect x="0" y="32" width="12" height="8" fill="#fbbc04"/>
+        <rect x="36" y="32" width="12" height="8" fill="#4285f4"/>
+      </g>
+      {/* Ring holes in blue header */}
+      <circle cx="13" cy="4" r="4.5" fill="white"/>
+      <circle cx="13" cy="4" r="2.2" fill="#1a73e8"/>
+      <circle cx="35" cy="4" r="4.5" fill="white"/>
+      <circle cx="35" cy="4" r="2.2" fill="#1a73e8"/>
+      {/* Large bold date */}
+      <text x="24" y="38" textAnchor="middle" fill="#1a73e8" fontSize="20" fontWeight="700" fontFamily="Arial,Helvetica,sans-serif">31</text>
     </svg>
   )
 }
@@ -90,25 +96,30 @@ export function GoogleCalendarLogo({ className }: { className?: string }) {
 export function OutlookCalendarLogo({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 48 48" className={className} xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      {/* Outlook calendar — blue Microsoft style */}
-      <rect x="5" y="8" width="38" height="34" rx="3" fill="#0078D4" />
-      <rect x="5" y="8" width="38" height="12" rx="3" fill="#0078D4" />
-      <rect x="5" y="16" width="38" height="4" fill="#0078D4" />
-      <rect x="5" y="19" width="38" height="23" rx="0" fill="#fff" />
-      <rect x="5" y="36" width="38" height="6" rx="3" fill="#fff" />
-      {/* Top bar with month */}
-      <rect x="5" y="8" width="38" height="14" rx="3" fill="#0078D4" />
-      <rect x="5" y="16" width="38" height="6" fill="#0078D4" />
-      <text x="24" y="20" textAnchor="middle" fill="#fff" fontSize="7" fontWeight="600" fontFamily="sans-serif">CALENDAR</text>
-      {/* Pin circles */}
-      <circle cx="15" cy="9" r="2" fill="#fff" opacity="0.7" />
-      <circle cx="33" cy="9" r="2" fill="#fff" opacity="0.7" />
-      {/* Date */}
-      <text x="24" y="36" textAnchor="middle" fill="#0078D4" fontSize="14" fontWeight="700" fontFamily="sans-serif">24</text>
-      {/* Grid */}
-      <line x1="5" y1="28" x2="43" y2="28" stroke="#e8e8e8" strokeWidth="0.8" />
-      <line x1="19" y1="22" x2="19" y2="42" stroke="#e8e8e8" strokeWidth="0.8" />
-      <line x1="29" y1="22" x2="29" y2="42" stroke="#e8e8e8" strokeWidth="0.8" />
+      <defs>
+        <clipPath id="ocal-r">
+          <rect width="48" height="48" rx="8"/>
+        </clipPath>
+      </defs>
+      <rect width="48" height="48" rx="8" fill="#fff"/>
+      <g clipPath="url(#ocal-r)">
+        {/* Microsoft blue header */}
+        <rect width="48" height="16" fill="#0078D4"/>
+        {/* White calendar body */}
+        <rect y="16" width="48" height="32" fill="#fff"/>
+        {/* Subtle grid lines */}
+        <line x1="0" y1="26" x2="48" y2="26" stroke="#e8f0fe" strokeWidth="0.8"/>
+        <line x1="0" y1="36" x2="48" y2="36" stroke="#e8f0fe" strokeWidth="0.8"/>
+        <line x1="16" y1="16" x2="16" y2="48" stroke="#e8f0fe" strokeWidth="0.8"/>
+        <line x1="32" y1="16" x2="32" y2="48" stroke="#e8f0fe" strokeWidth="0.8"/>
+      </g>
+      {/* Ring holes */}
+      <circle cx="13" cy="4" r="4.5" fill="white" opacity="0.9"/>
+      <circle cx="35" cy="4" r="4.5" fill="white" opacity="0.9"/>
+      {/* Outlook "O" lettermark in header */}
+      <text x="24" y="13" textAnchor="middle" fill="white" fontSize="8" fontWeight="700" fontFamily="'Segoe UI',Arial,sans-serif">Outlook</text>
+      {/* Large date in Microsoft blue */}
+      <text x="24" y="39" textAnchor="middle" fill="#0078D4" fontSize="20" fontWeight="700" fontFamily="'Segoe UI',Arial,sans-serif">31</text>
     </svg>
   )
 }
@@ -116,19 +127,27 @@ export function OutlookCalendarLogo({ className }: { className?: string }) {
 export function AppleCalendarLogo({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 48 48" className={className} xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <rect x="5" y="7" width="38" height="35" rx="5" fill="#fff" stroke="#ddd" strokeWidth="0.8" />
-      {/* Red top strip */}
-      <rect x="5" y="7" width="38" height="13" rx="5" fill="#E74C3C" />
-      <rect x="5" y="14" width="38" height="6" fill="#E74C3C" />
-      {/* Pin circles */}
-      <circle cx="15" cy="8" r="2.5" fill="#C0392B" />
-      <circle cx="33" cy="8" r="2.5" fill="#C0392B" />
-      <circle cx="15" cy="8" r="1.2" fill="#fff" opacity="0.5" />
-      <circle cx="33" cy="8" r="1.2" fill="#fff" opacity="0.5" />
-      {/* Day of week row */}
-      <text x="24" y="20" textAnchor="middle" fill="#fff" fontSize="6.5" fontWeight="600" fontFamily="sans-serif" letterSpacing="0.5">CALENDAR</text>
-      {/* Large date */}
-      <text x="24" y="37" textAnchor="middle" fill="#1a1a1a" fontSize="16" fontWeight="300" fontFamily="sans-serif">24</text>
+      <defs>
+        <clipPath id="acal-r">
+          <rect width="48" height="48" rx="10"/>
+        </clipPath>
+      </defs>
+      <rect width="48" height="48" rx="10" fill="#fff"/>
+      <g clipPath="url(#acal-r)">
+        {/* Red top band */}
+        <rect width="48" height="17" fill="#FF3B30"/>
+        {/* White calendar body */}
+        <rect y="17" width="48" height="31" fill="#fff"/>
+      </g>
+      {/* Binder rings — small dark pins on red */}
+      <circle cx="13" cy="5" r="3.5" fill="#C0302A"/>
+      <circle cx="13" cy="5" r="1.8" fill="#fff" opacity="0.5"/>
+      <circle cx="35" cy="5" r="3.5" fill="#C0302A"/>
+      <circle cx="35" cy="5" r="1.8" fill="#fff" opacity="0.5"/>
+      {/* Day abbreviation in white on red */}
+      <text x="24" y="14" textAnchor="middle" fill="white" fontSize="7" fontWeight="600" fontFamily="-apple-system,'SF Pro Text',Arial,sans-serif" letterSpacing="0.5">CALENDAR</text>
+      {/* Large date in near-black */}
+      <text x="24" y="40" textAnchor="middle" fill="#1c1c1e" fontSize="21" fontWeight="300" fontFamily="-apple-system,'SF Pro Display',Arial,sans-serif">31</text>
     </svg>
   )
 }
