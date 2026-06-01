@@ -21,7 +21,11 @@ function ProviderIcon({ provider }: { provider: string }) {
         </span>
       )
     case 'zoho':
-      return <ZohoMailLogo className="h-5 w-5 shrink-0 rounded" />
+      return (
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-white">
+          <ZohoMailLogo className="h-4 w-4" />
+        </span>
+      )
     default:
       return (
         <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-[rgb(255_255_255/12%)]">

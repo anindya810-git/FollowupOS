@@ -63,13 +63,14 @@ export function WhatsAppLogo({ className }: { className?: string }) {
   )
 }
 
-// Zoho Mail logo — orange Z lettermark
+// Zoho Mail logo — blue open-envelope with orange letter card inside
 export function ZohoMailLogo({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 48 48" className={className} xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <rect width="48" height="48" rx="8" fill="#E42527"/>
-      <path fill="white" d="M10 13h20l-14 22h16" strokeWidth="0" fillRule="evenodd"/>
-      <path fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" d="M10 13h20l-14 22h16"/>
+      <rect width="48" height="48" rx="8" fill="white"/>
+      <rect x="6" y="17" width="36" height="23" rx="3" fill="#E8F0FE" stroke="#3A5DB7" strokeWidth="2"/>
+      <path d="M6 17 L24 30 L42 17" fill="none" stroke="#3A5DB7" strokeWidth="2" strokeLinejoin="round"/>
+      <rect x="12" y="25" width="24" height="12" rx="2.5" fill="#FC7B1E"/>
     </svg>
   )
 }
@@ -86,19 +87,18 @@ export function GoogleCalendarLogo({ className }: { className?: string }) {
   )
 }
 
-// Microsoft Outlook logo — blue bg, white O-envelope mark
+// Microsoft Outlook logo — blue bg, lighter-blue document panel, white O ring
 export function OutlookCalendarLogo({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 48 48" className={className} xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <rect width="48" height="48" rx="8" fill="#0078D4"/>
-      {/* Envelope body (right panel) */}
-      <rect x="22" y="13" width="20" height="16" rx="2" fill="white"/>
-      {/* Envelope flap crease */}
-      <polyline points="22,13 32,21 42,13" fill="none" stroke="#0078D4" strokeWidth="1.5" strokeLinejoin="round"/>
-      {/* Large white circle — the Outlook "O" */}
-      <circle cx="18" cy="28" r="11" fill="white"/>
-      {/* Blue inner circle (the O ring) */}
-      <circle cx="18" cy="28" r="6.5" fill="#0078D4"/>
+      <rect width="48" height="48" rx="8" fill="#0F4AB5"/>
+      {/* Lighter blue document/envelope panel */}
+      <rect x="23" y="10" width="21" height="28" rx="3" fill="#3A7BD5"/>
+      {/* Envelope fold crease */}
+      <polyline points="23,10 33.5,19 44,10" fill="none" stroke="rgba(255,255,255,0.28)" strokeWidth="1.5" strokeLinejoin="round"/>
+      {/* White O ring — large circle with blue hole */}
+      <circle cx="19" cy="30" r="13" fill="white"/>
+      <circle cx="19" cy="30" r="8" fill="#0F4AB5"/>
     </svg>
   )
 }
