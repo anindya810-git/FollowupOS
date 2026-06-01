@@ -118,6 +118,7 @@ export function ContactsClient() {
   const [watchingEmail, setWatchingEmail] = useState<string | null>(null)
   const [shareContact, setShareContact] = useState<string | null>(null) // email
   const [copiedEmail, setCopiedEmail] = useState<string | null>(null)
+  const [drawerShareOpen, setDrawerShareOpen] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
   const [newContact, setNewContact] = useState<NewContactForm>(EMPTY_NEW)
   const [adding, setAdding] = useState(false)
@@ -196,8 +197,8 @@ export function ContactsClient() {
     return () => document.removeEventListener('mousedown', handler)
   }, [shareContact])
 
-  const openDrawer = (c: ContactInsight) => { setDrawer(c); setEdit(toEdit(c)) }
-  const closeDrawer = () => { setDrawer(null); setEdit(null) }
+  const openDrawer = (c: ContactInsight) => { setDrawer(c); setEdit(toEdit(c)); setDrawerShareOpen(false) }
+  const closeDrawer = () => { setDrawer(null); setEdit(null); setDrawerShareOpen(false) }
 
   const saveContact = async () => {
     if (!drawer?.id || !edit) return
@@ -761,18 +762,54 @@ export function ContactsClient() {
               </div>
               {drawer.aiEnriched && <p className="text-[11px] text-[rgb(11_18_32/35%)] flex items-center gap-1"><Sparkles className="h-3 w-3" /> AI-enriched</p>}
             </div>
-            <div className="border-t border-[rgb(11_18_32/8%)] p-4 flex gap-2 flex-wrap">
-              <Button onClick={enrichContact} disabled={enriching || !drawer.id} variant="outline" size="sm" className="gap-1.5">
-                {enriching ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Enriching…</> : <><Sparkles className="h-3.5 w-3.5" /> Enrich with AI</>}
-              </Button>
-              <Button onClick={() => addToWatchlist(drawer)} disabled={watchingEmail === drawer.email} variant="outline" size="sm" className="gap-1.5">
-                <Eye className="h-3.5 w-3.5" /> Watch
-              </Button>
-              <Button onClick={() => deleteContact(drawer)} disabled={deletingEmail === drawer.email || !drawer.id} variant="outline" size="sm" className="gap-1.5 text-action border-action/30 hover:bg-[rgb(242_90_60/6%)]">
-                <Trash2 className="h-3.5 w-3.5" /> Delete
-              </Button>
-              <div className="flex-1" />
-              <Button onClick={saveContact} disabled={saving || !drawer.id} size="sm">{saving ? 'Saving…' : 'Save'}</Button>
+            <div className="border-t border-[rgb(11_18_32/8%)] p-4 space-y-2">
+              {drawerShareOpen && (
+                <div className="flex items-center gap-1.5 flex-wrap pb-2 border-b border-[rgb(11_18_32/8%)]">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)] mr-1">Share via</span>
+                  <a
+                    href={`https://wa.me/?text=${encodeURIComponent(buildShareText(drawer))}`}
+                    target="_blank" rel="noreferrer"
+                    className="flex items-center gap-1.5 rounded-md border border-[rgb(11_18_32/12%)] bg-white px-2.5 py-1 text-xs text-ink hover:bg-[rgb(11_18_32/4%)] transition-colors"
+                    onClick={() => setDrawerShareOpen(false)}
+                  >
+                    <span className="text-sm">💬</span> WhatsApp
+                  </a>
+                  <a
+                    href={`mailto:?subject=Contact: ${encodeURIComponent(drawer.name || drawer.email)}&body=${encodeURIComponent(buildShareText(drawer))}`}
+                    className="flex items-center gap-1.5 rounded-md border border-[rgb(11_18_32/12%)] bg-white px-2.5 py-1 text-xs text-ink hover:bg-[rgb(11_18_32/4%)] transition-colors"
+                    onClick={() => setDrawerShareOpen(false)}
+                  >
+                    <Mail className="h-3.5 w-3.5 text-[rgb(11_18_32/40%)]" /> Email
+                  </a>
+                  <button
+                    onClick={() => { copyToClipboard(buildShareText(drawer), drawer.email); setDrawerShareOpen(false) }}
+                    className="flex items-center gap-1.5 rounded-md border border-[rgb(11_18_32/12%)] bg-white px-2.5 py-1 text-xs text-ink hover:bg-[rgb(11_18_32/4%)] transition-colors"
+                  >
+                    {copiedEmail === drawer.email
+                      ? <><Check className="h-3.5 w-3.5 text-green-500" /> Copied!</>
+                      : <><Copy className="h-3.5 w-3.5 text-[rgb(11_18_32/40%)]" /> Copy</>}
+                  </button>
+                </div>
+              )}
+              <div className="flex gap-2 flex-wrap">
+                <Button onClick={enrichContact} disabled={enriching || !drawer.id} variant="outline" size="sm" className="gap-1.5">
+                  {enriching ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Enriching…</> : <><Sparkles className="h-3.5 w-3.5" /> Enrich with AI</>}
+                </Button>
+                <Button onClick={() => addToWatchlist(drawer)} disabled={watchingEmail === drawer.email} variant="outline" size="sm" className="gap-1.5">
+                  <Eye className="h-3.5 w-3.5" /> Watch
+                </Button>
+                <Button
+                  onClick={() => setDrawerShareOpen(o => !o)}
+                  variant="outline" size="sm" className="gap-1.5"
+                >
+                  <Share2 className="h-3.5 w-3.5" /> Share
+                </Button>
+                <Button onClick={() => deleteContact(drawer)} disabled={deletingEmail === drawer.email || !drawer.id} variant="outline" size="sm" className="gap-1.5 text-action border-action/30 hover:bg-[rgb(242_90_60/6%)]">
+                  <Trash2 className="h-3.5 w-3.5" /> Delete
+                </Button>
+                <div className="flex-1" />
+                <Button onClick={saveContact} disabled={saving || !drawer.id} size="sm">{saving ? 'Saving…' : 'Save'}</Button>
+              </div>
             </div>
           </div>
         </div>
