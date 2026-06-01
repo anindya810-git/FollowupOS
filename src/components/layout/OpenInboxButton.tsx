@@ -2,6 +2,34 @@
 import { useEffect, useRef, useState } from 'react'
 import { ExternalLink, ChevronDown, Mail } from 'lucide-react'
 import { getInboxUrl } from '@/lib/inbox-urls'
+import { GoogleCalendarLogo, OutlookCalendarLogo, AppleCalendarLogo, ZohoMailLogo } from '@/components/icons/BrandLogos'
+
+function ProviderIcon({ provider }: { provider: string }) {
+  switch (provider) {
+    case 'gmail':
+      return (
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-white">
+          <GoogleCalendarLogo className="h-3.5 w-3.5" />
+        </span>
+      )
+    case 'outlook':
+      return <OutlookCalendarLogo className="h-5 w-5 shrink-0 rounded" />
+    case 'apple':
+      return (
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-white">
+          <AppleCalendarLogo className="h-3.5 w-3.5" />
+        </span>
+      )
+    case 'zoho':
+      return <ZohoMailLogo className="h-5 w-5 shrink-0 rounded" />
+    default:
+      return (
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-[rgb(255_255_255/12%)]">
+          <Mail className="h-3 w-3 text-[rgb(255_255_255/60%)]" />
+        </span>
+      )
+  }
+}
 
 interface Account {
   id: string
@@ -106,9 +134,10 @@ export function OpenInboxButton({ variant = 'sidebar' }: OpenInboxButtonProps) {
                   href={url}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center justify-between gap-2 pl-10 pr-4 py-1.5 rounded-md text-xs text-[#8C94A4] hover:text-white hover:bg-[rgb(255_255_255/5%)] transition-colors"
+                  className="flex items-center gap-2 pl-6 pr-4 py-1.5 rounded-md text-xs text-[#8C94A4] hover:text-white hover:bg-[rgb(255_255_255/5%)] transition-colors"
                 >
-                  <span className="truncate">{account.emailAddress}</span>
+                  <ProviderIcon provider={account.provider} />
+                  <span className="truncate flex-1">{account.emailAddress}</span>
                   <ExternalLink className="h-3 w-3 flex-shrink-0 opacity-50" />
                 </a>
               )
@@ -141,9 +170,16 @@ export function OpenInboxButton({ variant = 'sidebar' }: OpenInboxButtonProps) {
                 target="_blank"
                 rel="noreferrer"
                 onClick={() => setOpen(false)}
-                className="flex items-center justify-between gap-2 px-3 py-2 text-xs hover:bg-paper-2 transition-colors"
+                className="flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-paper-2 transition-colors"
               >
-                <div className="min-w-0">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-[rgb(11_18_32/8%)] bg-white shadow-sm">
+                  {account.provider === 'gmail' && <GoogleCalendarLogo className="h-4 w-4" />}
+                  {account.provider === 'outlook' && <OutlookCalendarLogo className="h-4 w-4" />}
+                  {account.provider === 'apple' && <AppleCalendarLogo className="h-4 w-4" />}
+                  {account.provider === 'zoho' && <ZohoMailLogo className="h-4 w-4" />}
+                  {!['gmail','outlook','apple','zoho'].includes(account.provider) && <Mail className="h-3 w-3 text-[rgb(11_18_32/45%)]" />}
+                </span>
+                <div className="min-w-0 flex-1">
                   <p className="text-ink truncate">{account.emailAddress}</p>
                   <p className="text-[10px] text-[rgb(11_18_32/50%)] uppercase tracking-wide">
                     {providerLabel[account.provider] || account.provider}
