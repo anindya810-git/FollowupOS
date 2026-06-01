@@ -3,6 +3,7 @@ import { useEffect, useState, useRef } from 'react'
 import { Header } from '@/components/layout/Header'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { PendinglyLoader } from '@/components/ui/PendinglyLoader'
 import {
   Loader2, Star, Snowflake, UserX, Users, Clock,
   Search, Trash2, Eye, Sparkles, X, ChevronRight,
@@ -455,7 +456,7 @@ export function ContactsClient() {
         {/* Contact list */}
         {insights === null ? (
           <div className="flex items-center justify-center py-16">
-            <Loader2 className="h-5 w-5 animate-spin text-[rgb(11_18_32/35%)]" />
+            <PendinglyLoader size={56} variant="light" />
           </div>
         ) : filtered.length === 0 ? (
           <div className="rounded-xl border border-dashed border-[rgb(11_18_32/15%)] px-5 py-12 text-center">
