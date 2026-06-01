@@ -480,7 +480,7 @@ export function ContactsClient() {
                 : 'Not enough history yet.'
 
               return (
-                <div key={c.email} className="rounded-xl border border-[rgb(11_18_32/8%)] bg-white overflow-hidden">
+                <div key={c.email} className="rounded-xl border border-[rgb(11_18_32/8%)] bg-white">
                   <div className="flex items-start gap-3 px-4 py-3.5">
                     <button onClick={() => openDrawer(c)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[rgb(11_18_32/8%)] text-[11px] font-bold text-ink hover:bg-[rgb(11_18_32/14%)] transition-colors">
                       {initials(c.name, c.email)}
@@ -523,7 +523,7 @@ export function ContactsClient() {
                           <Share2 className="h-3.5 w-3.5" />
                         </button>
                         {shareContact === c.email && (
-                          <div className="absolute right-0 top-full mt-1 z-30 min-w-[160px] max-w-[calc(100vw-1rem)] rounded-xl border border-[rgb(11_18_32/10%)] bg-white shadow-lg overflow-hidden">
+                          <div className="absolute right-0 top-full mt-1 z-50 min-w-[160px] max-w-[calc(100vw-1rem)] rounded-xl border border-[rgb(11_18_32/10%)] bg-white shadow-lg overflow-hidden">
                             <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)] border-b border-[rgb(11_18_32/8%)]">Share via</p>
                             <a
                               href={`https://wa.me/?text=${encodeURIComponent(buildShareText(c))}`}
