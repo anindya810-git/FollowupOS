@@ -649,59 +649,66 @@ export function ContactsClient() {
         </div>
       )}
 
-      {/* Add Contact Modal */}
+      {/* Add Contact Drawer */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/30" onClick={() => { setShowAddModal(false); setAddError(null) }} />
-          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-[rgb(11_18_32/8%)]">
-              <p className="font-semibold text-ink">Add Contact</p>
-              <button onClick={() => { setShowAddModal(false); setAddError(null) }} className="text-[rgb(11_18_32/35%)] hover:text-ink transition-colors">
+        <div className="fixed inset-0 z-40 flex">
+          <div className="absolute inset-0 bg-black/20" onClick={() => { setShowAddModal(false); setNewContact(EMPTY_NEW); setAddError(null) }} />
+          <div className="relative ml-auto flex h-full w-full max-w-md flex-col bg-white shadow-2xl overflow-hidden">
+            <div className="flex items-center gap-3 border-b border-[rgb(11_18_32/8%)] px-5 py-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[rgb(11_18_32/8%)] text-ink">
+                <UserPlus className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-ink">New Contact</p>
+                <p className="text-xs text-[rgb(11_18_32/40%)]">Fill in the details below</p>
+              </div>
+              <button onClick={() => { setShowAddModal(false); setNewContact(EMPTY_NEW); setAddError(null) }} className="text-[rgb(11_18_32/35%)] hover:text-ink transition-colors">
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="p-5 space-y-3 max-h-[70vh] overflow-y-auto">
-              <div>
-                <label className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)]">Email *</label>
-                <Input value={newContact.email} onChange={e => setNewContact(p => ({ ...p, email: e.target.value }))} placeholder="email@example.com" className="mt-1" autoFocus />
-              </div>
-              <div>
-                <label className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)]">Name</label>
-                <Input value={newContact.name} onChange={e => setNewContact(p => ({ ...p, name: e.target.value }))} placeholder="Full name" className="mt-1" />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)]">Job Title</label>
-                  <Input value={newContact.designation} onChange={e => setNewContact(p => ({ ...p, designation: e.target.value }))} placeholder="Title" className="mt-1" />
+            <div className="flex-1 overflow-y-auto p-5 space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)]">Profile</p>
+              {([
+                { icon: <Mail className="h-3.5 w-3.5" />, label: 'Email', field: 'email' as const, placeholder: 'email@example.com', required: true },
+                { icon: <Users className="h-3.5 w-3.5" />, label: 'Name', field: 'name' as const, placeholder: 'Full name' },
+                { icon: <Briefcase className="h-3.5 w-3.5" />, label: 'Title', field: 'designation' as const, placeholder: 'Job title' },
+                { icon: <Briefcase className="h-3.5 w-3.5" />, label: 'Company', field: 'company' as const, placeholder: 'Company name' },
+                { icon: <Phone className="h-3.5 w-3.5" />, label: 'Phone', field: 'phone' as const, placeholder: '+91 …' },
+                { icon: <MapPin className="h-3.5 w-3.5" />, label: 'City', field: 'city' as const, placeholder: 'City or location' },
+                { icon: <Link2 className="h-3.5 w-3.5" />, label: 'LinkedIn', field: 'linkedinUrl' as const, placeholder: 'https://linkedin.com/in/…' },
+              ] as const).map(f => (
+                <div key={f.field} className={`flex items-center gap-2.5 rounded-lg border bg-[rgb(11_18_32/2%)] px-3 py-2.5 ${f.field === 'email' && addError ? 'border-action/50' : 'border-[rgb(11_18_32/10%)]'}`}>
+                  <span className="text-[rgb(11_18_32/35%)] shrink-0">{f.icon}</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)] w-14 shrink-0">{f.label}{f.required && <span className="text-action ml-0.5">*</span>}</span>
+                  <input
+                    className="flex-1 min-w-0 border-0 bg-transparent text-sm text-ink focus:outline-none placeholder:text-[rgb(11_18_32/30%)]"
+                    placeholder={f.placeholder}
+                    value={newContact[f.field]}
+                    onChange={e => { setNewContact(p => ({ ...p, [f.field]: e.target.value })); if (f.field === 'email') setAddError(null) }}
+                    autoFocus={f.field === 'email'}
+                  />
                 </div>
-                <div>
-                  <label className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)]">Company</label>
-                  <Input value={newContact.company} onChange={e => setNewContact(p => ({ ...p, company: e.target.value }))} placeholder="Company" className="mt-1" />
-                </div>
-                <div>
-                  <label className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)]">Phone</label>
-                  <Input value={newContact.phone} onChange={e => setNewContact(p => ({ ...p, phone: e.target.value }))} placeholder="+91 …" className="mt-1" />
-                </div>
-                <div>
-                  <label className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)]">City</label>
-                  <Input value={newContact.city} onChange={e => setNewContact(p => ({ ...p, city: e.target.value }))} placeholder="City" className="mt-1" />
-                </div>
-              </div>
+              ))}
               <div>
-                <label className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)]">LinkedIn URL</label>
-                <Input value={newContact.linkedinUrl} onChange={e => setNewContact(p => ({ ...p, linkedinUrl: e.target.value }))} placeholder="https://linkedin.com/in/…" className="mt-1" />
-              </div>
-              <div>
-                <label className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)]">Notes</label>
-                <textarea value={newContact.notes} onChange={e => setNewContact(p => ({ ...p, notes: e.target.value }))} placeholder="Notes…" rows={2} className="mt-1 w-full rounded-lg border border-[rgb(11_18_32/12%)] bg-[rgb(11_18_32/2%)] px-3 py-2 text-sm text-ink resize-none focus:outline-none focus:ring-1 focus:ring-action/40 placeholder:text-[rgb(11_18_32/30%)]" />
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(11_18_32/40%)] mb-1.5">Notes</p>
+                <textarea
+                  className="w-full rounded-lg border border-[rgb(11_18_32/12%)] bg-[rgb(11_18_32/2%)] px-3 py-2 text-sm text-ink resize-none focus:outline-none focus:ring-1 focus:ring-action/40 placeholder:text-[rgb(11_18_32/30%)]"
+                  rows={3}
+                  placeholder="Add notes…"
+                  value={newContact.notes}
+                  onChange={e => setNewContact(p => ({ ...p, notes: e.target.value }))}
+                />
               </div>
               {addError && <p className="text-xs text-action">{addError}</p>}
             </div>
-            <div className="flex justify-end gap-2 px-5 py-4 border-t border-[rgb(11_18_32/8%)]">
-              <Button variant="outline" size="sm" onClick={() => { setShowAddModal(false); setAddError(null) }}>Cancel</Button>
-              <Button size="sm" onClick={addContact} disabled={adding || !newContact.email.trim()}>
-                {adding ? 'Adding…' : 'Add Contact'}
-              </Button>
+            <div className="border-t border-[rgb(11_18_32/8%)] p-4">
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => { setShowAddModal(false); setNewContact(EMPTY_NEW); setAddError(null) }}>Cancel</Button>
+                <div className="flex-1" />
+                <Button size="sm" onClick={addContact} disabled={adding || !newContact.email.trim()}>
+                  {adding ? 'Adding…' : 'Add Contact'}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
