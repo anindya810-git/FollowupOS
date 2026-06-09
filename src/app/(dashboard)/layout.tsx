@@ -25,6 +25,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [plan, setPlan] = useState<PlanInfo | null>(null)
   const [bannerDismissed, setBannerDismissed] = useState(false)
+  const [expiredInboxes, setExpiredInboxes] = useState<string[]>([])
+  const [expiredBannerDismissed, setExpiredBannerDismissed] = useState(false)
 
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/')
@@ -47,6 +49,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     if (status !== 'authenticated') return
     fetch('/api/plan').then(r => r.json()).then(setPlan).catch(() => {})
+  }, [status])
+
+  // Check for expired inbox connections
+  useEffect(() => {
+    if (status !== 'authenticated') return
+    fetch('/api/integrations')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d?.accounts) {
+          const expired = (d.accounts as Array<{ emailAddress: string; connectedStatus?: string }>)
+            .filter(a => a.connectedStatus === 'expired')
+            .map(a => a.emailAddress)
+          setExpiredInboxes(expired)
+        }
+      })
+      .catch(() => {})
   }, [status])
 
   if (status === 'loading' || !session?.user) {
@@ -77,6 +95,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
       <div className="flex flex-col flex-1 overflow-hidden min-w-0">
         {/* Plan expiry banner — shown when ≤14 days left on free trial */}
+        {!expiredBannerDismissed && expiredInboxes.length > 0 && (
+          <div className="flex items-center justify-between gap-3 px-4 py-2 bg-red-50 border-b border-red-200 text-xs text-red-800 flex-shrink-0">
+            <span>
+              ⚠️ {expiredInboxes.length === 1
+                ? <><strong>{expiredInboxes[0]}</strong> inbox connection has expired.</>
+                : <><strong>{expiredInboxes.length} inbox connections</strong> have expired.</>
+              }{' '}<a href="/settings?tab=inboxes" className="underline font-medium">Reconnect in Settings</a> to resume scanning.
+            </span>
+            <button onClick={() => setExpiredBannerDismissed(true)} className="flex-shrink-0 text-red-500 hover:text-red-800">✕</button>
+          </div>
+        )}
         {!bannerDismissed && plan?.type === 'free' && plan.isActive && plan.daysLeft != null && plan.daysLeft <= 14 && (
           <div className="flex items-center justify-between gap-3 px-4 py-2 bg-amber-50 border-b border-amber-200 text-xs text-amber-800 flex-shrink-0">
             <span>⏳ Your free trial expires in <strong>{plan.daysLeft} day{plan.daysLeft !== 1 ? 's' : ''}</strong>. <a href="/referral" className="underline font-medium">Refer friends</a> or <a href="/upgrade" className="underline font-medium">upgrade</a> to keep access.</span>
