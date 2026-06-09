@@ -278,8 +278,14 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
       data: { threadsFound: allThreadIds.length },
     })
 
-    let processed = 0
-    let created = 0
+    // On resume, start counters from where the previous execution left off
+    // so the progress bar never goes backwards.
+    const jobState = await prisma.scanJob.findUnique({
+      where: { id: jobId },
+      select: { threadsProcessed: true, actionItemsCreated: true },
+    })
+    let processed = jobState?.threadsProcessed ?? 0
+    let created = jobState?.actionItemsCreated ?? 0
     let aiFailures = 0
     let noiseFiltered = 0
     const aiErrorSamples: string[] = []
