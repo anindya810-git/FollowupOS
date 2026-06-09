@@ -239,6 +239,10 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
           const res = await gmail.users.threads.list({ userId: 'me', q, maxResults: 100, pageToken })
           ids.push(...(res.data.threads || []).map(t => t.id!).filter(Boolean))
           pageToken = res.data.nextPageToken || undefined
+          // Emit count after each page so the UI shows progress during fetch
+          if (ids.length > 0) {
+            await prisma.scanJob.update({ where: { id: jobId }, data: { threadsFound: ids.length } })
+          }
         } while (pageToken && ids.length < 500)
         return ids
       }

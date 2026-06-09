@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+.animate-shimmer {
+  background: linear-gradient(90deg, rgb(11 18 32/.12) 25%, rgb(11 18 32/.35) 50%, rgb(11 18 32/.12) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
 @theme {
   /* Core palette */
   --color-ink:     #0B1220;

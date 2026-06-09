@@ -6,6 +6,13 @@ import { Suspense } from 'react'
 import { LogoLockup } from '@/components/ui/Logo'
 import { PendinglyLoader, PendinglyLoaderPage } from '@/components/ui/PendinglyLoader'
 
+const FETCH_MESSAGES = [
+  'Connecting to your inbox…',
+  'Paging through recent emails…',
+  'Reading your conversations…',
+  'Almost done fetching…',
+]
+
 const STEPS = [
   'Connecting inbox',
   'Fetching recent threads',
@@ -35,6 +42,7 @@ function ScanProgress() {
   const [currentStep, setCurrentStep] = useState(0)
   const [error, setError] = useState('')
   const [scanInfo, setScanInfo] = useState<ScanInfo | null>(null)
+  const [fetchMsgIdx, setFetchMsgIdx] = useState(0)
   const prevStepRef = useRef(0)
   const completedRef = useRef(false)
   const scanTriggeredRef = useRef(false)
@@ -145,6 +153,14 @@ function ScanProgress() {
     }
   }, [status])
 
+  // Cycle through reassuring messages while fetching threads
+  const isFetching = status !== 'completed' && currentStep <= 1 && !error
+  useEffect(() => {
+    if (!isFetching) return
+    const t = setInterval(() => setFetchMsgIdx(i => (i + 1) % FETCH_MESSAGES.length), 3000)
+    return () => clearInterval(t)
+  }, [isFetching])
+
   const isPaid = scanInfo && scanInfo.planType !== 'free'
 
   // Smooth overall percentage. Completed steps count fully; the active step
@@ -191,37 +207,56 @@ function ScanProgress() {
           </div>
         )}
 
-        <p className="text-sm text-[rgb(11_18_32/55%)] mb-7">
-          {status === 'completed'
-            ? `Done — found ${progress.created} action item${progress.created !== 1 ? 's' : ''}. Heading to your dashboard…`
-            : progress.found > 0 && progress.created > 0
-            ? `Analyzed ${progress.processed} of ${progress.found} threads · ${progress.created} found so far`
-            : progress.found > 0
-            ? `Analyzing ${progress.found} threads for follow-ups`
-            : scanInfo
-            ? `Scanning your last ${scanInfo.windowDays} days of email`
-            : 'Scanning your email'}
-        </p>
+        <div className="mb-7 min-h-[2.5rem] flex flex-col items-center justify-center gap-1">
+          {status === 'completed' ? (
+            <p className="text-sm text-[rgb(11_18_32/55%)]">
+              Done — found {progress.created} action item{progress.created !== 1 ? 's' : ''}. Heading to your dashboard…
+            </p>
+          ) : progress.found > 0 && progress.created > 0 ? (
+            <p className="text-sm text-[rgb(11_18_32/55%)]">Analyzed {progress.processed} of {progress.found} threads · {progress.created} found so far</p>
+          ) : progress.found > 0 ? (
+            <>
+              <p className="text-sm text-[rgb(11_18_32/55%)]">Analyzing {progress.found} threads for follow-ups</p>
+              {isFetching && <p className="text-xs text-[rgb(11_18_32/35%)] transition-opacity duration-500">{FETCH_MESSAGES[fetchMsgIdx]}</p>}
+            </>
+          ) : isFetching ? (
+            <>
+              <p className="text-sm text-[rgb(11_18_32/55%)]">{scanInfo ? `Scanning your last ${scanInfo.windowDays} days of email` : 'Scanning your email'}</p>
+              <p className="text-xs text-[rgb(11_18_32/35%)] transition-opacity duration-500">{FETCH_MESSAGES[fetchMsgIdx]}</p>
+            </>
+          ) : (
+            <p className="text-sm text-[rgb(11_18_32/55%)]">{scanInfo ? `Scanning your last ${scanInfo.windowDays} days of email` : 'Scanning your email'}</p>
+          )}
+        </div>
 
         {error ? (
           <div className="text-sm text-action bg-[rgb(242_90_60/6%)] rounded-xl p-4 border border-[rgb(242_90_60/18%)]">{error}</div>
         ) : (
           <div className="bg-white rounded-2xl border border-rule p-6 shadow-sm text-left">
-            {/* Calm overall progress bar */}
+            {/* Overall progress bar */}
             <div className="mb-5">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-medium text-ink">
                   {status === 'completed' ? 'Complete' : STEPS[Math.min(currentStep, STEPS.length - 1)]}
+                  {isFetching && progress.found > 0 && (
+                    <span className="ml-1.5 font-normal text-[rgb(11_18_32/45%)]">· {progress.found} threads found</span>
+                  )}
                 </span>
-                <span className="text-xs font-medium text-[rgb(11_18_32/45%)]" style={{ fontFamily: 'var(--font-mono)' }}>
-                  {overallPct}%
-                </span>
+                {!isFetching && (
+                  <span className="text-xs font-medium text-[rgb(11_18_32/45%)]" style={{ fontFamily: 'var(--font-mono)' }}>
+                    {overallPct}%
+                  </span>
+                )}
               </div>
               <div className="h-1.5 w-full rounded-full bg-[rgb(11_18_32/7%)] overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-ink transition-all duration-700 ease-out"
-                  style={{ width: `${overallPct}%` }}
-                />
+                {isFetching ? (
+                  <div className="h-full w-full rounded-full animate-shimmer" />
+                ) : (
+                  <div
+                    className="h-full rounded-full bg-ink transition-all duration-700 ease-out"
+                    style={{ width: `${overallPct}%` }}
+                  />
+                )}
               </div>
             </div>
 
