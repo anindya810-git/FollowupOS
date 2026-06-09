@@ -101,8 +101,17 @@ export default function SettingsPage() {
     setPausedScans(paused)
   }, [])
 
-  const toggleScanPause = (accountId: string) => {
+  const toggleScanPause = async (accountId: string, scanning: boolean) => {
     const key = 'pendingly_scan_paused_' + accountId
+    const currentlyPaused = pausedScans.has(accountId)
+    if (!currentlyPaused && scanning) {
+      await fetch('/api/scan/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ account_id: accountId }),
+      }).catch(() => {})
+      fetchIntegrations()
+    }
     setPausedScans(prev => {
       const next = new Set(prev)
       if (next.has(accountId)) {
@@ -488,9 +497,7 @@ export default function SettingsPage() {
                             </span>
                             <span className="text-xs text-[rgb(11_18_32/55%)] capitalize">{account.connectedStatus}</span>
                             {pausedScans.has(account.id) && (
-                              <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
-                                <Pause className="h-2.5 w-2.5" /> Auto-scan paused
-                              </span>
+                              <span className="text-xs text-amber-600 font-medium">· auto-scan paused</span>
                             )}
                             {account.lastSyncedAt && (
                               <span className="text-xs text-[rgb(11_18_32/38%)]">· synced {(() => {
@@ -507,17 +514,14 @@ export default function SettingsPage() {
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <InboxSyncButton accountId={account.id} scanning={account.lastScan?.status === 'running' || account.lastScan?.status === 'queued'} onCancelled={fetchIntegrations} onStarted={fetchIntegrations} onSyncStart={() => markScanStarting([account.id])} />
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => toggleScanPause(account.id)}
+                          <button
+                            type="button"
+                            onClick={() => toggleScanPause(account.id, account.lastScan?.status === 'running' || account.lastScan?.status === 'queued' || false)}
                             title={pausedScans.has(account.id) ? 'Resume auto-scan' : 'Pause auto-scan'}
+                            className="flex h-8 w-8 items-center justify-center rounded-md border border-[rgb(11_18_32/12%)] bg-white text-[rgb(11_18_32/45%)] hover:text-ink hover:border-[rgb(11_18_32/25%)] transition-colors"
                           >
-                            {pausedScans.has(account.id)
-                              ? <><Play className="h-3.5 w-3.5 mr-1" />Resume</>
-                              : <><Pause className="h-3.5 w-3.5 mr-1" />Pause</>
-                            }
-                          </Button>
+                            {pausedScans.has(account.id) ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
+                          </button>
                           <Button variant="outline" size="sm" onClick={() => disconnectAccount(account)}>
                             Disconnect
                           </Button>
