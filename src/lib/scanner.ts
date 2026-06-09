@@ -170,9 +170,15 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
       log.add(`Gmail token OK · profileHistoryId=${profileHistoryId ?? 'none'}`)
     } catch (e) {
       const code = (e as { code?: number }).code
+      const msg = e instanceof Error ? e.message : String(e)
       log.add(`Gmail pre-flight failed · code=${code ?? 'unknown'}`)
       await log.flush()
-      if (code === 401 || code === 403) {
+      const isAuthError =
+        code === 401 || code === 403 ||
+        (code === 400 && msg.includes('invalid_grant')) ||
+        msg.includes('invalid_grant') ||
+        msg.includes('Token has been expired or revoked')
+      if (isAuthError) {
         await prisma.emailAccount.update({
           where: { id: emailAccountId },
           data: { connectedStatus: 'expired' },
