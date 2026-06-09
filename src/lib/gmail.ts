@@ -38,6 +38,7 @@ export async function getGmailClient(emailAccountId: string) {
   oauth2Client.setCredentials({
     access_token: decrypt(account.accessTokenEncrypted),
     refresh_token: account.refreshTokenEncrypted ? decrypt(account.refreshTokenEncrypted) : undefined,
+    expiry_date: account.tokenExpiresAt ? account.tokenExpiresAt.getTime() : undefined,
   })
 
   oauth2Client.on('tokens', async (tokens) => {
@@ -72,6 +73,7 @@ export async function getGmailAccessToken(emailAccountId: string): Promise<strin
   oauth2Client.setCredentials({
     access_token: decrypt(account.accessTokenEncrypted),
     refresh_token: account.refreshTokenEncrypted ? decrypt(account.refreshTokenEncrypted) : undefined,
+    expiry_date: account.tokenExpiresAt ? account.tokenExpiresAt.getTime() : undefined,
   })
 
   const { token } = await oauth2Client.getAccessToken()

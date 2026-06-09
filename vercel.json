@@ -24,10 +24,6 @@
     {
       "path": "/api/cron/proactive-nudges",
       "schedule": "0 8 * * *"
-    },
-    {
-      "path": "/api/cron/token-health",
-      "schedule": "0 7 * * *"
     }
   ]
 }

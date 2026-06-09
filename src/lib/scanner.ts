@@ -179,13 +179,13 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
         msg.includes('invalid_grant') ||
         msg.includes('Token has been expired or revoked')
       if (isAuthError) {
-        await prisma.emailAccount.update({
-          where: { id: emailAccountId },
-          data: { connectedStatus: 'expired' },
-        })
-        throw new Error('Your Gmail connection has expired. Reconnect it from Settings → Connected Inboxes, then re-run the scan.')
+        throw new Error('Gmail authentication failed. Please disconnect this inbox from Settings and reconnect it to restore access.')
       }
       throw e
+    }
+    // Heal any previously-expired status now that auth is confirmed working
+    if (account.connectedStatus === 'expired') {
+      await prisma.emailAccount.update({ where: { id: emailAccountId }, data: { connectedStatus: 'connected' } })
     }
 
     // Incremental sync: if we have a stored historyId, use Gmail's History API
@@ -411,11 +411,7 @@ async function scanOutlookAccount(params: {
   } catch (e) {
     const msg = e instanceof Error ? e.message : ''
     if (msg.includes('401') || msg.includes('invalid_grant') || msg.includes('refresh token')) {
-      await prisma.emailAccount.update({
-        where: { id: emailAccountId },
-        data: { connectedStatus: 'expired' },
-      })
-      throw new Error('Your Outlook connection has expired. Reconnect it from Settings → Connected Inboxes, then re-run the scan.')
+      throw new Error('Outlook authentication failed. Please disconnect this inbox from Settings and reconnect it to restore access.')
     }
     throw e
   }

@@ -461,14 +461,7 @@ export default function SettingsPage() {
                             <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium bg-[rgb(11_18_32/8%)] text-ink">
                               {account.provider === 'outlook' ? 'Outlook' : account.provider === 'zoho' ? 'Zoho Mail' : account.provider === 'apple' ? 'Apple Mail' : account.provider === 'imap' ? 'IMAP' : 'Gmail'}
                             </span>
-                            {account.connectedStatus === 'expired' ? (
-                              <span className="inline-flex items-center gap-1 text-xs font-medium text-red-600">
-                                <AlertTriangle className="h-3 w-3" />
-                                Connection expired
-                              </span>
-                            ) : (
-                              <span className="text-xs text-[rgb(11_18_32/55%)] capitalize">{account.connectedStatus}</span>
-                            )}
+                            <span className="text-xs text-[rgb(11_18_32/55%)] capitalize">{account.connectedStatus}</span>
                             {account.lastSyncedAt && (
                               <span className="text-xs text-[rgb(11_18_32/38%)]">· synced {(() => {
                                 const diff = Date.now() - new Date(account.lastSyncedAt).getTime()
@@ -483,18 +476,7 @@ export default function SettingsPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          {account.connectedStatus !== 'expired' && (
-                            <InboxSyncButton accountId={account.id} scanning={account.lastScan?.status === 'running' || account.lastScan?.status === 'queued'} onCancelled={fetchIntegrations} onStarted={fetchIntegrations} onSyncStart={() => markScanStarting([account.id])} />
-                          )}
-                          {account.connectedStatus === 'expired' && !['zoho', 'apple', 'imap'].includes(account.provider) && (
-                            <a
-                              href={`/api/integrations/${account.provider}/connect`}
-                              className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-red-300 bg-red-50 text-xs font-medium text-red-700 hover:bg-red-100 transition-colors"
-                            >
-                              <RefreshCw className="h-3 w-3" />
-                              Reconnect
-                            </a>
-                          )}
+                          <InboxSyncButton accountId={account.id} scanning={account.lastScan?.status === 'running' || account.lastScan?.status === 'queued'} onCancelled={fetchIntegrations} onStarted={fetchIntegrations} onSyncStart={() => markScanStarting([account.id])} />
                           <Button variant="outline" size="sm" onClick={() => disconnectAccount(account)}>
                             Disconnect
                           </Button>
