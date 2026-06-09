@@ -515,8 +515,10 @@ export default function SettingsPage() {
                             style={!hasFailed ? (bgStyle ?? { background: 'rgb(11 18 32 / 4%)' }) : undefined}
                           >
                             {isRunning ? (
-                              <div className="flex justify-between">
-                                <span className="font-medium text-ink">Scanning…</span>
+                              <div className="flex justify-between items-center">
+                                <span className="font-medium text-ink flex items-center gap-1.5">
+                                  Scanning… <ScanElapsedTimer startedAt={scan.createdAt} />
+                                </span>
                                 {scan.threadsFound > 0 ? (
                                   <span>{scan.threadsProcessed}/{scan.threadsFound} threads · {pct}%</span>
                                 ) : (
@@ -1103,6 +1105,17 @@ export default function SettingsPage() {
   )
 }
 
+function ScanElapsedTimer({ startedAt }: { startedAt: string }) {
+  const [elapsed, setElapsed] = useState(() => Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000))
+  useEffect(() => {
+    const id = setInterval(() => setElapsed(Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000)), 1000)
+    return () => clearInterval(id)
+  }, [startedAt])
+  const m = Math.floor(elapsed / 60)
+  const s = elapsed % 60
+  return <span className="font-mono tabular-nums">{m > 0 ? `${m}m ${s}s` : `${s}s`}</span>
+}
+
 function ScanSetupModal({
   email,
   provider,
@@ -1142,28 +1155,40 @@ function ScanSetupModal({
           {/* Scan sensitivity */}
           <div>
             <label className="block text-sm font-medium text-ink mb-1.5">Scan sensitivity</label>
-            <p className="text-xs text-[rgb(11_18_32/55%)] mb-2.5">
+            <p className="text-xs text-[rgb(11_18_32/55%)] mb-3">
               Controls how many automated emails are filtered out before Pendingly AI sees them. Lower = more emails scanned; higher = faster, fewer false positives.
             </p>
-            <div className="flex gap-1.5">
-              {[1, 2, 3, 4, 5].map(n => (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => setLevel(n)}
-                  className={`flex-1 rounded-lg border px-2 py-2 text-xs font-medium transition-colors ${
-                    level === n
-                      ? 'bg-ink text-white border-ink'
-                      : 'bg-white text-[rgb(11_18_32/60%)] border-[rgb(11_18_32/15%)] hover:border-[rgb(11_18_32/30%)]'
-                  }`}
-                >
-                  {NOISE_LEVEL_LABELS[n].name}
-                </button>
-              ))}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-ink">
+                  Level {level} — {NOISE_LEVEL_LABELS[level]?.name}
+                </span>
+                <span className="text-xs text-[rgb(11_18_32/40%)] font-mono">
+                  {level === 1 ? 'least filtered' : level === 5 ? 'most filtered' : ''}
+                </span>
+              </div>
+              <input
+                type="range"
+                min={1}
+                max={5}
+                step={1}
+                value={level}
+                onChange={e => setLevel(Number(e.target.value))}
+                className="w-full accent-action"
+              />
+              <div className="flex justify-between text-[10px] text-[rgb(11_18_32/35%)] px-0.5">
+                {[1,2,3,4,5].map(n => (
+                  <span key={n} className={n === level ? 'text-action font-semibold' : ''}>
+                    {NOISE_LEVEL_LABELS[n]?.name}
+                  </span>
+                ))}
+              </div>
+              {label && (
+                <p className="text-xs text-[rgb(11_18_32/55%)] bg-paper-2 rounded-md px-3 py-2 border border-[rgb(11_18_32/8%)]">
+                  {label.description}
+                </p>
+              )}
             </div>
-            {label && (
-              <p className="text-xs text-[rgb(11_18_32/55%)] mt-2 leading-relaxed">{label.description}</p>
-            )}
           </div>
 
           {/* Instructions / prompt */}
