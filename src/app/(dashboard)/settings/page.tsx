@@ -491,16 +491,16 @@ export default function SettingsPage() {
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                         <div className="min-w-0">
                           <p className="font-medium text-ink break-all">{account.emailAddress}</p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium bg-[rgb(11_18_32/8%)] text-ink">
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                            <span className="inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-xs font-medium bg-[rgb(11_18_32/8%)] text-ink whitespace-nowrap">
                               {account.provider === 'outlook' ? 'Outlook' : account.provider === 'zoho' ? 'Zoho Mail' : account.provider === 'apple' ? 'Apple Mail' : account.provider === 'imap' ? 'IMAP' : 'Gmail'}
                             </span>
-                            <span className="text-xs text-[rgb(11_18_32/55%)] capitalize">{account.connectedStatus}</span>
+                            <span className="text-xs text-[rgb(11_18_32/55%)] capitalize whitespace-nowrap">{account.connectedStatus}</span>
                             {pausedScans.has(account.id) && (
-                              <span className="text-xs text-amber-600 font-medium">· auto-scan paused</span>
+                              <span className="text-xs text-amber-600 font-medium whitespace-nowrap">· paused</span>
                             )}
                             {account.lastSyncedAt && (
-                              <span className="text-xs text-[rgb(11_18_32/38%)]">· synced {(() => {
+                              <span className="text-xs text-[rgb(11_18_32/38%)] whitespace-nowrap">· synced {(() => {
                                 const diff = Date.now() - new Date(account.lastSyncedAt).getTime()
                                 const mins = Math.floor(diff / 60_000)
                                 if (mins < 1) return 'just now'
@@ -561,9 +561,13 @@ export default function SettingsPage() {
                           >
                             {isRunning ? (
                               <div className="flex justify-between items-center">
-                                <span className="font-medium text-ink flex items-center gap-1.5">
-                                  Scanning… <ScanElapsedTimer startedAt={scan.createdAt} />
-                                </span>
+                                {pausedScans.has(account.id) ? (
+                                  <span className="font-medium text-[rgb(11_18_32/50%)]">Cancelling…</span>
+                                ) : (
+                                  <span className="font-medium text-ink flex items-center gap-1.5">
+                                    Scanning… <ScanElapsedTimer startedAt={scan.createdAt} />
+                                  </span>
+                                )}
                                 {scan.threadsFound > 0 ? (
                                   <span>{scan.threadsProcessed}/{scan.threadsFound} threads · {pct}%</span>
                                 ) : (
@@ -592,12 +596,24 @@ export default function SettingsPage() {
                                 )}
                               </div>
                             ) : (
-                              <span>
-                                {scan.threadsProcessed === 0
-                                  ? <>No new emails since last sync · use <strong>Reset &amp; rescan</strong> (▾ dropdown) to re-evaluate all</>
-                                  : <>Last scan: {scan.threadsProcessed} threads · {scan.actionItemsCreated} action items found{scan.errorMessage ? ` · ${scan.errorMessage}` : ''}</>
-                                }
-                              </span>
+                              <div className="flex items-center justify-between gap-2">
+                                <span>
+                                  {scan.threadsProcessed === 0
+                                    ? <>No new emails since last sync · use <strong>Reset &amp; rescan</strong> (▾ dropdown) to re-evaluate all</>
+                                    : <>Last scan: {scan.threadsProcessed} threads · {scan.actionItemsCreated} action items found{errorSummary ? ` · ⚠ ${errorSummary}` : ''}</>
+                                  }
+                                </span>
+                                {errorSummary && (
+                                  <button onClick={toggleLog} className="shrink-0 text-[11px] text-[rgb(11_18_32/50%)] hover:text-ink underline">
+                                    {logOpen ? 'Hide log' : 'View log'}
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                            {logOpen && scan.errorMessage && !isRunning && !hasFailed && (
+                              <pre className="mt-2 text-[10px] text-[rgb(11_18_32/70%)] bg-white/70 rounded border border-[rgb(11_18_32/10%)] p-2 overflow-auto max-h-40 whitespace-pre-wrap break-words leading-relaxed">
+                                {scan.errorMessage}
+                              </pre>
                             )}
                           </div>
                         )
