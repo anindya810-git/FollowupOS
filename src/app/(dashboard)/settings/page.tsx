@@ -514,14 +514,6 @@ export default function SettingsPage() {
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <InboxSyncButton accountId={account.id} scanning={account.lastScan?.status === 'running' || account.lastScan?.status === 'queued'} onCancelled={fetchIntegrations} onStarted={fetchIntegrations} onSyncStart={() => markScanStarting([account.id])} />
-                          <button
-                            type="button"
-                            onClick={() => toggleScanPause(account.id, account.lastScan?.status === 'running' || account.lastScan?.status === 'queued' || false)}
-                            title={pausedScans.has(account.id) ? 'Resume auto-scan' : 'Pause auto-scan'}
-                            className="flex h-8 w-8 items-center justify-center rounded-md border border-[rgb(11_18_32/12%)] bg-white text-[rgb(11_18_32/45%)] hover:text-ink hover:border-[rgb(11_18_32/25%)] transition-colors"
-                          >
-                            {pausedScans.has(account.id) ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
-                          </button>
                           <Button variant="outline" size="sm" onClick={() => disconnectAccount(account)}>
                             Disconnect
                           </Button>
@@ -642,6 +634,14 @@ export default function SettingsPage() {
                           <option value="30">30 min</option>
                           <option value="60">1 hour</option>
                         </select>
+                        <button
+                          type="button"
+                          onClick={() => toggleScanPause(account.id, account.lastScan?.status === 'running' || account.lastScan?.status === 'queued' || false)}
+                          title={pausedScans.has(account.id) ? 'Resume auto-scan' : 'Pause auto-scan'}
+                          className="flex h-7 w-7 items-center justify-center rounded border border-[rgb(11_18_32/12%)] bg-white text-[rgb(11_18_32/45%)] hover:text-ink hover:border-[rgb(11_18_32/25%)] transition-colors"
+                        >
+                          {pausedScans.has(account.id) ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
+                        </button>
                       </div>
                       {isImapStyle && (
                         <WebmailUrlField
