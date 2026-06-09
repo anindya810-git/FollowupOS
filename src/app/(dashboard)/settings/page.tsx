@@ -562,7 +562,7 @@ export default function SettingsPage() {
                             {isRunning ? (
                               <div className="flex justify-between items-center">
                                 {pausedScans.has(account.id) ? (
-                                  <span className="font-medium text-[rgb(11_18_32/50%)]">Cancelling…</span>
+                                  <span className="font-medium text-amber-600">Paused</span>
                                 ) : (
                                   <span className="font-medium text-ink flex items-center gap-1.5">
                                     Scanning… <ScanElapsedTimer startedAt={scan.createdAt} />
