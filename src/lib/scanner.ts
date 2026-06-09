@@ -284,11 +284,11 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
     let noiseFiltered = 0
     const aiErrorSamples: string[] = []
 
-    // Default (free-tier) Gemini key: 15 RPM — must stay sequential so the
-    // slot-reservation rate limiter can space calls 4.2 s apart without
-    // concurrent callers all reserving slots and flooding the API.
-    // BYOK keys (paid tiers) have much higher limits, so parallel is fine.
-    const BATCH_SIZE = aiConfig.isDefaultKey ? 1 : 5
+    // Use batch size 1 only for free-tier default keys (10 RPM limit).
+    // Paid server keys (GEMINI_PAID_TIER=true) and BYOK keys both get
+    // batch size 5 — the rate limiter in ai.ts already uses the paid gap.
+    const serverKeyIsPaid = process.env.GEMINI_PAID_TIER === 'true'
+    const BATCH_SIZE = (!aiConfig.isDefaultKey || serverKeyIsPaid) ? 5 : 1
     for (let i = 0; i < allThreadIds.length; i += BATCH_SIZE) {
       const batch = allThreadIds.slice(i, i + BATCH_SIZE)
       const batchResults = await Promise.allSettled(

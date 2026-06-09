@@ -281,13 +281,19 @@ async function classifyOpenAI(input: ClassificationInput, config: AiConfig, cust
 // Uses slot-reservation so concurrent callers each get a distinct future slot
 // rather than all reading the same timestamp and firing simultaneously.
 //
-// Free tier (Pendingly default key): gemini-2.5-flash free tier is 10 RPM →
+// Free tier (Pendingly default key, no GEMINI_PAID_TIER env): 10 RPM →
 //   6500 ms gap (~9.2 RPM, safely under the cap).
-// Paid BYOK key: typically 1000+ RPM → 500 ms gap (~120 RPM, well within limits)
+// Paid server key (GEMINI_PAID_TIER=true) or BYOK key: 1000+ RPM →
+//   500 ms gap (~120 RPM, well within limits).
+// Set GEMINI_PAID_TIER=true in Vercel env when the server key is on a paid plan.
 
 let geminiNextSlotAt = 0
 const GEMINI_FREE_RPM_GAP_MS = 6500  // ~9.2 RPM, under the 10 RPM free-tier cap
 const GEMINI_PAID_RPM_GAP_MS = 500   // ~120 RPM, safe for paid tier
+
+function geminiUsePaidRate(isDefaultKey: boolean): boolean {
+  return !isDefaultKey || process.env.GEMINI_PAID_TIER === 'true'
+}
 
 // Bound an AI call so a hung request can't stall the whole scan for minutes.
 // The underlying fetch isn't truly cancelled, but we stop waiting and let the
@@ -305,7 +311,7 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
 const AI_CALL_TIMEOUT_MS = 30_000
 
 async function geminiRateLimit(isDefaultKey = true) {
-  const gapMs = isDefaultKey ? GEMINI_FREE_RPM_GAP_MS : GEMINI_PAID_RPM_GAP_MS
+  const gapMs = geminiUsePaidRate(isDefaultKey) ? GEMINI_PAID_RPM_GAP_MS : GEMINI_FREE_RPM_GAP_MS
   const now = Date.now()
   let waitMs = 0
   if (geminiNextSlotAt <= now) {
