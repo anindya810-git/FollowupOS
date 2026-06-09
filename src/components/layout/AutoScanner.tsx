@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 
 const STORAGE_PREFIX = 'pendingly_scan_at_'
+const PAUSED_PREFIX = 'pendingly_scan_paused_'
 const CONFIG_TTL = 5 * 60_000
 
 interface AccountInfo {
@@ -53,6 +54,7 @@ export function AutoScanner() {
       const now = Date.now()
       for (const account of config.accounts) {
         if (account.connectedStatus !== 'connected') continue
+        if (localStorage.getItem(PAUSED_PREFIX + account.id)) continue
         const intervalMs = (account.autoScanIntervalMinutes ?? config.globalInterval) * 60_000
         const lastKey = STORAGE_PREFIX + account.id
         const last = Number(localStorage.getItem(lastKey) ?? 0)

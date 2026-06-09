@@ -90,6 +90,31 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [openErrorLogs, setOpenErrorLogs] = useState<Set<string>>(new Set())
+  const [pausedScans, setPausedScans] = useState<Set<string>>(() => new Set())
+
+  useEffect(() => {
+    const paused = new Set<string>()
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (k?.startsWith('pendingly_scan_paused_')) paused.add(k.slice('pendingly_scan_paused_'.length))
+    }
+    setPausedScans(paused)
+  }, [])
+
+  const toggleScanPause = (accountId: string) => {
+    const key = 'pendingly_scan_paused_' + accountId
+    setPausedScans(prev => {
+      const next = new Set(prev)
+      if (next.has(accountId)) {
+        next.delete(accountId)
+        localStorage.removeItem(key)
+      } else {
+        next.add(accountId)
+        localStorage.setItem(key, '1')
+      }
+      return next
+    })
+  }
   const [syncingContacts, setSyncingContacts] = useState(false)
   const [contactsSynced, setContactsSynced] = useState<number | null>(null)
   const [addInboxOpen, setAddInboxOpen] = useState(false)
@@ -462,6 +487,11 @@ export default function SettingsPage() {
                               {account.provider === 'outlook' ? 'Outlook' : account.provider === 'zoho' ? 'Zoho Mail' : account.provider === 'apple' ? 'Apple Mail' : account.provider === 'imap' ? 'IMAP' : 'Gmail'}
                             </span>
                             <span className="text-xs text-[rgb(11_18_32/55%)] capitalize">{account.connectedStatus}</span>
+                            {pausedScans.has(account.id) && (
+                              <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                                <Pause className="h-2.5 w-2.5" /> Auto-scan paused
+                              </span>
+                            )}
                             {account.lastSyncedAt && (
                               <span className="text-xs text-[rgb(11_18_32/38%)]">· synced {(() => {
                                 const diff = Date.now() - new Date(account.lastSyncedAt).getTime()
@@ -477,6 +507,17 @@ export default function SettingsPage() {
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <InboxSyncButton accountId={account.id} scanning={account.lastScan?.status === 'running' || account.lastScan?.status === 'queued'} onCancelled={fetchIntegrations} onStarted={fetchIntegrations} onSyncStart={() => markScanStarting([account.id])} />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => toggleScanPause(account.id)}
+                            title={pausedScans.has(account.id) ? 'Resume auto-scan' : 'Pause auto-scan'}
+                          >
+                            {pausedScans.has(account.id)
+                              ? <><Play className="h-3.5 w-3.5 mr-1" />Resume</>
+                              : <><Pause className="h-3.5 w-3.5 mr-1" />Pause</>
+                            }
+                          </Button>
                           <Button variant="outline" size="sm" onClick={() => disconnectAccount(account)}>
                             Disconnect
                           </Button>
