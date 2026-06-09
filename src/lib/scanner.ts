@@ -284,11 +284,8 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
     let noiseFiltered = 0
     const aiErrorSamples: string[] = []
 
-    // Use batch size 1 only for free-tier default keys (10 RPM limit).
-    // Paid server keys (GEMINI_PAID_TIER=true) and BYOK keys both get
-    // batch size 5 — the rate limiter in ai.ts already uses the paid gap.
-    const serverKeyIsPaid = process.env.GEMINI_PAID_TIER === 'true'
-    const BATCH_SIZE = (!aiConfig.isDefaultKey || serverKeyIsPaid) ? 5 : 1
+    // Server key is always paid; BYOK keys are paid too. Always batch 5.
+    const BATCH_SIZE = 5
     for (let i = 0; i < allThreadIds.length; i += BATCH_SIZE) {
       const batch = allThreadIds.slice(i, i + BATCH_SIZE)
       const batchResults = await Promise.allSettled(
