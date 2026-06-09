@@ -282,9 +282,11 @@ async function classifyOpenAI(input: ClassificationInput, config: AiConfig, cust
 // rather than all reading the same timestamp and firing simultaneously.
 // The Pendingly server key is a paid key — all scans use the paid gap.
 // BYOK keys are also paid. There is no free-tier path.
+// Paid tier (2.5 Flash): 2000 RPM → 100ms gap keeps burst ≤600 RPM,
+// well under the limit even with batch-10 concurrency.
 
 let geminiNextSlotAt = 0
-const GEMINI_RPM_GAP_MS = 500  // ~120 RPM, well within paid-tier limits
+const GEMINI_RPM_GAP_MS = 100  // 600 RPM peak burst, ~120 RPM avg with batch-10
 
 // Bound an AI call so a hung request can't stall the whole scan for minutes.
 // The underlying fetch isn't truly cancelled, but we stop waiting and let the

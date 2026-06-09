@@ -290,8 +290,10 @@ export async function runInitialScan(jobId: string, userId: string, emailAccount
     let noiseFiltered = 0
     const aiErrorSamples: string[] = []
 
-    // Server key is always paid; BYOK keys are paid too. Always batch 5.
-    const BATCH_SIZE = 5
+    // Server key is always paid; BYOK keys are paid too.
+    // Batch 10 with 100ms gap → last call starts at 900ms, batch finishes
+    // in ~5s → 30 batches × 5s ≈ 2.5 min for 300 threads.
+    const BATCH_SIZE = 10
     for (let i = 0; i < allThreadIds.length; i += BATCH_SIZE) {
       const batch = allThreadIds.slice(i, i + BATCH_SIZE)
       const batchResults = await Promise.allSettled(
