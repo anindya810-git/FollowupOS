@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   }
 
   const accounts = await prisma.emailAccount.findMany({
-    where: { userId: session.user.id },
+    where: { userId: session.user.id, connectedStatus: { not: 'disconnected' } },
     select: {
       id: true,
       provider: true,
